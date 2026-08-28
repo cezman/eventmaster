@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: eventmaster
+    runtime: node
+    plan: free
+    buildCommand: npm run setup && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: DATA_DIR
+        value: /data
+      - key: JWT_SECRET
+        generateValue: true
+    disk:
+      name: app-data
+      mountPath: /data
+      sizeGB: 1

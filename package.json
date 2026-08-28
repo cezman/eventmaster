@@ -1,0 +1,12 @@
+{
+  "name": "eventmaster",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "setup": "npm --prefix server install && npm --prefix client install",
+    "build": "npm --prefix client run build",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "start": "npm --prefix server start"
+  }
+}
