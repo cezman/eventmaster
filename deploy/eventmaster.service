@@ -1,0 +1,25 @@
+# systemd-юнит для EventMaster (Ubuntu на Yandex Cloud)
+# кладём в /etc/systemd/system/eventmaster.service, затем:
+#   sudo systemctl daemon-reload && sudo systemctl enable --now eventmaster
+
+[Unit]
+Description=EventMaster (Express + Socket.IO + SQLite)
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/eventmaster
+# JWT_SECRET обязательно сгенерировать свой: openssl rand -hex 32
+Environment=NODE_ENV=production
+Environment=PORT=3001
+Environment=JWT_SECRET=__ЗАМЕНИ_НА_СВОЙ_СЕКРЕТ__
+# база SQLite живёт в отдельном каталоге, переживает перезапуски
+Environment=DATA_DIR=/var/lib/eventmaster
+ExecStart=/usr/bin/node server/src/index.js
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
