@@ -9,7 +9,7 @@ echo "=== 1. Пакеты: Node 24, nginx, git ==="
 sudo apt-get update
 sudo apt-get install -y ca-certificates curl gnupg nginx git
 sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --yes --dearmor -o /etc/apt/keyrings/nodesource.gpg
 echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_24.x nodistro main" | sudo tee /etc/apt/sources.list.d/nodesource.list
 sudo apt-get update
 sudo apt-get install -y nodejs
@@ -20,11 +20,20 @@ sudo mkdir -p /opt/eventmaster /var/lib/eventmaster
 sudo chown -R www-data:www-data /opt/eventmaster /var/lib/eventmaster
 
 echo "=== 3. Код и сборка клиента ==="
-sudo git clone "$REPO_URL" /opt/eventmaster
+# скрипт можно перезапускать: если код уже склонён — обновляем вместо клона
+if [ -d /opt/eventmaster/.git ]; then
+  sudo git -C /opt/eventmaster pull --ff-only
+else
+  sudo git clone "$REPO_URL" /opt/eventmaster
+fi
 sudo chown -R www-data:www-data /opt/eventmaster
 cd /opt/eventmaster
-sudo -u www-data npm run setup
-sudo -u www-data npm run build
+# npm от имени www-data: отдельный кеш, иначе падает с EACCES на /var/www/.npm
+export NPM_CONFIG_CACHE=/tmp/npm-cache-www
+sudo mkdir -p "$NPM_CONFIG_CACHE"
+sudo chown -R www-data:www-data "$NPM_CONFIG_CACHE"
+sudo -u www-data -E env "NPM_CONFIG_CACHE=$NPM_CONFIG_CACHE" npm run setup
+sudo -u www-data -E env "NPM_CONFIG_CACHE=$NPM_CONFIG_CACHE" npm run build
 
 echo "=== 4. systemd-юнит ==="
 sudo cp deploy/eventmaster.service /etc/systemd/system/eventmaster.service
