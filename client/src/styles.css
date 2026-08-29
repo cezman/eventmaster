@@ -989,4 +989,12 @@ input:focus {
   .type-choice {
     grid-template-columns: 1fr;
   }
+  /* превью + сетка пресетов не помещаются в строку — ставим друг под друга */
+  .avatar-preview-row {
+    flex-direction: column;
+    align-items: center;
+  }
+  .preset-grid {
+    width: 100%;
+  }
 }
