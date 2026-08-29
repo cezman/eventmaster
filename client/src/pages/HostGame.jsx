@@ -3,8 +3,17 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import QRCode from "qrcode";
 import { getSocket } from "../socket";
 import { useAuth } from "../auth";
+import { NAME_COLORS } from "../customize";
 
 const ANSWER_LABELS = ["A", "B", "C", "D"];
+
+function PlayerName({ p }) {
+  return (
+    <span style={{ color: NAME_COLORS[p.color] || "#fff" }}>
+      {p.avatar} {p.name}
+    </span>
+  );
+}
 
 export default function HostGame() {
   const { quizId } = useParams();
@@ -17,6 +26,9 @@ export default function HostGame() {
   const [reveal, setReveal] = useState(null);
   const [final, setFinal] = useState(null);
   const [answered, setAnswered] = useState(0);
+  const [counts, setCounts] = useState([]);
+  const [secondsLeft, setSecondsLeft] = useState(null);
+  const [reactions, setReactions] = useState([]); // летающие эмодзи
   const [error, setError] = useState("");
   const [joinUrl, setJoinUrl] = useState("");
   const canvasRef = useRef(null);
@@ -47,14 +59,29 @@ export default function HostGame() {
       setReveal(null);
       setFinal(null);
       setAnswered(0);
+      setCounts(q.answers.map(() => 0));
+      setSecondsLeft(q.timeLimit);
     };
-    const onReveal = (r) => setReveal(r);
+    const onReveal = (r) => {
+      setReveal(r);
+      setSecondsLeft(null);
+      setCounts(r.counts);
+    };
     const onFinished = (f) => {
       setFinal(f);
       setQuestion(null);
       setReveal(null);
+      setSecondsLeft(null);
     };
-    const onCount = (d) => setAnswered(d.answered);
+    const onCount = (d) => {
+      setAnswered(d.answered);
+      setCounts(d.counts);
+    };
+    const onReaction = (r) => {
+      const item = { ...r, id: Date.now() + Math.random(), left: 8 + Math.random() * 84 };
+      setReactions((cur) => [...cur.slice(-15), item]);
+      setTimeout(() => setReactions((cur) => cur.filter((x) => x.id !== item.id)), 3000);
+    };
     const onClosed = () => navigate("/dashboard");
 
     socket.on("host:game", onSnapshot);
@@ -63,6 +90,7 @@ export default function HostGame() {
     socket.on("reveal", onReveal);
     socket.on("finished", onFinished);
     socket.on("answer-count", onCount);
+    socket.on("reaction", onReaction);
     socket.on("game:closed", onClosed);
     return () => {
       socket.off("host:game", onSnapshot);
@@ -71,9 +99,17 @@ export default function HostGame() {
       socket.off("reveal", onReveal);
       socket.off("finished", onFinished);
       socket.off("answer-count", onCount);
+      socket.off("reaction", onReaction);
       socket.off("game:closed", onClosed);
     };
   }, [socket, token, quizId]);
+
+  // обратный отсчёт на вопросе
+  useEffect(() => {
+    if (secondsLeft == null || secondsLeft <= 0) return undefined;
+    const t = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [secondsLeft]);
 
   useEffect(() => {
     if (canvasRef.current && joinUrl) {
@@ -92,6 +128,7 @@ export default function HostGame() {
   if (!game) return <div className="page"><p className="muted">Подключение…</p></div>;
 
   const phase = final ? "finished" : question ? (reveal ? "reveal" : "question") : game.state;
+  const showReactions = phase === "lobby" || phase === "finished";
 
   const hostAction = (event) => () => socket.emit(event);
 
@@ -112,6 +149,19 @@ export default function HostGame() {
         </button>
       </header>
 
+      {showReactions && (
+        <div className="reaction-layer">
+          {reactions.map((r) => (
+            <div key={r.id} className="reaction-float" style={{ left: `${r.left}%` }}>
+              <span className="reaction-emoji">{r.emoji}</span>
+              <span className="reaction-name" style={{ color: NAME_COLORS[r.color] || "#fff" }}>
+                {r.avatar} {r.name}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {phase === "lobby" && (
         <div className="host-lobby">
           <div className="lobby-qr">
@@ -130,10 +180,13 @@ export default function HostGame() {
             <div className="players-grid">
               {game.players.map((p) => (
                 <div className="player-chip" key={p.name}>
-                  {p.name}
+                  <PlayerName p={p} />
                 </div>
               ))}
             </div>
+            <p className="muted lobby-hint">
+              Пока ждём — игроки могут отправлять реакции (👍 ❤️ 😂 🎉 🔥 👏), они появятся на этом экране.
+            </p>
             {game.players.length > 0 && (
               <button className="btn btn-primary btn-xl" onClick={hostAction("host:start")}>
                 Начать игру
@@ -148,14 +201,22 @@ export default function HostGame() {
           <div className="q-meta">
             Вопрос {question.index + 1} / {question.total} · ответили: {answered} / {game.players.length}
           </div>
+          <div className={`timer ${secondsLeft != null && secondsLeft <= 5 ? "timer-low" : ""}`}>
+            ⏱ {secondsLeft != null && secondsLeft >= 0 ? secondsLeft : "…"}
+          </div>
           <h1 className="q-text">{question.text}</h1>
           <div className="answers-grid big">
-            {question.answers.map((a, i) => (
-              <div className={`answer-tile c${i}`} key={i}>
-                <b>{ANSWER_LABELS[i]}</b>
-                {a.text}
-              </div>
-            ))}
+            {question.answers.map((a, i) => {
+              const total = Math.max(1, counts.reduce((s, c) => s + c, 0));
+              const pct = Math.round(((counts[i] || 0) / total) * 100);
+              return (
+                <div className={`answer-tile c${i}`} key={i}>
+                  <b>{ANSWER_LABELS[i]}</b>
+                  <span className="answer-tile-text">{a.text}</span>
+                  <span className="answer-live">{counts[i] || 0} · {pct}%</span>
+                </div>
+              );
+            })}
           </div>
           <button className="btn btn-primary btn-xl" onClick={hostAction("host:reveal")}>
             Показать результаты
@@ -185,12 +246,10 @@ export default function HostGame() {
           </div>
           {game.type === "quiz" && (
             <div className="board">
-              <h3>Таблица лидеров</h3>
+              <h3>Промежуточные результаты</h3>
               {reveal.leaderboard.map((p, i) => (
                 <div className="board-row" key={p.name}>
-                  <span>
-                    {i + 1}. {p.name}
-                  </span>
+                  <PlayerName p={p} />
                   <b>{p.score}</b>
                 </div>
               ))}
@@ -209,7 +268,7 @@ export default function HostGame() {
             {final.leaderboard.map((p, i) => (
               <div className={`board-row ${i === 0 ? "winner" : ""}`} key={p.name}>
                 <span>
-                  {["🥇", "🥈", "🥉"][i] || `${i + 1}.`} {p.name}
+                  {["🥇", "🥈", "🥉"][i] || `${i + 1}.`} <PlayerName p={p} />
                 </span>
                 <b>{p.score}</b>
               </div>

@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
+import { TIME_OPTIONS } from "../customize";
 
 const ANSWER_COLORS = ["🔴", "🔵", "🟡", "🟢"];
 
 function emptyQuestion() {
   return {
     text: "",
+    time_limit: 20,
     answers: [
       { text: "", is_correct: true },
       { text: "", is_correct: false },
@@ -121,6 +123,19 @@ export default function QuizEditor() {
           <div className="card question-card" key={qi}>
             <div className="question-head">
               <b>Вопрос {qi + 1}</b>
+              <label className="time-label">
+                ⏱ Время на ответ:
+                <select
+                  value={q.time_limit || 20}
+                  onChange={(e) => patchQuestion(qi, { time_limit: Number(e.target.value) })}
+                >
+                  {TIME_OPTIONS.map((t) => (
+                    <option key={t} value={t}>
+                      {t} сек
+                    </option>
+                  ))}
+                </select>
+              </label>
               <button className="btn btn-danger btn-sm" onClick={() => removeQuestion(qi)}>
                 Удалить вопрос
               </button>

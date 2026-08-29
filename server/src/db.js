@@ -30,7 +30,8 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     quiz_id INTEGER NOT NULL REFERENCES quizzes(id) ON DELETE CASCADE,
     text TEXT NOT NULL,
-    position INTEGER NOT NULL
+    position INTEGER NOT NULL,
+    time_limit INTEGER NOT NULL DEFAULT 20
   );
 
   CREATE TABLE IF NOT EXISTS answers (
@@ -41,3 +42,10 @@ db.exec(`
     position INTEGER NOT NULL
   );
 `);
+
+// миграция для баз, созданных до появления таймера
+try {
+  db.exec("ALTER TABLE questions ADD COLUMN time_limit INTEGER NOT NULL DEFAULT 20");
+} catch {
+  // колонка уже есть
+}

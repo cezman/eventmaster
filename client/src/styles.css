@@ -578,6 +578,7 @@ input:focus {
 .board-row {
   display: flex;
   justify-content: space-between;
+  gap: 12px;
   padding: 8px 10px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   font-size: 17px;
@@ -588,6 +589,171 @@ input:focus {
 .board-row.winner {
   background: rgba(255, 210, 58, 0.15);
   border-radius: 8px;
+}
+.board.mini {
+  margin-top: 14px;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* ---------- Таймер ---------- */
+.timer {
+  font-size: 42px;
+  font-weight: 900;
+  color: #ffd23a;
+  font-variant-numeric: tabular-nums;
+}
+.timer.timer-low {
+  color: #ff4d6d;
+  animation: pulse 0.6s ease infinite;
+}
+@keyframes pulse {
+  50% { transform: scale(1.18); }
+}
+.play-screen .timer {
+  font-size: 34px;
+}
+
+/* ---------- Живые ответы на тайле ---------- */
+.answer-tile {
+  position: relative;
+}
+.answer-tile-text {
+  flex: 1;
+}
+.answer-live {
+  margin-left: auto;
+  background: rgba(0, 0, 0, 0.28);
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-weight: 800;
+  font-size: 15px;
+  min-width: 64px;
+  text-align: center;
+}
+
+/* ---------- Реакции ---------- */
+.reaction-layer {
+  position: fixed;
+  inset: 70px 0 0 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 5;
+}
+.reaction-float {
+  position: absolute;
+  bottom: -10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  animation: floatUp 3s ease-out forwards;
+}
+.reaction-emoji {
+  font-size: 44px;
+}
+.reaction-name {
+  font-size: 14px;
+  font-weight: 700;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+@keyframes floatUp {
+  0% { transform: translateY(0); opacity: 0; }
+  10% { opacity: 1; }
+  100% { transform: translateY(-70vh); opacity: 0; }
+}
+.reaction-bar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.reaction-btn {
+  font-size: 28px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 14px;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: transform 0.08s ease, background 0.15s;
+}
+.reaction-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+.reaction-btn:active {
+  transform: scale(0.85);
+}
+.lobby-hint {
+  max-width: 460px;
+  margin-bottom: 20px;
+}
+.small {
+  font-size: 13px;
+}
+
+/* ---------- Кастомизация игрока ---------- */
+.customize {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+}
+.avatar-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+.avatar-choice {
+  font-size: 22px;
+  padding: 6px 0;
+  background: #f1eefb;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.avatar-choice.selected {
+  border-color: var(--accent2);
+  background: #e4dcff;
+}
+.color-grid {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.color-choice {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  cursor: pointer;
+}
+.color-choice.selected {
+  border-color: var(--ink);
+  transform: scale(1.12);
+}
+.preview-line {
+  font-size: 18px;
+  font-weight: 700;
+  padding: 8px 10px;
+  background: #241663;
+  border-radius: 10px;
+}
+.time-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 14px;
+}
+.time-label select {
+  font: inherit;
+  padding: 5px 8px;
+  border: 2px solid #d8d5ea;
+  border-radius: 8px;
+}
+.points-big {
+  font-size: 26px;
+  font-weight: 800;
 }
 
 /* ---------- Экран игрока ---------- */

@@ -15,15 +15,22 @@ function makePin() {
   return pin;
 }
 
+const REACTIONS = ["👍", "❤️", "😂", "🎉", "🔥", "👏"];
+
 function leaderboard(game) {
   return [...game.players.values()]
-    .map((p) => ({ name: p.name, score: p.score }))
+    .map((p) => ({ name: p.name, score: p.score, avatar: p.avatar, color: p.color }))
     .sort((a, b) => b.score - a.score)
     .slice(0, 10);
 }
 
 function playersList(game) {
-  return [...game.players.values()].map((p) => ({ name: p.name, score: p.score }));
+  return [...game.players.values()].map((p) => ({
+    name: p.name,
+    score: p.score,
+    avatar: p.avatar,
+    color: p.color,
+  }));
 }
 
 function questionForRoom(game) {
@@ -33,8 +40,16 @@ function questionForRoom(game) {
     total: game.quiz.questions.length,
     type: game.type,
     text: q.text,
+    timeLimit: q.time_limit || 20,
     answers: q.answers.map((a) => ({ text: a.text })),
   };
+}
+
+function stopRevealTimer(game) {
+  if (game.revealTimer) {
+    clearTimeout(game.revealTimer);
+    game.revealTimer = null;
+  }
 }
 
 function countsFor(game) {
@@ -51,6 +66,7 @@ function broadcastPlayers(io, game) {
 }
 
 function deleteGame(io, game) {
+  stopRevealTimer(game);
   io.to(`game:${game.pin}`).emit("game:closed");
   io.socketsLeave(`game:${game.pin}`);
   games.delete(game.pin);
@@ -63,11 +79,17 @@ function startQuestion(io, game) {
   for (const p of game.players.values()) p.answer = null;
   io.to(`game:${game.pin}`).emit("question", questionForRoom(game));
   const host = io.sockets.sockets.get(game.hostSocketId);
-  host?.emit("answer-count", { answered: 0, total: game.players.size });
+  host?.emit("answer-count", { answered: 0, total: game.players.size, counts: countsFor(game) });
+  const limit = (game.quiz.questions[game.qIndex].time_limit || 20) * 1000;
+  stopRevealTimer(game);
+  game.revealTimer = setTimeout(() => {
+    if (games.get(game.pin) === game && game.state === "question") reveal(io, game);
+  }, limit);
 }
 
 function reveal(io, game) {
   game.state = "reveal";
+  stopRevealTimer(game);
   const counts = countsFor(game);
   const q = game.quiz.questions[game.qIndex];
   const correctIndex = game.type === "quiz" ? q.answers.findIndex((a) => a.is_correct) : null;
@@ -128,7 +150,7 @@ export function registerGameHandlers(io) {
         .get(Number(quizId), hostId);
       if (!quiz) return ack({ error: "Викторина не найдена" });
       const questions = db
-        .prepare("SELECT id, text, position FROM questions WHERE quiz_id = ? ORDER BY position")
+        .prepare("SELECT id, text, position, time_limit FROM questions WHERE quiz_id = ? ORDER BY position")
         .all(quiz.id);
       if (!questions.length) return ack({ error: "Добавьте хотя бы один вопрос" });
       const answersStmt = db.prepare("SELECT text, is_correct FROM answers WHERE question_id = ? ORDER BY position");
@@ -162,7 +184,7 @@ export function registerGameHandlers(io) {
       ack({ ok: true, pin: game.pin });
     });
 
-    socket.on("player:join", ({ pin, name } = {}, ack = () => {}) => {
+    socket.on("player:join", ({ pin, name, avatar, color } = {}, ack = () => {}) => {
       const game = games.get(String(pin || "").trim());
       if (!game) return ack({ error: "Игра с таким PIN не найдена" });
       if (game.state === "finished") return ack({ error: "Игра уже закончилась" });
@@ -180,6 +202,9 @@ export function registerGameHandlers(io) {
         answer: null,
         lastCorrect: false,
         awarded: 0,
+        avatar: REACTIONS.includes(avatar) || typeof avatar === "string" ? String(avatar).slice(0, 8) : "🙂",
+        color: Number.isInteger(color) && color >= 0 && color < 8 ? color : 0,
+        lastReaction: 0,
       });
       socket.join(`game:${game.pin}`);
       socket.data.gamePin = game.pin;
@@ -202,7 +227,19 @@ export function registerGameHandlers(io) {
       p.answer = idx;
       const host = io.sockets.sockets.get(game.hostSocketId);
       const answered = [...game.players.values()].filter((x) => x.answer != null).length;
-      host?.emit("answer-count", { answered, total: game.players.size });
+      host?.emit("answer-count", { answered, total: game.players.size, counts: countsFor(game) });
+    });
+
+    socket.on("player:reaction", ({ emoji } = {}) => {
+      const pin = socket.data.gamePin;
+      if (!pin) return;
+      const game = games.get(pin);
+      const p = game?.players.get(socket.id);
+      if (!p || !REACTIONS.includes(emoji)) return;
+      const now = Date.now();
+      if (now - p.lastReaction < 700) return; // антиспам
+      p.lastReaction = now;
+      io.to(`game:${pin}`).emit("reaction", { name: p.name, avatar: p.avatar, color: p.color, emoji });
     });
 
     socket.on("host:start", () => {
@@ -234,6 +271,7 @@ export function registerGameHandlers(io) {
     socket.on("host:play-again", () => {
       const game = hostGame(socket);
       if (!game || game.state !== "finished") return;
+      stopRevealTimer(game);
       game.state = "lobby";
       game.qIndex = -1;
       for (const p of game.players.values()) {

@@ -19,6 +19,7 @@ function loadFullQuiz(id, hostId) {
     ...quiz,
     questions: questions.map((q) => ({
       text: q.text,
+      time_limit: q.time_limit,
       answers: answersStmt.all(q.id).map((a) => ({ text: a.text, is_correct: !!a.is_correct })),
     })),
   };
@@ -33,9 +34,11 @@ function saveQuestions(quizId, questions) {
     const answers = (q.answers || []).filter((a) => a.text && a.text.trim());
     if (answers.length < 2) throw new Error("У вопроса должно быть минимум 2 варианта ответа");
     const qRes = qStmt.run(quizId, q.text.trim(), qi);
+    const timeLimit = Math.min(120, Math.max(5, Number(q.time_limit) || 20));
     answers.forEach((a, ai) => {
       aStmt.run(Number(qRes.lastInsertRowid), a.text.trim(), a.is_correct ? 1 : 0, ai);
     });
+    db.prepare("UPDATE questions SET time_limit = ? WHERE id = ?").run(timeLimit, Number(qRes.lastInsertRowid));
   });
 }
 
