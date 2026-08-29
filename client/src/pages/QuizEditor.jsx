@@ -167,12 +167,23 @@ export default function QuizEditor() {
                   />
                   {quiz.type === "quiz" && (
                     <label className="correct-check" title="Правильный ответ">
-                      <input type="radio" name={`correct-${qi}`} checked={!!a.is_correct} onChange={() => setCorrect(qi, ai)} />
+                      <input
+                        type="radio"
+                        name={`correct-${qi}`}
+                        checked={!!a.is_correct}
+                        onChange={() => setCorrect(qi, ai)}
+                        aria-label={`Вариант ${ai + 1} — отметить правильным`}
+                      />
                       ✓
                     </label>
                   )}
                   {q.answers.length > 2 && (
-                    <button className="answer-remove" title="Убрать вариант" onClick={() => removeAnswer(qi, ai)}>
+                    <button
+                      className="answer-remove"
+                      title="Убрать вариант"
+                      aria-label={`Убрать вариант ${ai + 1}`}
+                      onClick={() => removeAnswer(qi, ai)}
+                    >
                       ×
                     </button>
                   )}
