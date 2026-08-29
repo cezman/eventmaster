@@ -1,10 +1,24 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { getSocket } from "../socket";
-import { AVATARS, NAME_COLORS, REACTION_EMOJIS } from "../customize";
+import PlayerAvatar, { parseAvatar } from "../components/PlayerAvatar";
+import {
+  NAME_COLORS,
+  REACTION_EMOJIS,
+  AVATAR_PRESETS,
+  randomAvatarProps,
+  HAIR_OPTIONS,
+  CLOTHING_OPTIONS,
+  COLOR_OPTIONS,
+  BODY_OPTIONS,
+  SKIN_OPTIONS,
+  HAIR_COLOR_OPTIONS,
+} from "../customize";
 
 const ANSWER_COLORS = ["c0", "c1", "c2", "c3"];
 const ANSWER_SHAPES = ["▲", "◆", "●", "■"];
+
+const DEFAULT_AVATAR = AVATAR_PRESETS[0].props;
 
 export default function PlayGame() {
   const { pin: pinParam } = useParams();
@@ -13,7 +27,11 @@ export default function PlayGame() {
 
   const [pin, setPin] = useState(pinParam || "");
   const [name, setName] = useState(sessionStorage.getItem("playerName") || "");
-  const [avatar, setAvatar] = useState(sessionStorage.getItem("playerAvatar") || "🙂");
+  const [avatar, setAvatar] = useState(() => {
+    const saved = sessionStorage.getItem("playerAvatar");
+    const parsed = parseAvatar(saved);
+    return parsed || DEFAULT_AVATAR;
+  });
   const [color, setColor] = useState(Number(sessionStorage.getItem("playerColor") ?? 0));
   const [joined, setJoined] = useState(false);
   const [error, setError] = useState("");
@@ -70,7 +88,9 @@ export default function PlayGame() {
 
   const myName = (sessionStorage.getItem("playerName") || "").trim();
   const myColor = Number(sessionStorage.getItem("playerColor") ?? 0);
-  const myAvatar = sessionStorage.getItem("playerAvatar") || "🙂";
+  const myAvatar = parseAvatar(sessionStorage.getItem("playerAvatar")) || DEFAULT_AVATAR;
+
+  const patchAvatar = (patch) => setAvatar((cur) => ({ ...cur, ...patch }));
 
   const react = (emoji) => socket.emit("player:reaction", { emoji });
 
@@ -81,10 +101,10 @@ export default function PlayGame() {
     const cleanName = name.trim().slice(0, 20);
     if (cleanPin.length !== 6) return setError("PIN состоит из 6 цифр");
     if (!cleanName) return setError("Введите имя");
-    socket.emit("player:join", { pin: cleanPin, name: cleanName, avatar, color }, (res) => {
+    socket.emit("player:join", { pin: cleanPin, name: cleanName, avatar: JSON.stringify(avatar), color }, (res) => {
       if (res.error) return setError(res.error);
       sessionStorage.setItem("playerName", cleanName);
-      sessionStorage.setItem("playerAvatar", avatar);
+      sessionStorage.setItem("playerAvatar", JSON.stringify(avatar));
       sessionStorage.setItem("playerColor", String(color));
       setJoined(true);
     });
@@ -131,33 +151,100 @@ export default function PlayGame() {
             required
           />
           <div className="customize">
-            <span className="muted">Аватар:</span>
-            <div className="avatar-grid">
-              {AVATARS.map((a) => (
-                <button
-                  type="button"
-                  key={a}
-                  className={`avatar-choice ${avatar === a ? "selected" : ""}`}
-                  onClick={() => setAvatar(a)}
+            <div className="avatar-preview-row">
+              <div className="avatar-preview">
+                <PlayerAvatar avatar={JSON.stringify(avatar)} size={110} />
+              </div>
+              <div className="preset-grid">
+                {AVATAR_PRESETS.map((p) => (
+                  <button
+                    type="button"
+                    key={p.label}
+                    title={p.label}
+                    className={`preset-choice ${JSON.stringify(avatar) === JSON.stringify(p.props) ? "selected" : ""}`}
+                    onClick={() => setAvatar(p.props)}
+                  >
+                    <PlayerAvatar avatar={JSON.stringify(p.props)} size={44} />
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button type="button" className="btn btn-outline" onClick={() => setAvatar(randomAvatarProps())}>
+              🎲 Случайный аватар
+            </button>
+            <div className="picker-row">
+              <label>
+                Причёска
+                <select value={avatar.hair || "short"} onChange={(e) => patchAvatar({ hair: e.target.value })}>
+                  {HAIR_OPTIONS.map(([v, l]) => (
+                    <option key={v} value={v}>{l}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Одежда
+                <select value={avatar.clothing || "shirt"} onChange={(e) => patchAvatar({ clothing: e.target.value })}>
+                  {CLOTHING_OPTIONS.map(([v, l]) => (
+                    <option key={v} value={v}>{l}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="picker-row">
+              <label>
+                Цвет одежды
+                <select
+                  value={avatar.clothingColor || "blue"}
+                  onChange={(e) => patchAvatar({ clothingColor: e.target.value })}
                 >
-                  {a}
-                </button>
-              ))}
+                  {COLOR_OPTIONS.map(([v, l]) => (
+                    <option key={v} value={v}>{l}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Тип
+                <select value={avatar.body || "chest"} onChange={(e) => patchAvatar({ body: e.target.value })}>
+                  {BODY_OPTIONS.map(([v, l]) => (
+                    <option key={v} value={v}>{l}</option>
+                  ))}
+                </select>
+              </label>
             </div>
-            <span className="muted">Цвет имени:</span>
-            <div className="color-grid">
-              {NAME_COLORS.map((c, i) => (
-                <button
-                  type="button"
-                  key={c}
-                  className={`color-choice ${color === i ? "selected" : ""}`}
-                  style={{ background: c }}
-                  onClick={() => setColor(i)}
-                />
-              ))}
+            <div className="picker-row">
+              <label>
+                Кожа
+                <select value={avatar.skinTone || "light"} onChange={(e) => patchAvatar({ skinTone: e.target.value })}>
+                  {SKIN_OPTIONS.map(([v, l]) => (
+                    <option key={v} value={v}>{l}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Волосы
+                <select value={avatar.hairColor || "brown"} onChange={(e) => patchAvatar({ hairColor: e.target.value })}>
+                  {HAIR_COLOR_OPTIONS.map(([v, l]) => (
+                    <option key={v} value={v}>{l}</option>
+                  ))}
+                </select>
+              </label>
             </div>
-            <div className="preview-line" style={{ color: NAME_COLORS[color] }}>
-              {avatar} {name.trim() || "Ваше имя"}
+            <div className="customize">
+              <span className="muted">Цвет имени:</span>
+              <div className="color-grid">
+                {NAME_COLORS.map((c, i) => (
+                  <button
+                    type="button"
+                    key={c}
+                    className={`color-choice ${color === i ? "selected" : ""}`}
+                    style={{ background: c }}
+                    onClick={() => setColor(i)}
+                  />
+                ))}
+              </div>
+              <div className="preview-line" style={{ color: NAME_COLORS[color] }}>
+                <PlayerAvatar avatar={JSON.stringify(avatar)} size={22} /> {name.trim() || "Ваше имя"}
+              </div>
             </div>
           </div>
           {error && <div className="error">{error}</div>}
@@ -183,10 +270,10 @@ export default function PlayGame() {
         <div className="board">
           {final.leaderboard.map((p, i) => (
             <div className={`board-row ${i === 0 ? "winner" : ""}`} key={p.name}>
-              <span>
+              <span className="board-player">
                 {["🥇", "🥈", "🥉"][i] || `${i + 1}.`}{" "}
-                <span style={{ color: NAME_COLORS[p.color] || "#fff" }}>
-                  {p.avatar} {p.name}
+                <span style={{ color: NAME_COLORS[p.color] || "#fff" }} className="board-player-name">
+                  <PlayerAvatar avatar={p.avatar} size={26} /> {p.name}
                 </span>
               </span>
               <b>{p.score}</b>
@@ -246,10 +333,10 @@ export default function PlayGame() {
               <h3>Промежуточные результаты</h3>
               {reveal.leaderboard.slice(0, 5).map((p, i) => (
                 <div className="board-row" key={p.name}>
-                  <span>
+                  <span className="board-player">
                     {i + 1}.{" "}
-                    <span style={{ color: NAME_COLORS[p.color] || "#fff" }}>
-                      {p.avatar} {p.name}
+                    <span style={{ color: NAME_COLORS[p.color] || "#fff" }} className="board-player-name">
+                      <PlayerAvatar avatar={p.avatar} size={24} /> {p.name}
                     </span>
                   </span>
                   <b>{p.score}</b>
@@ -277,7 +364,7 @@ export default function PlayGame() {
     <div className="play-screen">
       <h1>
         <span style={{ color: NAME_COLORS[myColor] }}>
-          {myAvatar} {myName}
+          <PlayerAvatar avatar={JSON.stringify(myAvatar)} size={30} /> {myName}
         </span>
         , вы в игре!
       </h1>

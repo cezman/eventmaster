@@ -468,6 +468,8 @@ input:focus {
   min-height: 40px;
 }
 .player-chip {
+  display: inline-flex;
+  align-items: center;
   background: rgba(255, 255, 255, 0.14);
   border: 1px solid rgba(255, 255, 255, 0.25);
   padding: 8px 16px;
@@ -697,22 +699,68 @@ input:focus {
   gap: 8px;
   text-align: left;
 }
-.avatar-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 6px;
+.avatar-preview-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
 }
-.avatar-choice {
-  font-size: 22px;
-  padding: 6px 0;
+.avatar-preview {
+  background: linear-gradient(160deg, #e8e3fb, #d5cdf3);
+  border-radius: 14px;
+  padding: 10px;
+  flex-shrink: 0;
+}
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  flex: 1;
+}
+.preset-choice {
   background: #f1eefb;
   border: 2px solid transparent;
   border-radius: 10px;
+  padding: 4px 2px;
   cursor: pointer;
+  display: flex;
+  justify-content: center;
 }
-.avatar-choice.selected {
+.preset-choice.selected {
   border-color: var(--accent2);
   background: #e4dcff;
+}
+.picker-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.picker-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.picker-row select {
+  font: inherit;
+  padding: 8px 10px;
+  border: 2px solid #d8d5ea;
+  border-radius: 8px;
+  background: #fff;
+}
+.board-player {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.board-player-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.player-chip .board-player-name {
+  flex-direction: row;
 }
 .color-grid {
   display: flex;
@@ -773,6 +821,7 @@ input:focus {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  color: var(--ink);
 }
 .q-text-sm {
   font-size: clamp(20px, 3.5vw, 30px);

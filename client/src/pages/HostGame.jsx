@@ -4,13 +4,14 @@ import QRCode from "qrcode";
 import { getSocket } from "../socket";
 import { useAuth } from "../auth";
 import { NAME_COLORS } from "../customize";
+import PlayerAvatar from "../components/PlayerAvatar";
 
 const ANSWER_LABELS = ["A", "B", "C", "D"];
 
 function PlayerName({ p }) {
   return (
-    <span style={{ color: NAME_COLORS[p.color] || "#fff" }}>
-      {p.avatar} {p.name}
+    <span className="board-player-name" style={{ color: NAME_COLORS[p.color] || "#fff" }}>
+      <PlayerAvatar avatar={p.avatar} size={26} /> {p.name}
     </span>
   );
 }
@@ -155,7 +156,7 @@ export default function HostGame() {
             <div key={r.id} className="reaction-float" style={{ left: `${r.left}%` }}>
               <span className="reaction-emoji">{r.emoji}</span>
               <span className="reaction-name" style={{ color: NAME_COLORS[r.color] || "#fff" }}>
-                {r.avatar} {r.name}
+                <PlayerAvatar avatar={r.avatar} size={22} /> {r.name}
               </span>
             </div>
           ))}

@@ -202,7 +202,7 @@ export function registerGameHandlers(io) {
         answer: null,
         lastCorrect: false,
         awarded: 0,
-        avatar: REACTIONS.includes(avatar) || typeof avatar === "string" ? String(avatar).slice(0, 8) : "🙂",
+        avatar: typeof avatar === "string" ? avatar.slice(0, 500) : "🙂",
         color: Number.isInteger(color) && color >= 0 && color < 8 ? color : 0,
         lastReaction: 0,
       });
