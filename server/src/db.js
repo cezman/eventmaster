@@ -32,7 +32,7 @@ db.exec(`
     text TEXT NOT NULL,
     position INTEGER NOT NULL,
     time_limit INTEGER NOT NULL DEFAULT 20,
-    points INTEGER NOT NULL DEFAULT 1000
+    points INTEGER NOT NULL DEFAULT 1
   );
 
   CREATE TABLE IF NOT EXISTS answers (
@@ -51,7 +51,9 @@ try {
   // колонка уже есть
 }
 try {
-  db.exec("ALTER TABLE questions ADD COLUMN points INTEGER NOT NULL DEFAULT 1000");
+  db.exec("ALTER TABLE questions ADD COLUMN points INTEGER NOT NULL DEFAULT 1");
+  // в старых базах очки уже создались со значением 1000 — приводим к новому дефолту
+  db.exec("UPDATE questions SET points = 1 WHERE points = 1000");
 } catch {
   // колонка уже есть
 }

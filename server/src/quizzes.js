@@ -37,7 +37,7 @@ function saveQuestions(quizId, questions) {
     const qRes = qStmt.run(quizId, q.text.trim(), qi);
     const timeLimit = Math.min(120, Math.max(5, Number(q.time_limit) || 20));
     const pointsRaw = Math.round(Number(q.points));
-    const points = Number.isFinite(pointsRaw) ? Math.min(100000, Math.max(1, pointsRaw)) : 1000;
+    const points = Number.isFinite(pointsRaw) ? Math.min(100000, Math.max(1, pointsRaw)) : 1;
     answers.forEach((a, ai) => {
       aStmt.run(Number(qRes.lastInsertRowid), a.text.trim(), a.is_correct ? 1 : 0, ai);
     });

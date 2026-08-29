@@ -1,8 +1,6 @@
 import { db } from "./db.js";
 import { verifyToken } from "./auth.js";
 
-const QUESTION_TIME_MS = 20000; // используется как fallback, если у вопроса нет time_limit
-
 const games = new Map(); // pin -> game
 
 function makePin() {
@@ -95,11 +93,7 @@ function reveal(io, game) {
   if (game.type === "quiz" && correctIndex >= 0) {
     for (const p of game.players.values()) {
       if (p.answer === correctIndex) {
-        const dt = Date.now() - game.questionStart;
-        const qPoints = q.points || 1000;
-        const limitMs = (q.time_limit || 20) * 1000;
-        const bonus = Math.max(0, Math.round(qPoints * 0.5 * (1 - dt / limitMs)));
-        p.awarded = qPoints + bonus;
+        p.awarded = q.points || 1;
         p.score += p.awarded;
         p.lastCorrect = true;
       } else {

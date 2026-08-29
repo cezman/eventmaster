@@ -268,7 +268,7 @@ export default function HostGame() {
           <div className="board">
             {final.leaderboard.map((p, i) => (
               <div className={`board-row ${i === 0 ? "winner" : ""}`} key={p.name}>
-                <span>
+                <span className="board-player">
                   {["🥇", "🥈", "🥉"][i] || `${i + 1}.`} <PlayerName p={p} />
                 </span>
                 <b>{p.score}</b>

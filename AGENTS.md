@@ -36,7 +36,7 @@ npm start            # прод-режим: сервер раздаёт client/d
 
 Комнаты: `game:<pin>`. Хост-события: `host:create-game` (с JWT в payload), `host:start`, `host:reveal`, `host:next`, `host:play-again`, `host:end`. Игрок: `player:join`, `player:answer` (один ответ на вопрос), `player:reaction`. Сервер шлёт: `players`, `question`, `answer-count` (только хосту), `reveal`, `finished`, `reaction`, `game:closed`. Многие события используют ack-колбэки для ошибок.
 
-Тайминги: на вопрос 20 сек по умолчанию (`time_limit` вопроса), очки 1000 за правильный + до 500 бонуса за скорость.
+Тайминги: на вопрос 20 сек по умолчанию (`time_limit` вопроса). Очки — плоские, только за правильный ответ: значение задаётся на вопрос (`points`, целое, по умолчанию 1), бонусов нет.
 
 ## Статус разработки
 

@@ -10,7 +10,7 @@ function emptyQuestion() {
   return {
     text: "",
     time_limit: 20,
-    points: 1000,
+    points: 1,
     answers: [
       { text: "", is_correct: true },
       { text: "", is_correct: false },
@@ -141,7 +141,7 @@ export default function QuizEditor() {
                     className="points-input"
                     min={1}
                     step={1}
-                    value={q.points ?? 1000}
+                    value={q.points ?? 1}
                     onChange={(e) => patchQuestion(qi, { points: Math.round(Number(e.target.value)) || 1 })}
                   />
                 </label>
