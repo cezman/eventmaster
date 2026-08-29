@@ -1,7 +1,7 @@
 import React from "react";
-import { Link } from "react-router-dom";
 
-// Ловит ошибки рендера всего приложения — без него любое исключение даёт белый экран
+// Ловит ошибки рендера всего приложения — без него любое исключение даёт белый экран.
+// «На главную» — обычная <a>: после краша нужен полный релоад, роутер внутри boundary уже не рендерится.
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -30,9 +30,9 @@ export default class ErrorBoundary extends React.Component {
           <button className="btn btn-primary" onClick={() => window.location.reload()}>
             Обновить страницу
           </button>
-          <Link className="btn btn-outline" to="/">
+          <a className="btn btn-outline" href="/">
             На главную
-          </Link>
+          </a>
         </div>
       </div>
     );

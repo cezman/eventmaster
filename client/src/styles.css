@@ -989,8 +989,9 @@ input:focus {
 }
 
 /* ---------- Доступность ---------- */
-/* :where — нулевая специфичность, чтобы не перебивать стили компонентов (у .dd-toggle свой фокус) */
-:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+/* :where — нулевая специфичность, чтобы не перебивать стили компонентов (у .dd-toggle свой фокус).
+   input без рамки-фокуса: у полей уже есть видимый фокус через input:focus (border-color) */
+:where(a, button, select, [tabindex]):focus-visible {
   outline: 3px solid #ffd23a;
   outline-offset: 2px;
 }
@@ -1023,6 +1024,9 @@ input:focus {
   letter-spacing: 4px;
   line-height: 1;
   color: rgba(255, 255, 255, 0.18);
+}
+.notfound .muted {
+  color: rgba(255, 255, 255, 0.75);
 }
 .notfound-actions {
   display: flex;

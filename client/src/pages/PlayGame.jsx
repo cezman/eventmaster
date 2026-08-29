@@ -6,6 +6,7 @@ import Dropdown from "../components/Dropdown";
 import {
   NAME_COLORS,
   REACTION_EMOJIS,
+  REACTION_LABELS,
   AVATAR_PRESETS,
   randomAvatarProps,
   HAIR_OPTIONS,
@@ -381,8 +382,13 @@ export default function PlayGame() {
         Игроков в комнате: <b>{players.length}</b>
       </p>
       <div className="reaction-bar">
-        {REACTION_EMOJIS.map((e) => (
-          <button key={e} className="reaction-btn" aria-label={`Отправить реакцию ${e}`} onClick={() => react(e)}>
+        {REACTION_EMOJIS.map((e, i) => (
+          <button
+            key={e}
+            className="reaction-btn"
+            aria-label={`Отправить реакцию «${REACTION_LABELS[i] || e}»`}
+            onClick={() => react(e)}
+          >
             {e}
           </button>
         ))}
