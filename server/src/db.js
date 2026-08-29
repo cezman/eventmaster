@@ -31,7 +31,8 @@ db.exec(`
     quiz_id INTEGER NOT NULL REFERENCES quizzes(id) ON DELETE CASCADE,
     text TEXT NOT NULL,
     position INTEGER NOT NULL,
-    time_limit INTEGER NOT NULL DEFAULT 20
+    time_limit INTEGER NOT NULL DEFAULT 20,
+    points INTEGER NOT NULL DEFAULT 1000
   );
 
   CREATE TABLE IF NOT EXISTS answers (
@@ -43,9 +44,14 @@ db.exec(`
   );
 `);
 
-// миграция для баз, созданных до появления таймера
+// миграции для баз, созданных до появления таймера и настраиваемых очков
 try {
   db.exec("ALTER TABLE questions ADD COLUMN time_limit INTEGER NOT NULL DEFAULT 20");
+} catch {
+  // колонка уже есть
+}
+try {
+  db.exec("ALTER TABLE questions ADD COLUMN points INTEGER NOT NULL DEFAULT 1000");
 } catch {
   // колонка уже есть
 }

@@ -10,7 +10,7 @@ function loadFullQuiz(id, hostId) {
   const quiz = db.prepare("SELECT * FROM quizzes WHERE id = ? AND host_id = ?").get(id, hostId);
   if (!quiz) return null;
   const questions = db
-    .prepare("SELECT id, text, position FROM questions WHERE quiz_id = ? ORDER BY position")
+    .prepare("SELECT id, text, position, time_limit, points FROM questions WHERE quiz_id = ? ORDER BY position")
     .all(id);
   const answersStmt = db.prepare(
     "SELECT id, text, is_correct, position FROM answers WHERE question_id = ? ORDER BY position"
@@ -20,6 +20,7 @@ function loadFullQuiz(id, hostId) {
     questions: questions.map((q) => ({
       text: q.text,
       time_limit: q.time_limit,
+      points: q.points,
       answers: answersStmt.all(q.id).map((a) => ({ text: a.text, is_correct: !!a.is_correct })),
     })),
   };
@@ -35,10 +36,12 @@ function saveQuestions(quizId, questions) {
     if (answers.length < 2) throw new Error("У вопроса должно быть минимум 2 варианта ответа");
     const qRes = qStmt.run(quizId, q.text.trim(), qi);
     const timeLimit = Math.min(120, Math.max(5, Number(q.time_limit) || 20));
+    const pointsRaw = Math.round(Number(q.points));
+    const points = Number.isFinite(pointsRaw) ? Math.min(100000, Math.max(1, pointsRaw)) : 1000;
     answers.forEach((a, ai) => {
       aStmt.run(Number(qRes.lastInsertRowid), a.text.trim(), a.is_correct ? 1 : 0, ai);
     });
-    db.prepare("UPDATE questions SET time_limit = ? WHERE id = ?").run(timeLimit, Number(qRes.lastInsertRowid));
+    db.prepare("UPDATE questions SET time_limit = ?, points = ? WHERE id = ?").run(timeLimit, points, Number(qRes.lastInsertRowid));
   });
 }
 

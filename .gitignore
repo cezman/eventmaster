@@ -3,3 +3,4 @@ client/dist/
 server/data/
 .env
 .zcode/
+demo-pin.txt

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
 import { TIME_OPTIONS } from "../customize";
+import Dropdown from "../components/Dropdown";
 
 const ANSWER_COLORS = ["🔴", "🔵", "🟡", "🟢"];
 
@@ -9,6 +10,7 @@ function emptyQuestion() {
   return {
     text: "",
     time_limit: 20,
+    points: 1000,
     answers: [
       { text: "", is_correct: true },
       { text: "", is_correct: false },
@@ -123,22 +125,30 @@ export default function QuizEditor() {
           <div className="card question-card" key={qi}>
             <div className="question-head">
               <b>Вопрос {qi + 1}</b>
-              <label className="time-label">
-                ⏱ Время на ответ:
-                <select
-                  value={q.time_limit || 20}
-                  onChange={(e) => patchQuestion(qi, { time_limit: Number(e.target.value) })}
-                >
-                  {TIME_OPTIONS.map((t) => (
-                    <option key={t} value={t}>
-                      {t} сек
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button className="btn btn-danger btn-sm" onClick={() => removeQuestion(qi)}>
-                Удалить вопрос
-              </button>
+              <div className="question-settings">
+                <label className="time-label">
+                  ⏱ Время:
+                  <Dropdown
+                    value={String(q.time_limit || 20)}
+                    onChange={(v) => patchQuestion(qi, { time_limit: Number(v) })}
+                    options={TIME_OPTIONS.map((t) => [String(t), `${t} сек`])}
+                  />
+                </label>
+                <label className="time-label">
+                  🏆 Очки:
+                  <input
+                    type="number"
+                    className="points-input"
+                    min={1}
+                    step={1}
+                    value={q.points ?? 1000}
+                    onChange={(e) => patchQuestion(qi, { points: Math.round(Number(e.target.value)) || 1 })}
+                  />
+                </label>
+                <button className="btn btn-danger btn-sm" onClick={() => removeQuestion(qi)}>
+                  Удалить вопрос
+                </button>
+              </div>
             </div>
             <input
               className="question-text"

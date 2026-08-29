@@ -799,9 +799,92 @@ input:focus {
   border: 2px solid #d8d5ea;
   border-radius: 8px;
 }
+.time-label .dd {
+  width: 110px;
+}
+.question-settings {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.points-input {
+  width: 90px;
+  padding: 6px 10px !important;
+  font-weight: 700;
+}
 .points-big {
   font-size: 26px;
   font-weight: 800;
+}
+
+/* ---------- Стилизованный дропдаун ---------- */
+.dd {
+  position: relative;
+  width: 100%;
+}
+.dd-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font: inherit;
+  padding: 9px 12px;
+  border: 2px solid #d8d5ea;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  color: var(--ink);
+}
+.dd.open .dd-toggle,
+.dd-toggle:focus-visible {
+  border-color: var(--accent2);
+  outline: none;
+}
+.dd-arrow {
+  color: var(--muted);
+  transition: transform 0.15s;
+}
+.dd.open .dd-arrow {
+  transform: rotate(180deg);
+}
+.dd-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(28, 17, 71, 0.25);
+  border: 1px solid #eceafb;
+  overflow: hidden;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.dd-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  font: inherit;
+  padding: 9px 12px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--ink);
+  text-align: left;
+}
+.dd-item:hover {
+  background: #f3efff;
+}
+.dd-item.selected {
+  background: #e9e2ff;
+  font-weight: 700;
+}
+.dd-check {
+  color: var(--accent2);
 }
 
 /* ---------- Экран игрока ---------- */

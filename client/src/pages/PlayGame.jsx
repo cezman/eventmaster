@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { getSocket } from "../socket";
 import PlayerAvatar, { parseAvatar } from "../components/PlayerAvatar";
+import Dropdown from "../components/Dropdown";
 import {
   NAME_COLORS,
   REACTION_EMOJIS,
@@ -175,58 +176,55 @@ export default function PlayGame() {
             <div className="picker-row">
               <label>
                 Причёска
-                <select value={avatar.hair || "short"} onChange={(e) => patchAvatar({ hair: e.target.value })}>
-                  {HAIR_OPTIONS.map(([v, l]) => (
-                    <option key={v} value={v}>{l}</option>
-                  ))}
-                </select>
+                <Dropdown
+                  value={avatar.hair || "short"}
+                  onChange={(v) => patchAvatar({ hair: v })}
+                  options={HAIR_OPTIONS}
+                />
               </label>
               <label>
                 Одежда
-                <select value={avatar.clothing || "shirt"} onChange={(e) => patchAvatar({ clothing: e.target.value })}>
-                  {CLOTHING_OPTIONS.map(([v, l]) => (
-                    <option key={v} value={v}>{l}</option>
-                  ))}
-                </select>
+                <Dropdown
+                  value={avatar.clothing || "shirt"}
+                  onChange={(v) => patchAvatar({ clothing: v })}
+                  options={CLOTHING_OPTIONS}
+                />
               </label>
             </div>
             <div className="picker-row">
               <label>
                 Цвет одежды
-                <select
+                <Dropdown
                   value={avatar.clothingColor || "blue"}
-                  onChange={(e) => patchAvatar({ clothingColor: e.target.value })}
-                >
-                  {COLOR_OPTIONS.map(([v, l]) => (
-                    <option key={v} value={v}>{l}</option>
-                  ))}
-                </select>
+                  onChange={(v) => patchAvatar({ clothingColor: v })}
+                  options={COLOR_OPTIONS}
+                />
               </label>
               <label>
                 Тип
-                <select value={avatar.body || "chest"} onChange={(e) => patchAvatar({ body: e.target.value })}>
-                  {BODY_OPTIONS.map(([v, l]) => (
-                    <option key={v} value={v}>{l}</option>
-                  ))}
-                </select>
+                <Dropdown
+                  value={avatar.body || "chest"}
+                  onChange={(v) => patchAvatar({ body: v })}
+                  options={BODY_OPTIONS}
+                />
               </label>
             </div>
             <div className="picker-row">
               <label>
                 Кожа
-                <select value={avatar.skinTone || "light"} onChange={(e) => patchAvatar({ skinTone: e.target.value })}>
-                  {SKIN_OPTIONS.map(([v, l]) => (
-                    <option key={v} value={v}>{l}</option>
-                  ))}
-                </select>
+                <Dropdown
+                  value={avatar.skinTone || "light"}
+                  onChange={(v) => patchAvatar({ skinTone: v })}
+                  options={SKIN_OPTIONS}
+                />
               </label>
               <label>
                 Волосы
-                <select value={avatar.hairColor || "brown"} onChange={(e) => patchAvatar({ hairColor: e.target.value })}>
-                  {HAIR_COLOR_OPTIONS.map(([v, l]) => (
-                    <option key={v} value={v}>{l}</option>
-                  ))}
-                </select>
+                <Dropdown
+                  value={avatar.hairColor || "brown"}
+                  onChange={(v) => patchAvatar({ hairColor: v })}
+                  options={HAIR_COLOR_OPTIONS}
+                />
               </label>
             </div>
             <div className="customize">

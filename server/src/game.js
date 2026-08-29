@@ -1,9 +1,7 @@
 import { db } from "./db.js";
 import { verifyToken } from "./auth.js";
 
-const QUESTION_TIME_MS = 20000;
-const CORRECT_POINTS = 1000;
-const MAX_SPEED_BONUS = 500;
+const QUESTION_TIME_MS = 20000; // используется как fallback, если у вопроса нет time_limit
 
 const games = new Map(); // pin -> game
 
@@ -98,8 +96,10 @@ function reveal(io, game) {
     for (const p of game.players.values()) {
       if (p.answer === correctIndex) {
         const dt = Date.now() - game.questionStart;
-        const bonus = Math.max(0, Math.round(MAX_SPEED_BONUS * (1 - dt / QUESTION_TIME_MS)));
-        p.awarded = CORRECT_POINTS + bonus;
+        const qPoints = q.points || 1000;
+        const limitMs = (q.time_limit || 20) * 1000;
+        const bonus = Math.max(0, Math.round(qPoints * 0.5 * (1 - dt / limitMs)));
+        p.awarded = qPoints + bonus;
         p.score += p.awarded;
         p.lastCorrect = true;
       } else {
@@ -150,12 +150,14 @@ export function registerGameHandlers(io) {
         .get(Number(quizId), hostId);
       if (!quiz) return ack({ error: "Викторина не найдена" });
       const questions = db
-        .prepare("SELECT id, text, position, time_limit FROM questions WHERE quiz_id = ? ORDER BY position")
+        .prepare("SELECT id, text, position, time_limit, points FROM questions WHERE quiz_id = ? ORDER BY position")
         .all(quiz.id);
       if (!questions.length) return ack({ error: "Добавьте хотя бы один вопрос" });
       const answersStmt = db.prepare("SELECT text, is_correct FROM answers WHERE question_id = ? ORDER BY position");
       const fullQuestions = questions.map((q) => ({
         text: q.text,
+        time_limit: q.time_limit,
+        points: q.points,
         answers: answersStmt.all(q.id),
       }));
 
