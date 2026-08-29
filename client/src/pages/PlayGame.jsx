@@ -134,23 +134,28 @@ export default function PlayGame() {
       <div className="play-screen">
         <form className="card play-card" onSubmit={join}>
           <h1>Присоединиться к игре</h1>
-          <input
-            className="pin-input"
-            placeholder="PIN игры"
-            inputMode="numeric"
-            maxLength={6}
-            value={pin}
-            onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            required
-          />
-          <input
-            placeholder="Ваше имя"
-            maxLength={20}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            ref={nameRef}
-            required
-          />
+          <label className="field-label">
+            PIN игры с экрана ведущего
+            <input
+              className="pin-input"
+              placeholder="000000"
+              inputMode="numeric"
+              maxLength={6}
+              value={pin}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              required
+            />
+          </label>
+          <label className="field-label">
+            Ваше имя
+            <input
+              maxLength={20}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              ref={nameRef}
+              required
+            />
+          </label>
           <div className="customize">
             <div className="avatar-preview-row">
               <div className="avatar-preview">
