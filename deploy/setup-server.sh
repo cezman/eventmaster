@@ -22,7 +22,8 @@ sudo chown -R www-data:www-data /opt/eventmaster /var/lib/eventmaster
 echo "=== 3. Код и сборка клиента ==="
 # скрипт можно перезапускать: если код уже склонён — обновляем вместо клона
 if [ -d /opt/eventmaster/.git ]; then
-  sudo git -C /opt/eventmaster pull --ff-only
+  # pull тоже от www-data: git отказывается работать с чужой владельческой папкой (dubious ownership)
+  sudo -u www-data git -C /opt/eventmaster pull --ff-only
 else
   sudo git clone "$REPO_URL" /opt/eventmaster
 fi
