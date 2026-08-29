@@ -193,6 +193,8 @@ input:focus {
   font-size: 20px;
   text-align: center;
   letter-spacing: 6px;
+  /* letter-spacing даёт хвост после последней цифры — компенсируем, чтобы текст визуально центрировался */
+  padding-left: 6px;
   font-weight: 700;
 }
 .features {
@@ -909,6 +911,19 @@ input:focus {
   gap: 12px;
   color: var(--ink);
 }
+/* подпись над полем (как в .picker-row) */
+.field-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: left;
+}
+.play-card .pin-input {
+  width: 100%;
+}
 .q-text-sm {
   font-size: clamp(20px, 3.5vw, 30px);
   max-width: 700px;
@@ -997,5 +1012,15 @@ input:focus {
   }
   .preset-grid {
     width: 100%;
+  }
+  /* шапка лендинга: логотип и кнопки друг под другом, иначе кнопка «Регистрация» уезжает за край */
+  .landing-header {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .landing-header nav {
+    margin-left: 0;
+    flex-wrap: wrap;
+    justify-content: center;
   }
 }
