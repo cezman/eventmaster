@@ -6,6 +6,7 @@ import Dropdown from "../components/Dropdown";
 import {
   NAME_COLORS,
   REACTION_EMOJIS,
+  REACTION_LABELS,
   AVATAR_PRESETS,
   randomAvatarProps,
   HAIR_OPTIONS,
@@ -167,6 +168,8 @@ export default function PlayGame() {
                     type="button"
                     key={p.label}
                     title={p.label}
+                    aria-label={`Пресет аватара: ${p.label}`}
+                    aria-pressed={JSON.stringify(avatar) === JSON.stringify(p.props)}
                     className={`preset-choice ${JSON.stringify(avatar) === JSON.stringify(p.props) ? "selected" : ""}`}
                     onClick={() => setAvatar(p.props)}
                   >
@@ -241,6 +244,8 @@ export default function PlayGame() {
                     key={c}
                     className={`color-choice ${color === i ? "selected" : ""}`}
                     style={{ background: c }}
+                    aria-label={`Цвет имени ${i + 1}`}
+                    aria-pressed={color === i}
                     onClick={() => setColor(i)}
                   />
                 ))}
@@ -301,7 +306,7 @@ export default function PlayGame() {
           <div className="play-answers">
             {question.answers.map((a, i) => (
               <button className={`answer-btn ${ANSWER_COLORS[i]}`} key={i} onClick={() => answer(i)}>
-                <span>{ANSWER_SHAPES[i]}</span>
+                <span aria-hidden="true">{ANSWER_SHAPES[i]}</span>
                 {a.text}
               </button>
             ))}
@@ -377,8 +382,13 @@ export default function PlayGame() {
         Игроков в комнате: <b>{players.length}</b>
       </p>
       <div className="reaction-bar">
-        {REACTION_EMOJIS.map((e) => (
-          <button key={e} className="reaction-btn" onClick={() => react(e)}>
+        {REACTION_EMOJIS.map((e, i) => (
+          <button
+            key={e}
+            className="reaction-btn"
+            aria-label={`Отправить реакцию «${REACTION_LABELS[i] || e}»`}
+            onClick={() => react(e)}
+          >
             {e}
           </button>
         ))}

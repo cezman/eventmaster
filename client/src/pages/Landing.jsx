@@ -48,6 +48,7 @@ export default function Landing() {
           <input
             className="pin-input"
             placeholder="PIN игры"
+            aria-label="PIN игры"
             inputMode="numeric"
             maxLength={6}
             value={pin}

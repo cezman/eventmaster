@@ -1,5 +1,6 @@
 import express from "express";
 import http from "node:http";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Server } from "socket.io";
@@ -21,10 +22,17 @@ app.use("/api/quizzes", quizRoutes);
 
 // в продакшене раздаём собранный клиент
 const dist = path.join(__dirname, "..", "..", "client", "dist");
-app.use(express.static(dist));
+// index: false — весь HTML (включая корень) идёт через app.get("*"), где подставляется %OG_ORIGIN%
+app.use(express.static(dist, { index: false }));
 app.get("*", (req, res, next) => {
   if (req.path.startsWith("/api") || req.path.startsWith("/socket.io")) return next();
-  res.sendFile(path.join(dist, "index.html"));
+  // %OG_ORIGIN% в index.html подставляем на лету: краулеры требуют абсолютный URL в og:image,
+  // а origin известен только в рантайме (сейчас IP, позже — домен с HTTPS)
+  fs.readFile(path.join(dist, "index.html"), "utf8", (err, html) => {
+    if (err) return next(err);
+    const origin = `${req.protocol}://${req.get("host")}`;
+    res.type("html").send(html.replaceAll("%OG_ORIGIN%", origin));
+  });
 });
 
 registerGameHandlers(io);

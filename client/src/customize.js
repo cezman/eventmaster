@@ -96,5 +96,7 @@ export const NAME_COLORS = [
 ];
 
 export const REACTION_EMOJIS = ["👍", "❤️", "😂", "🎉", "🔥", "👏"];
+// человеческие названия — для aria-label кнопок реакций
+export const REACTION_LABELS = ["Класс", "Сердечко", "Смех", "Ура", "Огонь", "Аплодисменты"];
 
 export const TIME_OPTIONS = [10, 20, 30, 45, 60, 90];

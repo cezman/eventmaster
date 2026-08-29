@@ -7,6 +7,7 @@ import Dashboard from "./pages/Dashboard";
 import QuizEditor from "./pages/QuizEditor";
 import HostGame from "./pages/HostGame";
 import PlayGame from "./pages/PlayGame";
+import NotFound from "./pages/NotFound";
 
 function RequireAuth({ children }) {
   const { token } = useAuth();
@@ -47,7 +48,7 @@ export default function App() {
       />
       <Route path="/play" element={<PlayGame />} />
       <Route path="/play/:pin" element={<PlayGame />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }
