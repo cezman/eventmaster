@@ -8,16 +8,23 @@ import { QuizIcon, PollIcon } from "../components/icons";
 
 // CSV с BOM — чтобы Excel из РФ открывал кириллицу без танцев; разделитель ; для RU-локали
 function downloadCsv(result) {
-  const esc = (v) => `"${String(v).replaceAll('"', '""')}"`;
+  // экранизация + защита от CSV-инъекции: Excel исполняет ячейки, начинающиеся с = + - @
+  const esc = (v) => {
+    let s = String(v).replaceAll('"', '""');
+    if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+    return `"${s.replace(/[\r\n]+/g, " ")}"`;
+  };
+  const fmtDate = (d) => new Date(String(d).replace(" ", "T") + "Z").toLocaleString("ru-RU");
   const lines = [
-    [esc(`Викторина: ${result.quiz_title}`), esc(`Дата: ${result.played_at}`)].join(";"),
+    [esc(`Викторина: ${result.quiz_title}`), esc(`Дата: ${fmtDate(result.played_at)}`)].join(";"),
     ["Место", "Имя", "Очки"].map(esc).join(";"),
     ...result.results.map((r, i) => [esc(i + 1), esc(r.name), esc(r.score)].join(";")),
   ];
+  const safeTitle = result.quiz_title.replace(/[^\wа-яА-ЯёЁ -]/g, "").trim().slice(0, 50);
   const blob = new Blob(["\uFEFF" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = `eventmaster-${result.quiz_title.replace(/[^\wа-яА-ЯёЁ -]/g, "").trim() || "game"}.csv`;
+  a.download = `eventmaster-${safeTitle || "game"}.csv`;
   a.click();
   URL.revokeObjectURL(a.href);
 }
@@ -93,7 +100,7 @@ export default function HistoryPage() {
                   <p className="muted">
                     {r.quiz_type === "quiz" ? <QuizIcon className="inline-icon" /> : <PollIcon className="inline-icon" />}{" "}
                     {r.quiz_type === "quiz" ? "Викторина" : "Голосование"} · игроков: {r.players_count} ·{" "}
-                    {r.played_at}
+                    {new Date(String(r.played_at).replace(" ", "T") + "Z").toLocaleString("ru-RU")}
                   </p>
                 </div>
                 <div className="quiz-card-actions">

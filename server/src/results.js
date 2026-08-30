@@ -20,5 +20,12 @@ resultRoutes.get("/:id", (req, res) => {
     .prepare("SELECT * FROM game_results WHERE id = ? AND host_id = ?")
     .get(Number(req.params.id), req.userId);
   if (!row) return res.status(404).json({ error: "Результат не найден" });
-  res.json({ result: { ...row, results: JSON.parse(row.results) } });
+  // данные пишет только сервер, но на случай битой строки не роняем весь ответ
+  let leaderboard = [];
+  try {
+    leaderboard = JSON.parse(row.results);
+  } catch {
+    // битый JSON — отдаём пустой список
+  }
+  res.json({ result: { ...row, results: leaderboard } });
 });

@@ -30,11 +30,11 @@ function fullLeaderboard(game) {
 // сохраняем партию в историю; один раз за раунд, флаг сбрасывается в play-again
 function recordResult(game) {
   if (game.recorded) return;
-  game.recorded = true;
   try {
     db.prepare(
       "INSERT INTO game_results (host_id, quiz_id, quiz_title, quiz_type, players_count, results) VALUES (?, ?, ?, ?, ?, ?)"
     ).run(game.hostId, game.quizId, game.title, game.type, game.players.size, JSON.stringify(fullLeaderboard(game)));
+    game.recorded = true;
   } catch (e) {
     console.error("Не удалось сохранить результат игры:", e.message);
   }
@@ -197,6 +197,7 @@ export function registerGameHandlers(io) {
         quiz: { title: quiz.title, questions: fullQuestions },
         players: new Map(),
         closeTimer: null,
+        recorded: false,
       };
       games.set(game.pin, game);
       socket.join(`game:${game.pin}`);
@@ -315,8 +316,8 @@ export function registerGameHandlers(io) {
     socket.on("host:end", () => {
       const game = hostGame(socket);
       if (!game) return;
-      // игра шла хотя бы один вопрос — сохраняем её в историю даже незавершённой
-      if (game.qIndex >= 0) recordResult(game);
+      // игра шла хотя бы один вопрос и был хотя бы один игрок — сохраняем в историю
+      if (game.qIndex >= 0 && game.players.size > 0) recordResult(game);
       deleteGame(io, game);
     });
 
