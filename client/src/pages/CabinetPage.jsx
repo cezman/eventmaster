@@ -22,6 +22,7 @@ export default function CabinetPage() {
   const { user, signOut } = useAuth();
   const [params, setParams] = useSearchParams();
   const tab = TABS.some((t) => t.id === params.get("tab")) ? params.get("tab") : "games";
+  const displayName = [user?.name, user?.surname].filter(Boolean).join(" ");
 
   const select = (id) => {
     if (id === tab) return; // без повторного пуша в историю
@@ -37,8 +38,8 @@ export default function CabinetPage() {
         <div className="spacer" />
         <ThemeToggle />
         <span className="cabinet-user">
-          <b>{[user?.name, user?.surname].filter(Boolean).join(" ") || user?.email}</b>
-          <span className="muted">{user?.email}</span>
+          <b>{displayName || user?.email}</b>
+          {displayName && <span className="muted">{user?.email}</span>}
         </span>
         <button className="btn btn-outline" onClick={signOut}>
           Выйти
