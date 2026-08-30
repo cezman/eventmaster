@@ -300,7 +300,7 @@ export default function PlayGame() {
           Вопрос {question.index + 1} / {question.total}
         </div>
         <div className={`timer ${secondsLeft != null && secondsLeft <= 5 ? "timer-low" : ""}`}>
-          <ClockIcon className="timer-icon" aria-hidden="true" />{" "}
+          <ClockIcon className="timer-icon" aria-hidden="true" />
           {secondsLeft != null && secondsLeft >= 0 ? secondsLeft : "…"}
         </div>
         <h2 className="q-text-sm">{question.text}</h2>

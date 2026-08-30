@@ -131,7 +131,7 @@ export default function QuizEditor() {
               <b>Вопрос {qi + 1}</b>
               <div className="question-settings">
                 <label className="time-label">
-                  <ClockIcon /> Время:
+                  <ClockIcon className="inline-icon" /> Время:
                   <Dropdown
                     value={String(q.time_limit || 20)}
                     onChange={(v) => patchQuestion(qi, { time_limit: Number(v) })}
@@ -139,7 +139,7 @@ export default function QuizEditor() {
                   />
                 </label>
                 <label className="time-label">
-                  <TrophyIcon /> Очки:
+                  <TrophyIcon className="inline-icon" /> Очки:
                   <input
                     type="number"
                     className="points-input"

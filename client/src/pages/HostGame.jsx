@@ -205,7 +205,7 @@ export default function HostGame() {
             Вопрос {question.index + 1} / {question.total} · ответили: {answered} / {game.players.length}
           </div>
           <div className={`timer ${secondsLeft != null && secondsLeft <= 5 ? "timer-low" : ""}`}>
-            <ClockIcon className="timer-icon" aria-hidden="true" />{" "}
+            <ClockIcon className="timer-icon" aria-hidden="true" />
             {secondsLeft != null && secondsLeft >= 0 ? secondsLeft : "…"}
           </div>
           <h1 className="q-text">{question.text}</h1>
