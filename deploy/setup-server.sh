@@ -5,9 +5,9 @@ set -euo pipefail
 
 REPO_URL="${1:?Укажи URL репозитория: bash deploy/setup-server.sh https://github.com/.../eventmaster.git}"
 
-echo "=== 1. Пакеты: Node 24, nginx, git ==="
+echo "=== 1. Пакеты: Node 24, nginx, git, sqlite3 ==="
 sudo apt-get update
-sudo apt-get install -y ca-certificates curl gnupg nginx git
+sudo apt-get install -y ca-certificates curl gnupg nginx git sqlite3
 sudo install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --yes --dearmor -o /etc/apt/keyrings/nodesource.gpg
 echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_24.x nodistro main" | sudo tee /etc/apt/sources.list.d/nodesource.list
@@ -54,6 +54,16 @@ sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t
 sudo systemctl reload nginx
 
+echo "=== 6. Ежедневный бэкап SQLite (systemd timer) ==="
+# скрипт уже в репо (git клонировал его на шаге 3) — только права и юниты
+sudo chmod 755 /opt/eventmaster/deploy/backup-eventmaster.sh
+sudo cp deploy/eventmaster-backup.service deploy/eventmaster-backup.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now eventmaster-backup.timer
+# прогоняем первый бэкап сразу, чтобы не ждать 04:00 (упадёт безвредно, если БД ещё не создана)
+sudo systemctl start eventmaster-backup.service || echo "первый бэкап пропущен: БД ещё не создана"
+systemctl list-timers eventmaster-backup.timer --no-pager | head -3
+
 echo
-echo "Готово. Проверка: curl http://127.0.0.1:3001/api/auth/me"
+echo "Готово. Проверка: curl http://127.0.0.1:3001/api/health"
 echo "Снаружи: http://<внешний-IP-ВМ>/  (порт 80 должен быть открыт в группе безопасности Yandex Cloud)"
