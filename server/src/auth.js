@@ -77,14 +77,16 @@ authRoutes.put("/profile", authRequired, (req, res) => {
   const name = String(req.body?.name || "").trim().slice(0, 30);
   const surname = String(req.body?.surname || "").trim().slice(0, 30);
   let avatar = String(req.body?.avatar || "");
-  // аватар — JSON BigHead, обрезаем как у игроков
+  // аватар — JSON BigHead; сначала валидность, потом ограничение длины (slice сломал бы JSON)
   if (avatar) {
     try {
       JSON.parse(avatar);
     } catch {
       return res.status(400).json({ error: "Некорректный аватар" });
     }
-    avatar = avatar.slice(0, 500);
+    if (avatar.length > 500) {
+      return res.status(400).json({ error: "Аватар слишком большой" });
+    }
   }
   db.prepare("UPDATE users SET name = ?, surname = ?, avatar = ? WHERE id = ?").run(name, surname, avatar, req.userId);
   const row = db.prepare("SELECT * FROM users WHERE id = ?").get(req.userId);

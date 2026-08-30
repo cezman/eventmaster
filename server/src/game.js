@@ -161,6 +161,7 @@ export function registerGameHandlers(io) {
       }
 
       const host = db.prepare("SELECT name, surname, avatar FROM users WHERE id = ?").get(hostId);
+      // имя/аватар хоста фиксируются на момент создания игры (reclaim использует старый снапшот)
       const game = {
         pin: makePin(),
         quizId: quiz.id,
@@ -207,7 +208,13 @@ export function registerGameHandlers(io) {
       });
       socket.join(`game:${game.pin}`);
       socket.data.gamePin = game.pin;
-      ack({ ok: true, type: game.type, state: game.state, hostName: game.hostName || "" });
+      ack({
+        ok: true,
+        type: game.type,
+        state: game.state,
+        hostName: game.hostName || "",
+        hostAvatar: game.hostAvatar || "",
+      });
       broadcastPlayers(io, game);
       if (game.state === "question") socket.emit("question", questionForRoom(game));
       if (game.state === "reveal") reveal(io, game);

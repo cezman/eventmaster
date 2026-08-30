@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
 import { useAuth } from "../auth";
@@ -11,13 +11,23 @@ import { AVATAR_PRESETS, randomAvatarProps } from "../customize";
 export default function ProfilePage() {
   const { user, token, updateUser } = useAuth();
   const showToast = useToast();
-  const [name, setName] = useState(user?.name || "");
-  const [surname, setSurname] = useState(user?.surname || "");
-  const [avatar, setAvatar] = useState(() => parseAvatar(user?.avatar) || AVATAR_PRESETS[0].props);
+  const [name, setName] = useState("");
+  const [surname, setSurname] = useState("");
+  const [avatar, setAvatar] = useState(AVATAR_PRESETS[0].props);
   const [busy, setBusy] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [passBusy, setPassBusy] = useState(false);
+  // user приходит асинхронно (/me) — заполняем форму, когда он загрузился
+  const [loadedId, setLoadedId] = useState(null);
+  useEffect(() => {
+    if (user && user.id !== loadedId) {
+      setName(user.name || "");
+      setSurname(user.surname || "");
+      setAvatar(parseAvatar(user.avatar) || AVATAR_PRESETS[0].props);
+      setLoadedId(user.id);
+    }
+  }, [user, loadedId]);
 
   if (!user) {
     return (
