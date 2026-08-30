@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
 import { TIME_OPTIONS } from "../customize";
 import Dropdown from "../components/Dropdown";
+import AppHeader from "../components/AppHeader";
 import { useToast } from "../components/Toast";
 import { QuizIcon, PollIcon, ClockIcon, TrophyIcon } from "../components/icons";
 
@@ -121,7 +122,8 @@ export default function QuizEditor() {
 
   return (
     <div className="page">
-      <header className="page-header">
+      <AppHeader />
+      <div className="subnav">
         <Link to="/dashboard" className="btn btn-outline">
           ← К списку
         </Link>
@@ -129,7 +131,7 @@ export default function QuizEditor() {
           {quiz.type === "quiz" ? <QuizIcon /> : <PollIcon />}
           {quiz.type === "quiz" ? "Викторина" : "Голосование"}
         </span>
-      </header>
+      </div>
 
       <div className="page-body editor">
         <label className="title-label">

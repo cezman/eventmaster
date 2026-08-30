@@ -1,8 +1,7 @@
 import React from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth";
-import Logo from "../components/Logo";
-import ThemeToggle from "../components/ThemeToggle";
+import AppHeader from "../components/AppHeader";
 import { UserIcon, LockIcon, HistoryIcon, ShieldIcon, GamepadIcon } from "../components/icons";
 import GamesSection from "../cabinet/GamesSection";
 import ProfileSection from "../cabinet/ProfileSection";
@@ -19,10 +18,9 @@ const TABS = [
 // Кабинет ведущего: сайдбар с разделами + контент выбранной вкладки (?tab=, по умолчанию «Мероприятия»).
 // Новые разделы добавляются в TABS и рендер-переключатель ниже.
 export default function CabinetPage() {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const [params, setParams] = useSearchParams();
   const tab = TABS.some((t) => t.id === params.get("tab")) ? params.get("tab") : "games";
-  const displayName = [user?.name, user?.surname].filter(Boolean).join(" ");
 
   const select = (id) => {
     if (id === tab) return; // без повторного пуша в историю
@@ -31,20 +29,7 @@ export default function CabinetPage() {
 
   return (
     <div className="page">
-      <header className="page-header">
-        <Link to="/" className="logo-link">
-          <Logo />
-        </Link>
-        <div className="spacer" />
-        <ThemeToggle />
-        <span className="cabinet-user">
-          <b>{displayName || user?.email}</b>
-          {displayName && <span className="muted">{user?.email}</span>}
-        </span>
-        <button className="btn btn-outline" onClick={signOut}>
-          Выйти
-        </button>
-      </header>
+      <AppHeader />
 
       <div className="page-body cabinet">
         <nav className="cabinet-nav" aria-label="Разделы кабинета">
