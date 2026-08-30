@@ -43,7 +43,15 @@ sudo systemctl daemon-reload && sudo systemctl enable --now eventmaster-backup.t
 sudo systemctl start eventmaster-backup.service   # первый бэкап сразу
 ```
 
-Восстановление: `sudo systemctl stop eventmaster && sudo cp /var/backups/eventmaster/app-<дата>.db /var/lib/eventmaster/app.db && sudo systemctl start eventmaster`
+Восстановление (сначала сохрани текущую БД, затем убери journal-файлы — иначе при старте риск рассинхрона):
+
+```bash
+sudo systemctl stop eventmaster
+sudo cp /var/lib/eventmaster/app.db /var/lib/eventmaster/app.db.broken-$(date +%s)
+sudo cp /var/backups/eventmaster/app-<дата>.db /var/lib/eventmaster/app.db
+sudo rm -f /var/lib/eventmaster/app.db-journal /var/lib/eventmaster/app.db-wal /var/lib/eventmaster/app.db-shm
+sudo systemctl start eventmaster
+```
 
 ## 4. Для игры по HTTPS (рекомендуется)
 
@@ -72,4 +80,5 @@ sudo systemctl restart eventmaster
 
 - **Состояние игр в памяти** — рестарт `eventmaster.service` (или ВМ) убивает активные игры. Для тестов это ок, осознанное решение MVP.
 - **SQLite** лежит в `/var/lib/eventmaster/` — переживает перезапуски, пользователи и квизы сохраняются.
+- **Порт 3001 наружу не открывать** (только 80/443): сервер ходит за nginx с `trust proxy`, прямые запросы мимо nginx могут подделать `X-Forwarded-For` и обойти rate-limit.
 - Секрет юнита: `sudo systemctl cat eventmaster` (файл с правами 600).

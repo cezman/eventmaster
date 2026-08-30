@@ -55,13 +55,13 @@ sudo nginx -t
 sudo systemctl reload nginx
 
 echo "=== 6. Ежедневный бэкап SQLite (systemd timer) ==="
-sudo cp deploy/backup-eventmaster.sh /opt/eventmaster/deploy/backup-eventmaster.sh
+# скрипт уже в репо (git клонировал его на шаге 3) — только права и юниты
 sudo chmod 755 /opt/eventmaster/deploy/backup-eventmaster.sh
 sudo cp deploy/eventmaster-backup.service deploy/eventmaster-backup.timer /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now eventmaster-backup.timer
-# прогоняем первый бэкап сразу, чтобы не ждать 04:00
-sudo systemctl start eventmaster-backup.service
+# прогоняем первый бэкап сразу, чтобы не ждать 04:00 (упадёт безвредно, если БД ещё не создана)
+sudo systemctl start eventmaster-backup.service || echo "первый бэкап пропущен: БД ещё не создана"
 systemctl list-timers eventmaster-backup.timer --no-pager | head -3
 
 echo

@@ -38,7 +38,7 @@ const authLimiter = rateLimit({
   limit: 50, // /api/auth/me дергается на каждой загрузке страницы — лимит с запасом
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: "Слишком много попыток входа. Подождите 15 минут." },
+  message: { error: "Слишком много запросов. Подождите 15 минут." },
 });
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
