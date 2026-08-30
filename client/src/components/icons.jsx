@@ -117,3 +117,24 @@ export const ShieldIcon = (p) => (
   </Base>
 );
 
+export const SunIcon = (p) => (
+  <Base {...p}>
+    <circle cx="12" cy="12" r="4" />
+    <path d="M12 2v2" />
+    <path d="M12 20v2" />
+    <path d="m4.9 4.9 1.4 1.4" />
+    <path d="m17.7 17.7 1.4 1.4" />
+    <path d="M2 12h2" />
+    <path d="M20 12h2" />
+    <path d="m6.3 17.7-1.4 1.4" />
+    <path d="m19.1 4.9-1.4 1.4" />
+  </Base>
+);
+
+export const MoonIcon = (p) => (
+  <Base {...p}>
+    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+  </Base>
+);
+
+

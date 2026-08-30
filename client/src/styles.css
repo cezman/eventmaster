@@ -240,13 +240,13 @@ input:focus {
 .landing {
   min-height: 100vh;
   color: var(--on-bg);
-  padding: 0 6vw;
+  padding: 0 5vw; /* как .page — иначе лого прыгает при переходе в кабинет */
 }
 .landing-header {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 22px 0;
+  padding: 18px 0; /* как .page-header */
 }
 .landing-header nav {
   margin-left: auto;
@@ -1308,7 +1308,6 @@ input:focus {
 
 /* ---------- Переключатель темы ---------- */
 .theme-toggle {
-  font-size: 17px;
   line-height: 1;
   padding: 8px 12px;
 }
@@ -1440,4 +1439,19 @@ input:focus {
   .cabinet-user {
     display: none; /* в узкой шапке имя/email не влезают, логин виден в разделе «Личные данные» */
   }
+}
+
+/* Поднавигация под единой шапкой: ссылки «назад» и бейджи живут здесь,
+   а не рядом с лого — при переходах шапка не прыгает */
+.subnav {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 0 14px;
+}
+/* SVG-иконка в кнопке темы: один размер в обеих темах, в отличие от эмодзи */
+.theme-icon {
+  width: 18px;
+  height: 18px;
+  display: block;
 }

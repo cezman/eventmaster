@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
 import { TIME_OPTIONS } from "../customize";
 import Dropdown from "../components/Dropdown";
+import AppHeader from "../components/AppHeader";
 import { useToast } from "../components/Toast";
 import { QuizIcon, PollIcon, ClockIcon, TrophyIcon } from "../components/icons";
 
@@ -33,16 +34,27 @@ export default function QuizEditor() {
       .catch((e) => setError(e.message));
   }, [id]);
 
-  if (error) return <div className="page"><p className="error">{error}</p><Link to="/dashboard">Назад</Link></div>;
+  // шапка общая для всех состояний — лого не мигает, пока данные грузятся
+  if (error)
+    return (
+      <div className="page">
+        <AppHeader />
+        <p className="error">{error}</p>
+        <Link to="/dashboard">Назад</Link>
+      </div>
+    );
   if (!quiz) {
     return (
-      <div className="page page-body">
-        <div className="card">
-          <div className="skeleton-stack">
-            <div className="skeleton" style={{ width: "35%" }} />
-            <div className="skeleton" style={{ width: "80%" }} />
-            <div className="skeleton" style={{ width: "80%" }} />
-            <div className="skeleton" style={{ width: "60%" }} />
+      <div className="page">
+        <AppHeader />
+        <div className="page-body">
+          <div className="card">
+            <div className="skeleton-stack">
+              <div className="skeleton" style={{ width: "35%" }} />
+              <div className="skeleton" style={{ width: "80%" }} />
+              <div className="skeleton" style={{ width: "80%" }} />
+              <div className="skeleton" style={{ width: "60%" }} />
+            </div>
           </div>
         </div>
       </div>
@@ -121,7 +133,8 @@ export default function QuizEditor() {
 
   return (
     <div className="page">
-      <header className="page-header">
+      <AppHeader />
+      <div className="subnav">
         <Link to="/dashboard" className="btn btn-outline">
           ← К списку
         </Link>
@@ -129,7 +142,7 @@ export default function QuizEditor() {
           {quiz.type === "quiz" ? <QuizIcon /> : <PollIcon />}
           {quiz.type === "quiz" ? "Викторина" : "Голосование"}
         </span>
-      </header>
+      </div>
 
       <div className="page-body editor">
         <label className="title-label">

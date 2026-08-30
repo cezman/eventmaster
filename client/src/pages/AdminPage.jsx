@@ -4,8 +4,7 @@ import { api } from "../api";
 import { useAuth } from "../auth";
 import { useToast } from "../components/Toast";
 import ConfirmDialog from "../components/ConfirmDialog";
-import Logo from "../components/Logo";
-import ThemeToggle from "../components/ThemeToggle";
+import AppHeader from "../components/AppHeader";
 
 export default function AdminPage() {
   const { user, token } = useAuth();
@@ -68,16 +67,12 @@ export default function AdminPage() {
 
   return (
     <div className="page">
-      <header className="page-header">
+      <AppHeader />
+      <div className="subnav">
         <Link to="/dashboard" className="btn btn-outline">
           ← В кабинет
         </Link>
-        <Link to="/" className="logo-link">
-          <Logo />
-        </Link>
-        <div className="spacer" />
-        <ThemeToggle />
-      </header>
+      </div>
 
       <div className="page-body">
         <div className="dashboard-head">
