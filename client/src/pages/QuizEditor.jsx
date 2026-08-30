@@ -86,6 +86,22 @@ export default function QuizEditor() {
     });
   };
 
+  // переключение формата вопроса: правда/ложь фиксирует два варианта
+  const switchMode = (qi, mode) => {
+    if (mode === "tf") {
+      const was = quiz.questions[qi].answers;
+      patchQuestion(qi, {
+        mode: "tf",
+        answers: [
+          { text: "Правда", is_correct: was[0]?.is_correct ?? true },
+          { text: "Ложь", is_correct: false },
+        ],
+      });
+    } else {
+      patchQuestion(qi, { mode: "choice" });
+    }
+  };
+
   const save = async () => {
     setBusy(true);
     try {
@@ -138,6 +154,17 @@ export default function QuizEditor() {
               <b>Вопрос {qi + 1}</b>
               <div className="question-settings">
                 <label className="time-label">
+                  Формат:
+                  <Dropdown
+                    value={q.mode || "choice"}
+                    onChange={(v) => switchMode(qi, v)}
+                    options={[
+                      ["choice", "Варианты"],
+                      ["tf", "Правда / Ложь"],
+                    ]}
+                  />
+                </label>
+                <label className="time-label">
                   <ClockIcon className="inline-icon" /> Время:
                   <Dropdown
                     value={String(q.time_limit || 20)}
@@ -167,45 +194,67 @@ export default function QuizEditor() {
               value={q.text}
               onChange={(e) => patchQuestion(qi, { text: e.target.value })}
             />
-            <div className="answers-grid">
-              {q.answers.map((a, ai) => (
-                <div className={`answer-edit c${ai}`} key={ai}>
-                  <span className="answer-dot">{ANSWER_COLORS[ai]}</span>
-                  <input
-                    placeholder={`Вариант ${ai + 1}`}
-                    value={a.text}
-                    onChange={(e) => patchAnswer(qi, ai, { text: e.target.value })}
-                  />
-                  {quiz.type === "quiz" && (
-                    <label className="correct-check" title="Правильный ответ">
-                      <input
-                        type="radio"
-                        name={`correct-${qi}`}
-                        checked={!!a.is_correct}
-                        onChange={() => setCorrect(qi, ai)}
-                        aria-label={`Вариант ${ai + 1} — отметить правильным`}
-                      />
-                      ✓
-                    </label>
-                  )}
-                  {q.answers.length > 2 && (
-                    <button
-                      className="answer-remove"
-                      title="Убрать вариант"
-                      aria-label={`Убрать вариант ${ai + 1}`}
-                      onClick={() => removeAnswer(qi, ai)}
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
-              ))}
-              {q.answers.length < 4 && (
-                <button className="btn btn-outline add-answer" onClick={() => addAnswer(qi)}>
-                  + Вариант
-                </button>
-              )}
-            </div>
+            {q.mode === "tf" ? (
+              <div className="answers-grid">
+                {["Правда", "Ложь"].map((label, ai) => (
+                  <div className={`answer-edit c${ai}`} key={label}>
+                    <input value={label} readOnly aria-label={label} />
+                    {quiz.type === "quiz" && (
+                      <label className="correct-check" title="Правильный ответ">
+                        <input
+                          type="radio"
+                          name={`correct-${qi}`}
+                          checked={!!q.answers[ai]?.is_correct}
+                          onChange={() => setCorrect(qi, ai)}
+                          aria-label={`${label} — отметить правильным`}
+                        />
+                        ✓
+                      </label>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="answers-grid">
+                {q.answers.map((a, ai) => (
+                  <div className={`answer-edit c${ai}`} key={ai}>
+                    <span className="answer-dot">{ANSWER_COLORS[ai]}</span>
+                    <input
+                      placeholder={`Вариант ${ai + 1}`}
+                      value={a.text}
+                      onChange={(e) => patchAnswer(qi, ai, { text: e.target.value })}
+                    />
+                    {quiz.type === "quiz" && (
+                      <label className="correct-check" title="Правильный ответ">
+                        <input
+                          type="radio"
+                          name={`correct-${qi}`}
+                          checked={!!a.is_correct}
+                          onChange={() => setCorrect(qi, ai)}
+                          aria-label={`Вариант ${ai + 1} — отметить правильным`}
+                        />
+                        ✓
+                      </label>
+                    )}
+                    {q.answers.length > 2 && (
+                      <button
+                        className="answer-remove"
+                        title="Убрать вариант"
+                        aria-label={`Убрать вариант ${ai + 1}`}
+                        onClick={() => removeAnswer(qi, ai)}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {q.answers.length < 4 && (
+                  <button className="btn btn-outline add-answer" onClick={() => addAnswer(qi)}>
+                    + Вариант
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         ))}
 

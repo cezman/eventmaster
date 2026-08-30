@@ -79,3 +79,10 @@ db.exec(`
     played_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 `);
+
+// режим вопроса (EM-13): 'choice' — варианты, 'tf' — правда/ложь
+try {
+  db.exec("ALTER TABLE questions ADD COLUMN mode TEXT NOT NULL DEFAULT 'choice'");
+} catch {
+  // колонка уже есть
+}

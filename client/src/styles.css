@@ -881,6 +881,11 @@ input:focus {
 .time-label .dd {
   width: 110px;
 }
+/* дропдаун «Формат» в редакторе — длиннее лейблы, даём расти по контенту */
+.question-settings .dd {
+  width: auto;
+  min-width: 110px;
+}
 .question-settings {
   display: flex;
   align-items: center;
@@ -915,6 +920,7 @@ input:focus {
   background: #fff;
   cursor: pointer;
   color: var(--ink);
+  white-space: nowrap;
 }
 .dd.open .dd-toggle,
 .dd-toggle:focus-visible {
@@ -1032,6 +1038,9 @@ input:focus {
 .answer-btn.c1 { background: var(--c1); }
 .answer-btn.c2 { background: var(--c2); }
 .answer-btn.c3 { background: var(--c3); }
+/* правда/ложь */
+.answer-btn.tf-yes { background: var(--ok); }
+.answer-btn.tf-no { background: var(--bad); }
 .wait-box {
   background: var(--chip-bg);
   border-radius: 14px;

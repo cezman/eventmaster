@@ -323,12 +323,23 @@ export default function PlayGame() {
         <h2 className="q-text-sm">{question.text}</h2>
         {submitted == null ? (
           <div className="play-answers">
-            {question.answers.map((a, i) => (
-              <button className={`answer-btn ${ANSWER_COLORS[i]}`} key={i} onClick={() => answer(i)}>
-                <span aria-hidden="true">{ANSWER_SHAPES[i]}</span>
-                {a.text}
-              </button>
-            ))}
+            {question.mode === "tf"
+              ? question.answers.map((a, i) => (
+                  <button
+                    className={`answer-btn ${i === 0 ? "tf-yes" : "tf-no"}`}
+                    key={i}
+                    onClick={() => answer(i)}
+                  >
+                    <span aria-hidden="true">{i === 0 ? "✓" : "✕"}</span>
+                    {a.text}
+                  </button>
+                ))
+              : question.answers.map((a, i) => (
+                  <button className={`answer-btn ${ANSWER_COLORS[i]}`} key={i} onClick={() => answer(i)}>
+                    <span aria-hidden="true">{ANSWER_SHAPES[i]}</span>
+                    {a.text}
+                  </button>
+                ))}
           </div>
         ) : (
           <div className="wait-box">Ответ принят! Ждём остальных…</div>

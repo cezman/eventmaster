@@ -57,6 +57,7 @@ function questionForRoom(game) {
     type: game.type,
     text: q.text,
     timeLimit: q.time_limit || 20,
+    mode: q.mode || "choice",
     answers: q.answers.map((a) => ({ text: a.text })),
   };
 }
@@ -164,7 +165,7 @@ export function registerGameHandlers(io) {
         .get(Number(quizId), hostId);
       if (!quiz) return ack({ error: "Викторина не найдена" });
       const questions = db
-        .prepare("SELECT id, text, position, time_limit, points FROM questions WHERE quiz_id = ? ORDER BY position")
+        .prepare("SELECT id, text, position, time_limit, points, mode FROM questions WHERE quiz_id = ? ORDER BY position")
         .all(quiz.id);
       if (!questions.length) return ack({ error: "Добавьте хотя бы один вопрос" });
       const answersStmt = db.prepare("SELECT text, is_correct FROM answers WHERE question_id = ? ORDER BY position");
@@ -172,6 +173,7 @@ export function registerGameHandlers(io) {
         text: q.text,
         time_limit: q.time_limit,
         points: q.points,
+        mode: q.mode === "tf" ? "tf" : "choice",
         answers: answersStmt.all(q.id),
       }));
 
