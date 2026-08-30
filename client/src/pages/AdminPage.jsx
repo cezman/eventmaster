@@ -6,19 +6,27 @@ import { useToast } from "../components/Toast";
 import ConfirmDialog from "../components/ConfirmDialog";
 import AppHeader from "../components/AppHeader";
 
+// кеш между заходами на страницу, привязан к userId: повторное открытие админки
+// показывает таблицу сразу, свежие данные тихо догружаются в фоне
+let usersCache = null; // { userId, data }
+
 export default function AdminPage() {
   const { user, token } = useAuth();
   const showToast = useToast();
-  const [users, setUsers] = useState(null);
+  const cached = usersCache && usersCache.userId === user?.id ? usersCache.data : null;
+  const [users, setUsers] = useState(cached);
   const [editId, setEditId] = useState(null);
   const [editForm, setEditForm] = useState({ email: "", name: "", surname: "" });
   const [deleteId, setDeleteId] = useState(null);
 
   const load = () => {
     api("/admin/users", { token })
-      .then((d) => setUsers(d.users))
+      .then((d) => {
+        usersCache = { userId: user?.id, data: d.users };
+        setUsers(d.users);
+      })
       .catch((e) => {
-        setUsers([]);
+        if (cached === null) setUsers([]);
         showToast(`Не удалось загрузить пользователей: ${e.message}`, "error");
       });
   };
