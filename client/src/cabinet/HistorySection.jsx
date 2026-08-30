@@ -58,7 +58,8 @@ export default function HistorySection() {
   useEffect(() => {
     api("/results", { token: localStorage.getItem("token") })
       .then((d) => {
-        resultsCache = { userId: user?.id, data: d.results };
+        if (user?.id == null) { setResults(d.results); return; } // user не загружен — не кешируем
+        resultsCache = { userId: user.id, data: d.results };
         setResults(d.results);
       })
       .catch((e) => {

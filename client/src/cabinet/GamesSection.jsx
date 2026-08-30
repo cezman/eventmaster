@@ -45,7 +45,8 @@ export default function GamesSection() {
   const load = () => {
     api("/quizzes", { token: localStorage.getItem("token") })
       .then((d) => {
-        quizzesCache = { userId: user?.id, data: d.quizzes };
+        if (user?.id == null) { setQuizzes(d.quizzes); return; } // user не загружен — не кешируем
+        quizzesCache = { userId: user.id, data: d.quizzes };
         setQuizzes(d.quizzes);
       })
       .catch((e) => {
@@ -53,7 +54,7 @@ export default function GamesSection() {
         showToast(`Не удалось загрузить квизы: ${e.message}`, "error");
       });
   };
-  useEffect(load, []);
+  useEffect(load, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const create = async (e) => {
     e.preventDefault();

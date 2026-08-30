@@ -22,7 +22,8 @@ export default function AdminPage() {
   const load = () => {
     api("/admin/users", { token })
       .then((d) => {
-        usersCache = { userId: user?.id, data: d.users };
+        if (user?.id == null) { setUsers(d.users); return; } // user не загружен — не кешируем
+        usersCache = { userId: user.id, data: d.users };
         setUsers(d.users);
       })
       .catch((e) => {
