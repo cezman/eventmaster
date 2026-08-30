@@ -3,19 +3,17 @@ import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "./auth";
 import Landing from "./pages/Landing";
 import AuthPage from "./pages/AuthPage";
-import Dashboard from "./pages/Dashboard";
+import Dashboard from "./pages/CabinetPage";
 import QuizEditor from "./pages/QuizEditor";
 import HostGame from "./pages/HostGame";
 import PlayGame from "./pages/PlayGame";
 import NotFound from "./pages/NotFound";
-import ProfilePage from "./pages/ProfilePage";
-import HistoryPage from "./pages/HistoryPage";
 import AdminPage from "./pages/AdminPage";
 
 function RequireAuth({ children }) {
   const { token } = useAuth();
   const location = useLocation();
-  if (!token) return <Navigate to="/login" state={{ from: location.pathname }} replace />;
+  if (!token) return <Navigate to="/login" state={{ from: location.pathname + location.search }} replace />;
   return children;
 }
 
@@ -53,7 +51,7 @@ export default function App() {
         path="/history"
         element={
           <RequireAuth>
-            <HistoryPage />
+            <Navigate to="/dashboard?tab=history" replace />
           </RequireAuth>
         }
       />
@@ -61,7 +59,7 @@ export default function App() {
         path="/profile"
         element={
           <RequireAuth>
-            <ProfilePage />
+            <Navigate to="/dashboard?tab=profile" replace />
           </RequireAuth>
         }
       />

@@ -1,9 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { api } from "../api";
 import { useToast } from "../components/Toast";
-import Logo from "../components/Logo";
-import ThemeToggle from "../components/ThemeToggle";
 import { QuizIcon, PollIcon } from "../components/icons";
 import { plural } from "../plural";
 
@@ -46,7 +43,8 @@ function HistorySkeleton() {
   );
 }
 
-export default function HistoryPage() {
+// Раздел «История игр»: сыгранные партии + экспорт CSV
+export default function HistorySection() {
   const showToast = useToast();
   const [results, setResults] = useState(null);
 
@@ -69,52 +67,39 @@ export default function HistoryPage() {
   };
 
   return (
-    <div className="page">
-      <header className="page-header">
-        <Link to="/dashboard" className="btn btn-outline">
-          ← В кабинет
-        </Link>
-        <Link to="/" className="logo-link">
-          <Logo />
-        </Link>
-        <div className="spacer" />
-        <ThemeToggle />
-      </header>
-
-      <div className="page-body">
-        <div className="dashboard-head">
-          <h1>История игр</h1>
-        </div>
-
-        {results === null ? (
-          <HistorySkeleton />
-        ) : results.length === 0 ? (
-          <p className="muted">
-            Пока пусто. Запишите сыгранную партию — и её результаты появятся здесь (экспорт в CSV).
-          </p>
-        ) : (
-          <div className="quiz-list">
-            {results.map((r) => (
-              <div className="card quiz-card" key={r.id}>
-                <div>
-                  <h3>{r.quiz_title}</h3>
-                  <p className="muted">
-                    {r.quiz_type === "quiz" ? <QuizIcon className="inline-icon" /> : <PollIcon className="inline-icon" />}{" "}
-                    {r.quiz_type === "quiz" ? "Викторина" : "Голосование"} · {r.players_count}{" "}
-                    {plural(r.players_count, ["игрок", "игрока", "игроков"])} ·{" "}
-                    {new Date(String(r.played_at).replace(" ", "T") + "Z").toLocaleString("ru-RU")}
-                  </p>
-                </div>
-                <div className="quiz-card-actions">
-                  <button className="btn btn-outline" onClick={() => exportCsv(r.id)}>
-                    Экспорт CSV
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+    <>
+      <div className="dashboard-head">
+        <h1>История игр</h1>
       </div>
-    </div>
+
+      {results === null ? (
+        <HistorySkeleton />
+      ) : results.length === 0 ? (
+        <p className="muted">
+          Пока пусто. Запишите сыгранную партию — и её результаты появятся здесь (экспорт в CSV).
+        </p>
+      ) : (
+        <div className="quiz-list">
+          {results.map((r) => (
+            <div className="card quiz-card" key={r.id}>
+              <div>
+                <h3>{r.quiz_title}</h3>
+                <p className="muted">
+                  {r.quiz_type === "quiz" ? <QuizIcon className="inline-icon" /> : <PollIcon className="inline-icon" />}{" "}
+                  {r.quiz_type === "quiz" ? "Викторина" : "Голосование"} · {r.players_count}{" "}
+                  {plural(r.players_count, ["игрок", "игрока", "игроков"])} ·{" "}
+                  {new Date(String(r.played_at).replace(" ", "T") + "Z").toLocaleString("ru-RU")}
+                </p>
+              </div>
+              <div className="quiz-card-actions">
+                <button className="btn btn-outline" onClick={() => exportCsv(r.id)}>
+                  Экспорт CSV
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
   );
 }

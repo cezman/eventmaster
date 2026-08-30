@@ -88,3 +88,32 @@ export const TrophyIcon = (p) => (
     <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
   </Base>
 );
+
+export const UserIcon = (p) => (
+  <Base {...p}>
+    <circle cx="12" cy="8" r="4" />
+    <path d="M5 21c0-3.9 3.1-7 7-7s7 3.1 7 7" />
+  </Base>
+);
+
+export const LockIcon = (p) => (
+  <Base {...p}>
+    <rect x="4" y="11" width="16" height="10" rx="2" />
+    <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+  </Base>
+);
+
+export const HistoryIcon = (p) => (
+  <Base {...p}>
+    <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+    <path d="M3 3v5h5" />
+    <path d="M12 7v5l3 2" />
+  </Base>
+);
+
+export const ShieldIcon = (p) => (
+  <Base {...p}>
+    <path d="M12 2 4 5.5V11c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5.5L12 2Z" />
+  </Base>
+);
+

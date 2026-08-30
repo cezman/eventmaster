@@ -1352,3 +1352,92 @@ input:focus {
     justify-content: center;
   }
 }
+
+/* ---------- Кабинет ведущего ---------- */
+/* сайдбар с разделами + контент; вкладка выбирается через ?tab= */
+.cabinet {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+.cabinet-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: sticky;
+  top: 18px;
+}
+.cabinet-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 14px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--on-bg);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.cabinet-nav-item:hover {
+  background: var(--chip-bg);
+}
+.cabinet-nav-item.active {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  padding: 10px 13px; /* компенсация рамки, чтобы не прыгало */
+  color: var(--primary);
+}
+.cabinet-nav-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.cabinet-user {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.3;
+}
+.cabinet-user b {
+  font-weight: 700;
+}
+.cabinet-card {
+  width: 100%;
+  max-width: 560px;
+  /* карточки всегда белые — текст внутри тёмный независимо от темы страницы */
+  color: var(--ink);
+}
+.cabinet-email {
+  margin-top: 14px;
+  /* лежит на фоне страницы, а не на карточке — нужен «фоновый» muted */
+  color: var(--muted-on-bg);
+}
+@media (max-width: 760px) {
+  .cabinet {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  /* на телефоне сайдбар превращается в горизонтальную ленту вкладок */
+  .cabinet-nav {
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .cabinet-nav-item {
+    width: auto;
+    white-space: nowrap;
+  }
+  .cabinet-nav-item.active {
+    padding: 9px 12px;
+  }
+  .cabinet-user {
+    display: none; /* в узкой шапке имя/email не влезают, логин виден в разделе «Личные данные» */
+  }
+}
