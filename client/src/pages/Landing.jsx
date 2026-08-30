@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth";
 import Logo from "../components/Logo";
+import ThemeToggle from "../components/ThemeToggle";
 import { QuizIcon, PollIcon, QrPhoneIcon, GamepadIcon, ImageIcon, ChartIcon } from "../components/icons";
 
 export default function Landing() {
@@ -20,6 +21,7 @@ export default function Landing() {
       <header className="landing-header">
         <Logo />
         <nav>
+          <ThemeToggle />
           {user ? (
             <Link className="btn btn-outline" to="/dashboard">
               Мои игры

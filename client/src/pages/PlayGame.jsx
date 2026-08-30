@@ -4,6 +4,7 @@ import { getSocket } from "../socket";
 import PlayerAvatar, { parseAvatar } from "../components/PlayerAvatar";
 import Dropdown from "../components/Dropdown";
 import { ClockIcon, PollIcon } from "../components/icons";
+import confetti from "canvas-confetti";
 import {
   NAME_COLORS,
   REACTION_EMOJIS,
@@ -92,6 +93,18 @@ export default function PlayGame() {
   const myName = (sessionStorage.getItem("playerName") || "").trim();
   const myColor = Number(sessionStorage.getItem("playerColor") ?? 0);
   const myAvatar = parseAvatar(sessionStorage.getItem("playerAvatar")) || DEFAULT_AVATAR;
+
+  // салют при финале — громче, если игрок в топ-3
+  useEffect(() => {
+    if (!final) return;
+    const place = final.leaderboard.findIndex((p) => p.name === myName);
+    if (place < 0 || place > 2) return;
+    confetti({
+      particleCount: place === 0 ? 220 : 130,
+      spread: place === 0 ? 100 : 70,
+      origin: { y: 0.6 },
+    });
+  }, [final, myName]);
 
   const patchAvatar = (patch) => setAvatar((cur) => ({ ...cur, ...patch }));
 

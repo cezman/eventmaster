@@ -7,6 +7,7 @@ import { NAME_COLORS } from "../customize";
 import PlayerAvatar from "../components/PlayerAvatar";
 import Logo from "../components/Logo";
 import { ClockIcon, TrophyIcon } from "../components/icons";
+import confetti from "canvas-confetti";
 
 const ANSWER_LABELS = ["A", "B", "C", "D"];
 
@@ -119,6 +120,13 @@ export default function HostGame() {
       QRCode.toCanvas(canvasRef.current, joinUrl, { width: 220, margin: 1 }, () => {});
     }
   }, [joinUrl, game?.state]);
+
+  // салют на большом экране, когда игра завершена
+  useEffect(() => {
+    if (final) {
+      confetti({ particleCount: 260, spread: 110, origin: { y: 0.5 } });
+    }
+  }, [final]);
 
   if (error) {
     return (
