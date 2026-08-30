@@ -14,10 +14,10 @@ export default function ConfirmDialog({ title, text, confirmLabel = "Удали�
         <h3>{title}</h3>
         {text && <p className="muted">{text}</p>}
         <div className="notfound-actions">
-          <button className={`btn ${danger ? "btn-danger" : "btn-primary"}`} autoFocus onClick={onConfirm}>
+          <button className={`btn ${danger ? "btn-danger" : "btn-primary"}`} onClick={onConfirm}>
             {confirmLabel}
           </button>
-          <button className="btn btn-outline" onClick={onCancel}>
+          <button className="btn btn-outline" autoFocus onClick={onCancel}>
             Отмена
           </button>
         </div>

@@ -37,11 +37,13 @@ export default function QuizEditor() {
   if (!quiz) {
     return (
       <div className="page page-body">
-        <div className="skeleton-stack">
-          <div className="skeleton" style={{ width: "35%" }} />
-          <div className="skeleton" style={{ width: "80%" }} />
-          <div className="skeleton" style={{ width: "80%" }} />
-          <div className="skeleton" style={{ width: "60%" }} />
+        <div className="card">
+          <div className="skeleton-stack">
+            <div className="skeleton" style={{ width: "35%" }} />
+            <div className="skeleton" style={{ width: "80%" }} />
+            <div className="skeleton" style={{ width: "80%" }} />
+            <div className="skeleton" style={{ width: "60%" }} />
+          </div>
         </div>
       </div>
     );
@@ -60,7 +62,6 @@ export default function QuizEditor() {
 
   const removeQuestion = (qi) => {
     setQuiz((cur) => ({ ...cur, questions: cur.questions.filter((_, i) => i !== qi) }));
-    setSaved(false);
   };
 
   const patchAnswer = (qi, ai, patch) => {

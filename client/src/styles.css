@@ -82,7 +82,7 @@ input:focus {
 .logo {
   font-weight: 700;
   font-size: 18px;
-  color: #fff;
+  color: var(--on-bg);
   letter-spacing: 0.5px;
   display: inline-flex;
   align-items: center;
@@ -967,7 +967,7 @@ input:focus {
   align-items: center;
   justify-content: center;
   gap: 14px;
-  color: #fff;
+  color: var(--on-bg);
   padding: 24px;
   text-align: center;
 }
@@ -1097,7 +1097,7 @@ input:focus {
   color: var(--muted-on-bg);
 }
 .notfound .muted {
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--muted-on-bg);
 }
 .notfound-actions {
   display: flex;
