@@ -8,6 +8,7 @@ import QuizEditor from "./pages/QuizEditor";
 import HostGame from "./pages/HostGame";
 import PlayGame from "./pages/PlayGame";
 import NotFound from "./pages/NotFound";
+import ProfilePage from "./pages/ProfilePage";
 
 function RequireAuth({ children }) {
   const { token } = useAuth();
@@ -35,6 +36,14 @@ export default function App() {
         element={
           <RequireAuth>
             <QuizEditor />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <RequireAuth>
+            <ProfilePage />
           </RequireAuth>
         }
       />

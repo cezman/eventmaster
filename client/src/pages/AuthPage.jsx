@@ -11,6 +11,8 @@ export default function AuthPage({ mode }) {
   const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [surname, setSurname] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -19,9 +21,10 @@ export default function AuthPage({ mode }) {
     setError("");
     setBusy(true);
     try {
+      const body = isRegister ? { email, password, name, surname } : { email, password };
       const data = await api(`/auth/${isRegister ? "register" : "login"}`, {
         method: "POST",
-        body: { email, password },
+        body,
       });
       signIn(data.token, data.user);
       navigate(location.state?.from || "/dashboard");
@@ -59,6 +62,18 @@ export default function AuthPage({ mode }) {
             required
           />
         </label>
+        {isRegister && (
+          <div className="picker-row">
+            <label>
+              Имя
+              <input maxLength={30} value={name} onChange={(e) => setName(e.target.value)} placeholder="Анна" />
+            </label>
+            <label>
+              Фамилия
+              <input maxLength={30} value={surname} onChange={(e) => setSurname(e.target.value)} placeholder="Петрова" />
+            </label>
+          </div>
+        )}
         {error && <div className="error">{error}</div>}
         <button className="btn btn-primary btn-lg" disabled={busy}>
           {busy ? "..." : isRegister ? "Создать аккаунт" : "Войти"}

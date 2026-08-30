@@ -57,3 +57,11 @@ try {
 } catch {
   // колонка уже есть
 }
+// профиль ведущего (EM-11): имя/фамилия для лобби игроков, аватар — JSON BigHead
+for (const col of ["name", "surname", "avatar"]) {
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN ${col} TEXT NOT NULL DEFAULT ''`);
+  } catch {
+    // колонка уже есть
+  }
+}

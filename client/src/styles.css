@@ -392,6 +392,13 @@ input:focus {
   flex-wrap: wrap;
 }
 
+.profile-body {
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
 /* ---------- Редактор ---------- */
 .editor {
   display: flex;

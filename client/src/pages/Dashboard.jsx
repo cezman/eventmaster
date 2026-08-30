@@ -82,6 +82,9 @@ export default function Dashboard() {
           <Logo />
         </Link>
         <div className="spacer" />
+        <Link to="/profile" className="btn btn-outline">
+          Профиль{user?.name ? `: ${[user.name, user.surname].filter(Boolean).join(" ")}` : ""}
+        </Link>
         <span className="muted">{user?.email}</span>
         <ThemeToggle />
         <button className="btn btn-outline" onClick={signOut}>

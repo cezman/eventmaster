@@ -27,13 +27,16 @@ export function AuthProvider({ children }) {
     setUser(u);
   };
 
+  // после сохранения профиля — обновляем пользователя на месте, без перелогина
+  const updateUser = (u) => setUser(u);
+
   const signOut = () => {
     localStorage.removeItem("token");
     setToken(null);
     setUser(null);
   };
 
-  return <AuthContext.Provider value={{ token, user, signIn, signOut }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ token, user, signIn, signOut, updateUser }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

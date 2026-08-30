@@ -160,6 +160,7 @@ export function registerGameHandlers(io) {
         if (g.quizId === quiz.id && g.hostId === hostId) deleteGame(io, g);
       }
 
+      const host = db.prepare("SELECT name, surname, avatar FROM users WHERE id = ?").get(hostId);
       const game = {
         pin: makePin(),
         quizId: quiz.id,
@@ -167,6 +168,8 @@ export function registerGameHandlers(io) {
         type: quiz.type,
         hostId,
         hostSocketId: socket.id,
+        hostName: [host?.name, host?.surname].filter(Boolean).join(" "),
+        hostAvatar: typeof host?.avatar === "string" ? host.avatar.slice(0, 500) : "",
         state: "lobby",
         qIndex: -1,
         questionStart: 0,
@@ -204,7 +207,7 @@ export function registerGameHandlers(io) {
       });
       socket.join(`game:${game.pin}`);
       socket.data.gamePin = game.pin;
-      ack({ ok: true, type: game.type, state: game.state });
+      ack({ ok: true, type: game.type, state: game.state, hostName: game.hostName || "" });
       broadcastPlayers(io, game);
       if (game.state === "question") socket.emit("question", questionForRoom(game));
       if (game.state === "reveal") reveal(io, game);
