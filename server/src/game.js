@@ -20,6 +20,26 @@ function leaderboard(game) {
     .slice(0, 10);
 }
 
+// полный список без топ-10 — для истории игр
+function fullLeaderboard(game) {
+  return [...game.players.values()]
+    .map((p) => ({ name: p.name, score: p.score }))
+    .sort((a, b) => b.score - a.score);
+}
+
+// сохраняем партию в историю; один раз за раунд, флаг сбрасывается в play-again
+function recordResult(game) {
+  if (game.recorded) return;
+  try {
+    db.prepare(
+      "INSERT INTO game_results (host_id, quiz_id, quiz_title, quiz_type, players_count, results) VALUES (?, ?, ?, ?, ?, ?)"
+    ).run(game.hostId, game.quizId, game.title, game.type, game.players.size, JSON.stringify(fullLeaderboard(game)));
+    game.recorded = true;
+  } catch (e) {
+    console.error("Не удалось сохранить результат игры:", e.message);
+  }
+}
+
 function playersList(game) {
   return [...game.players.values()].map((p) => ({
     name: p.name,
@@ -177,6 +197,7 @@ export function registerGameHandlers(io) {
         quiz: { title: quiz.title, questions: fullQuestions },
         players: new Map(),
         closeTimer: null,
+        recorded: false,
       };
       games.set(game.pin, game);
       socket.join(`game:${game.pin}`);
@@ -267,6 +288,7 @@ export function registerGameHandlers(io) {
         startQuestion(io, game);
       } else {
         game.state = "finished";
+        recordResult(game);
         io.to(`game:${game.pin}`).emit("finished", {
           leaderboard: leaderboard(game),
           players: playersList(game),
@@ -280,6 +302,7 @@ export function registerGameHandlers(io) {
       stopRevealTimer(game);
       game.state = "lobby";
       game.qIndex = -1;
+      game.recorded = false;
       for (const p of game.players.values()) {
         p.score = 0;
         p.answer = null;
@@ -293,6 +316,8 @@ export function registerGameHandlers(io) {
     socket.on("host:end", () => {
       const game = hostGame(socket);
       if (!game) return;
+      // игра шла хотя бы один вопрос и был хотя бы один игрок — сохраняем в историю
+      if (game.qIndex >= 0 && game.players.size > 0) recordResult(game);
       deleteGame(io, game);
     });
 
