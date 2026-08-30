@@ -199,16 +199,18 @@ export default function QuizEditor() {
                 {["Правда", "Ложь"].map((label, ai) => (
                   <div className={`answer-edit c${ai}`} key={label}>
                     <input value={label} readOnly aria-label={label} />
-                    <label className="correct-check" title="Правильный ответ">
-                      <input
-                        type="radio"
-                        name={`correct-${qi}`}
-                        checked={!!q.answers[ai]?.is_correct}
-                        onChange={() => setCorrect(qi, ai)}
-                        aria-label={`${label} — отметить правильным`}
-                      />
-                      ✓
-                    </label>
+                    {quiz.type === "quiz" && (
+                      <label className="correct-check" title="Правильный ответ">
+                        <input
+                          type="radio"
+                          name={`correct-${qi}`}
+                          checked={!!q.answers[ai]?.is_correct}
+                          onChange={() => setCorrect(qi, ai)}
+                          aria-label={`${label} — отметить правильным`}
+                        />
+                        ✓
+                      </label>
+                    )}
                   </div>
                 ))}
               </div>

@@ -881,6 +881,11 @@ input:focus {
 .time-label .dd {
   width: 110px;
 }
+/* дропдаун «Формат» в редакторе — длиннее лейблы, даём расти по контенту */
+.question-settings .dd {
+  width: auto;
+  min-width: 110px;
+}
 .question-settings {
   display: flex;
   align-items: center;
@@ -915,6 +920,7 @@ input:focus {
   background: #fff;
   cursor: pointer;
   color: var(--ink);
+  white-space: nowrap;
 }
 .dd.open .dd-toggle,
 .dd-toggle:focus-visible {
