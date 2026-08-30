@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api";
+import { useAuth } from "../auth";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { useToast } from "../components/Toast";
 import { QuizIcon, PollIcon } from "../components/icons";
@@ -23,11 +24,17 @@ function QuizListSkeleton() {
   );
 }
 
+// кеш между монтированиями вкладки, привязан к userId (после выхода чужой список не показать):
+// повторный заход показывает список сразу, свежие данные тихо догружаются в фоне
+let quizzesCache = null; // { userId, data }
+
 // Раздел «Мероприятия»: список квизов/опросов + создание
 export default function GamesSection() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const showToast = useToast();
-  const [quizzes, setQuizzes] = useState(null);
+  const cached = quizzesCache && quizzesCache.userId === user?.id ? quizzesCache.data : null;
+  const [quizzes, setQuizzes] = useState(cached);
   const [showForm, setShowForm] = useState(false);
   const [confirmId, setConfirmId] = useState(null);
   const [title, setTitle] = useState("");
@@ -37,13 +44,17 @@ export default function GamesSection() {
 
   const load = () => {
     api("/quizzes", { token: localStorage.getItem("token") })
-      .then((d) => setQuizzes(d.quizzes))
+      .then((d) => {
+        if (user?.id == null) { setQuizzes(d.quizzes); return; } // user не загружен — не кешируем
+        quizzesCache = { userId: user.id, data: d.quizzes };
+        setQuizzes(d.quizzes);
+      })
       .catch((e) => {
-        setQuizzes([]);
+        if (cached === null) setQuizzes([]);
         showToast(`Не удалось загрузить квизы: ${e.message}`, "error");
       });
   };
-  useEffect(load, []);
+  useEffect(load, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const create = async (e) => {
     e.preventDefault();

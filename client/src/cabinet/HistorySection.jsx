@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../api";
+import { useAuth } from "../auth";
 import { useToast } from "../components/Toast";
 import { QuizIcon, PollIcon } from "../components/icons";
 import { plural } from "../plural";
@@ -43,19 +44,29 @@ function HistorySkeleton() {
   );
 }
 
+// кеш между монтированиями вкладки, привязан к userId: повторный заход открывает
+// историю мгновенно, свежие данные тихо догружаются в фоне
+let resultsCache = null; // { userId, data }
+
 // Раздел «История игр»: сыгранные партии + экспорт CSV
 export default function HistorySection() {
+  const { user } = useAuth();
   const showToast = useToast();
-  const [results, setResults] = useState(null);
+  const cached = resultsCache && resultsCache.userId === user?.id ? resultsCache.data : null;
+  const [results, setResults] = useState(cached);
 
   useEffect(() => {
     api("/results", { token: localStorage.getItem("token") })
-      .then((d) => setResults(d.results))
+      .then((d) => {
+        if (user?.id == null) { setResults(d.results); return; } // user не загружен — не кешируем
+        resultsCache = { userId: user.id, data: d.results };
+        setResults(d.results);
+      })
       .catch((e) => {
-        setResults([]);
+        if (cached === null) setResults([]);
         showToast(`Не удалось загрузить историю: ${e.message}`, "error");
       });
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const exportCsv = async (id) => {
     try {
