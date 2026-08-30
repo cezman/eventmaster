@@ -144,7 +144,16 @@ export default function Dashboard() {
         {quizzes === null ? (
           <QuizListSkeleton />
         ) : quizzes.length === 0 ? (
-          <p className="muted">Пока пусто. Создайте первую викторину или голосование!</p>
+          <div className="empty-state">
+            <QuizIcon />
+            <h3>Здесь пока пусто</h3>
+            <p>Создайте первую викторину или голосование — это пара минут. Гости подключатся по QR-коду или PIN.</p>
+            {!showForm && (
+              <button className="btn btn-primary btn-lg" onClick={() => setShowForm(true)}>
+                + Создать игру
+              </button>
+            )}
+          </div>
         ) : (
           <div className="quiz-list">
             {quizzes.map((q) => (
