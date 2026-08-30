@@ -6,3 +6,4 @@ server/data/
 demo-pin.txt
 AGENTS.md
 ROADMAP.md
+*.log
