@@ -12,6 +12,27 @@
   --c3: #26890c;
   --ok: #26890c;
   --bad: #e21b3c;
+  /* тёмная тема (брендовая): поверхности поверх градиентного фона */
+  --bg-a: var(--accent2);
+  --bg-b: var(--bg);
+  --on-bg: #ffffff;            /* текст на градиентном фоне */
+  --muted-on-bg: #cfc8f2;      /* приглушённый текст на фоне */
+  --chip-bg: rgba(255, 255, 255, 0.12);
+  --chip-bg-hover: rgba(255, 255, 255, 0.22);
+  --chip-border: rgba(255, 255, 255, 0.25);
+  --panel-bg: rgba(255, 255, 255, 0.08);
+  --panel-border: rgba(255, 255, 255, 0.12);
+}
+[data-theme="light"] {
+  --bg-a: #b3a6e8;
+  --bg-b: #8f7fd6;
+  --on-bg: var(--ink);
+  --muted-on-bg: #5d5884;
+  --chip-bg: rgba(28, 17, 71, 0.07);
+  --chip-bg-hover: rgba(28, 17, 71, 0.14);
+  --chip-border: rgba(28, 17, 71, 0.18);
+  --panel-bg: rgba(255, 255, 255, 0.7);
+  --panel-border: rgba(28, 17, 71, 0.1);
 }
 
 * {
@@ -21,7 +42,7 @@
 body {
   margin: 0;
   font-family: "Manrope", "Segoe UI", system-ui, -apple-system, sans-serif;
-  background: radial-gradient(circle at 20% 10%, var(--accent2), var(--bg) 60%);
+  background: radial-gradient(circle at 20% 10%, var(--bg-a), var(--bg-b) 60%);
   color: var(--ink);
   min-height: 100vh;
 }
@@ -61,7 +82,7 @@ input:focus {
 .logo {
   font-weight: 700;
   font-size: 18px;
-  color: #fff;
+  color: var(--on-bg);
   letter-spacing: 0.5px;
   display: inline-flex;
   align-items: center;
@@ -182,7 +203,7 @@ input:focus {
 /* ---------- Лендинг ---------- */
 .landing {
   min-height: 100vh;
-  color: #fff;
+  color: var(--on-bg);
   padding: 0 6vw;
 }
 .landing-header {
@@ -195,9 +216,10 @@ input:focus {
   margin-left: auto;
   display: flex;
   gap: 12px;
+  align-items: center;
 }
 .landing-header .btn-outline {
-  color: #fff;
+  color: var(--on-bg);
 }
 .landing-main {
   max-width: 1100px;
@@ -210,7 +232,7 @@ input:focus {
   margin: 24px 0 10px;
 }
 .subtitle {
-  color: #cfc8f2;
+  color: var(--muted-on-bg);
   font-size: 18px;
   max-width: 640px;
   margin: 0 auto 30px;
@@ -238,11 +260,11 @@ input:focus {
   text-align: left;
 }
 .feature-card {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: var(--chip-bg);
+  border: 1px solid var(--chip-border);
   border-radius: 16px;
   padding: 22px;
-  color: #fff;
+  color: var(--on-bg);
 }
 .feature-card.placeholder {
   opacity: 0.65;
@@ -252,14 +274,14 @@ input:focus {
   height: 36px;
 }
 .feature-icon {
-  color: #fff;
+  color: var(--on-bg);
 }
 .feature-card h3 {
   margin: 10px 0 6px;
 }
 .feature-card p {
   margin: 0 0 12px;
-  color: #cfc8f2;
+  color: var(--muted-on-bg);
   font-size: 14px;
 }
 
@@ -290,7 +312,7 @@ input:focus {
 /* ---------- Общие страницы ---------- */
 .page {
   min-height: 100vh;
-  color: #fff;
+  color: var(--on-bg);
   padding: 0 5vw 60px;
 }
 .page-header {
@@ -300,7 +322,7 @@ input:focus {
   padding: 18px 0;
 }
 .page-header .btn-outline {
-  color: #fff;
+  color: var(--on-bg);
 }
 .page-body {
   max-width: 900px;
@@ -455,9 +477,9 @@ input:focus {
 /* ---------- Экран ведущего ---------- */
 .host-screen {
   min-height: 100vh;
-  color: #fff;
+  color: var(--on-bg);
   padding: 0 4vw 50px;
-  background: radial-gradient(circle at 80% 0%, #46178f, #241663 55%);
+  background: radial-gradient(circle at 80% 0%, var(--bg-a), var(--bg-b) 55%);
 }
 .host-header {
   display: flex;
@@ -510,8 +532,8 @@ input:focus {
 .player-chip {
   display: inline-flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: var(--chip-bg);
+  border: 1px solid var(--chip-border);
   padding: 8px 16px;
   border-radius: 999px;
   font-weight: 600;
@@ -526,7 +548,7 @@ input:focus {
   text-align: center;
 }
 .q-meta {
-  color: #cfc8f2;
+  color: var(--muted-on-bg);
   font-weight: 600;
   margin-bottom: 8px;
 }
@@ -570,7 +592,7 @@ input:focus {
   grid-template-columns: minmax(140px, 2fr) 3fr 50px;
   align-items: center;
   gap: 12px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--panel-bg);
   border-radius: 10px;
   padding: 10px 14px;
   text-align: left;
@@ -586,7 +608,7 @@ input:focus {
   white-space: nowrap;
 }
 .result-bar-wrap {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--chip-bg);
   border-radius: 6px;
   height: 22px;
   overflow: hidden;
@@ -610,7 +632,7 @@ input:focus {
   max-width: 520px;
   width: min(520px, 100%);
   margin: 0 auto 26px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--panel-bg);
   border-radius: 14px;
   padding: 20px;
 }
@@ -624,7 +646,7 @@ input:focus {
   align-items: center;
   gap: 12px;
   padding: 10px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid var(--panel-border);
   font-size: 19px;
 }
 .board-row:last-child {
@@ -636,7 +658,7 @@ input:focus {
 }
 .board.mini {
   margin-top: 14px;
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--chip-bg);
 }
 
 /* ---------- Таймер ---------- */
@@ -720,15 +742,15 @@ input:focus {
 }
 .reaction-btn {
   font-size: 28px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: var(--chip-bg);
+  border: 1px solid var(--chip-border);
   border-radius: 14px;
   padding: 10px 16px;
   cursor: pointer;
   transition: transform 0.08s ease, background 0.15s;
 }
 .reaction-btn:hover {
-  background: rgba(255, 255, 255, 0.22);
+  background: var(--chip-bg-hover);
 }
 .reaction-btn:active {
   transform: scale(0.85);
@@ -945,7 +967,7 @@ input:focus {
   align-items: center;
   justify-content: center;
   gap: 14px;
-  color: #fff;
+  color: var(--on-bg);
   padding: 24px;
   text-align: center;
 }
@@ -1004,7 +1026,7 @@ input:focus {
 .answer-btn.c2 { background: var(--c2); }
 .answer-btn.c3 { background: var(--c3); }
 .wait-box {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--chip-bg);
   border-radius: 14px;
   padding: 30px;
   font-size: 20px;
@@ -1024,8 +1046,8 @@ input:focus {
 .spin {
   width: 40px;
   height: 40px;
-  border: 5px solid rgba(255, 255, 255, 0.25);
-  border-top-color: #fff;
+  border: 5px solid var(--chip-border);
+  border-top-color: var(--on-bg);
   border-radius: 50%;
   animation: rotate 0.9s linear infinite;
 }
@@ -1059,7 +1081,7 @@ input:focus {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  color: #fff;
+  color: var(--on-bg);
   text-align: center;
   padding: 20px;
 }
@@ -1068,10 +1090,14 @@ input:focus {
   font-weight: 900;
   letter-spacing: 4px;
   line-height: 1;
-  color: rgba(255, 255, 255, 0.18);
+  color: var(--on-bg);
+  opacity: 0.2;
 }
 .notfound .muted {
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--muted-on-bg);
+}
+.notfound .muted {
+  color: var(--muted-on-bg);
 }
 .notfound-actions {
   display: flex;
@@ -1081,7 +1107,87 @@ input:focus {
   margin-top: 8px;
 }
 .notfound .btn-outline {
-  color: #fff;
+  color: var(--on-bg);
+}
+
+/* ---------- Тосты ---------- */
+.toast-stack {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 100;
+}
+.toast {
+  background: var(--card);
+  color: var(--ink);
+  border-radius: 12px;
+  padding: 12px 18px;
+  font-weight: 600;
+  box-shadow: 0 10px 30px rgba(28, 17, 71, 0.35);
+  border-left: 5px solid var(--accent2);
+  max-width: 320px;
+  animation: pop 0.25s ease;
+}
+.toast-ok {
+  border-left-color: var(--ok);
+}
+.toast-error {
+  border-left-color: var(--bad);
+}
+
+/* ---------- Диалог подтверждения ---------- */
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 10, 50, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 90;
+  padding: 20px;
+}
+.dialog {
+  width: min(400px, 94vw);
+}
+.dialog h3 {
+  margin-top: 0;
+}
+.dialog p {
+  margin-top: 0;
+}
+
+/* ---------- Skeleton-загрузки ---------- */
+.skeleton {
+  height: 16px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #e6e2f2 25%, #f3f0fa 50%, #e6e2f2 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+.skeleton-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+.skeleton-btn {
+  height: 40px;
+  width: 110px;
+  flex-shrink: 0;
+}
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+/* ---------- Переключатель темы ---------- */
+.theme-toggle {
+  font-size: 17px;
+  line-height: 1;
+  padding: 8px 12px;
 }
 
 /* ---------- Адаптив ---------- */

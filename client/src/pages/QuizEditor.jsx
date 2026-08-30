@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
 import { TIME_OPTIONS } from "../customize";
 import Dropdown from "../components/Dropdown";
+import { useToast } from "../components/Toast";
 import { QuizIcon, PollIcon, ClockIcon, TrophyIcon } from "../components/icons";
 
 const ANSWER_COLORS = ["🔴", "🔵", "🟡", "🟢"];
@@ -21,9 +22,9 @@ function emptyQuestion() {
 
 export default function QuizEditor() {
   const { id } = useParams();
+  const showToast = useToast();
   const [quiz, setQuiz] = useState(null);
   const [error, setError] = useState("");
-  const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -33,24 +34,34 @@ export default function QuizEditor() {
   }, [id]);
 
   if (error) return <div className="page"><p className="error">{error}</p><Link to="/dashboard">Назад</Link></div>;
-  if (!quiz) return <div className="page"><p className="muted">Загрузка…</p></div>;
+  if (!quiz) {
+    return (
+      <div className="page page-body">
+        <div className="card">
+          <div className="skeleton-stack">
+            <div className="skeleton" style={{ width: "35%" }} />
+            <div className="skeleton" style={{ width: "80%" }} />
+            <div className="skeleton" style={{ width: "80%" }} />
+            <div className="skeleton" style={{ width: "60%" }} />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const patchQuestion = (qi, patch) => {
     setQuiz((cur) => {
       const questions = cur.questions.map((q, i) => (i === qi ? { ...q, ...patch } : q));
       return { ...cur, questions };
     });
-    setSaved(false);
   };
 
   const addQuestion = () => {
     setQuiz((cur) => ({ ...cur, questions: [...cur.questions, emptyQuestion()] }));
-    setSaved(false);
   };
 
   const removeQuestion = (qi) => {
     setQuiz((cur) => ({ ...cur, questions: cur.questions.filter((_, i) => i !== qi) }));
-    setSaved(false);
   };
 
   const patchAnswer = (qi, ai, patch) => {
@@ -76,7 +87,6 @@ export default function QuizEditor() {
   };
 
   const save = async () => {
-    setError("");
     setBusy(true);
     try {
       const d = await api(`/quizzes/${id}`, {
@@ -85,9 +95,9 @@ export default function QuizEditor() {
         body: { title: quiz.title, questions: quiz.questions },
       });
       setQuiz(d.quiz);
-      setSaved(true);
+      showToast("Сохранено", "ok");
     } catch (e) {
-      setError(e.message);
+      showToast(`Не сохранено: ${e.message}`, "error");
     } finally {
       setBusy(false);
     }
@@ -110,10 +120,7 @@ export default function QuizEditor() {
           Название
           <input
             value={quiz.title}
-            onChange={(e) => {
-              setQuiz({ ...quiz, title: e.target.value });
-              setSaved(false);
-            }}
+            onChange={(e) => setQuiz({ ...quiz, title: e.target.value })}
           />
         </label>
 
@@ -209,8 +216,6 @@ export default function QuizEditor() {
           <button className="btn btn-primary btn-lg" onClick={save} disabled={busy}>
             {busy ? "Сохраняю…" : "Сохранить"}
           </button>
-          {saved && <span className="ok">Сохранено ✓</span>}
-          {error && <span className="error">{error}</span>}
         </div>
 
         {quiz.questions.length > 0 && (

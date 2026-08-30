@@ -3,13 +3,35 @@ import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import Logo from "../components/Logo";
+import ThemeToggle from "../components/ThemeToggle";
+import ConfirmDialog from "../components/ConfirmDialog";
+import { useToast } from "../components/Toast";
 import { QuizIcon, PollIcon } from "../components/icons";
+
+// 3 карточки-заглушки на время загрузки списка
+function QuizListSkeleton() {
+  return (
+    <div className="quiz-list">
+      {[0, 1, 2].map((i) => (
+        <div className="card quiz-card" key={i}>
+          <div className="skeleton-stack">
+            <div className="skeleton" style={{ width: "45%" }} />
+            <div className="skeleton" style={{ width: "70%" }} />
+          </div>
+          <div className="skeleton skeleton-btn" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const showToast = useToast();
   const [quizzes, setQuizzes] = useState(null);
   const [showForm, setShowForm] = useState(false);
+  const [confirmId, setConfirmId] = useState(null);
   const [title, setTitle] = useState("");
   const [type, setType] = useState("quiz");
   const [error, setError] = useState("");
@@ -18,7 +40,10 @@ export default function Dashboard() {
   const load = () => {
     api("/quizzes", { token: localStorage.getItem("token") })
       .then((d) => setQuizzes(d.quizzes))
-      .catch(() => setQuizzes([]));
+      .catch((e) => {
+        setQuizzes([]);
+        showToast(`Не удалось загрузить квизы: ${e.message}`, "error");
+      });
   };
   useEffect(load, []);
 
@@ -40,8 +65,13 @@ export default function Dashboard() {
   };
 
   const remove = async (id) => {
-    if (!confirm("Удалить безвозвратно?")) return;
-    await api(`/quizzes/${id}`, { method: "DELETE", token: localStorage.getItem("token") });
+    setConfirmId(null);
+    try {
+      await api(`/quizzes/${id}`, { method: "DELETE", token: localStorage.getItem("token") });
+      showToast("Квиз удалён", "ok");
+    } catch (e) {
+      showToast(`Не удалось удалить: ${e.message}`, "error");
+    }
     load();
   };
 
@@ -53,6 +83,7 @@ export default function Dashboard() {
         </Link>
         <div className="spacer" />
         <span className="muted">{user?.email}</span>
+        <ThemeToggle />
         <button className="btn btn-outline" onClick={signOut}>
           Выйти
         </button>
@@ -97,7 +128,7 @@ export default function Dashboard() {
         )}
 
         {quizzes === null ? (
-          <p className="muted">Загрузка…</p>
+          <QuizListSkeleton />
         ) : quizzes.length === 0 ? (
           <p className="muted">Пока пусто. Создайте первую викторину или голосование!</p>
         ) : (
@@ -120,13 +151,22 @@ export default function Dashboard() {
                   <Link className="btn btn-outline" to={`/quiz/${q.id}`}>
                     Редактировать
                   </Link>
-                  <button className="btn btn-danger" onClick={() => remove(q.id)}>
+                  <button className="btn btn-danger" onClick={() => setConfirmId(q.id)}>
                     Удалить
                   </button>
                 </div>
               </div>
             ))}
           </div>
+        )}
+
+        {confirmId != null && (
+          <ConfirmDialog
+            title="Удалить квиз?"
+            text="Квиз будет удалён безвозвратно, вместе со всеми вопросами."
+            onConfirm={() => remove(confirmId)}
+            onCancel={() => setConfirmId(null)}
+          />
         )}
       </div>
     </div>
