@@ -1,38 +1,42 @@
 :root {
-  --bg: #241663;
-  --bg2: #1a0f4d;
+  /* палитра: глубокий чернильно-синий фон + синий primary + янтарный акцент */
+  --bg: #0b1120;
+  --bg2: #16233f;
   --card: #ffffff;
-  --ink: #1c1147;
-  --muted: #7a76a0;
-  --accent: #ff3355;
-  --accent2: #46178f;
-  --c0: #e21b3c;
-  --c1: #1368ce;
-  --c2: #d89e00;
-  --c3: #26890c;
-  --ok: #26890c;
-  --bad: #e21b3c;
-  /* тёмная тема (брендовая): поверхности поверх градиентного фона */
-  --bg-a: var(--accent2);
+  --ink: #101828;
+  --muted: #5d6b84;
+  --primary: #2e6bff;        /* CTA, ссылки, фокусы */
+  --primary-strong: #1d51d8; /* hover */
+  --accent: var(--primary);  /* историческое имя, теперь = primary */
+  --accent2: #1d51d8;        /* рамки фокуса, чеки в дропдаунах */
+  --highlight: #ffd23a;      /* янтарный: акцент слова в заголовке, таймер, победитель */
+  --c0: #e5484d;             /* цвета ответов A-D */
+  --c1: #2e6bff;
+  --c2: #e79d13;
+  --c3: #2fb344;
+  --ok: #2fb344;
+  --bad: #e5484d;
+  /* тёмная тема (по умолчанию): поверхности поверх градиентного фона */
+  --bg-a: var(--bg2);
   --bg-b: var(--bg);
-  --on-bg: #ffffff;            /* текст на градиентном фоне */
-  --muted-on-bg: #cfc8f2;      /* приглушённый текст на фоне */
-  --chip-bg: rgba(255, 255, 255, 0.12);
-  --chip-bg-hover: rgba(255, 255, 255, 0.22);
-  --chip-border: rgba(255, 255, 255, 0.25);
-  --panel-bg: rgba(255, 255, 255, 0.08);
+  --on-bg: #f4f7ff;            /* текст на градиентном фоне */
+  --muted-on-bg: #9fb0d0;      /* приглушённый текст на фоне */
+  --chip-bg: rgba(255, 255, 255, 0.08);
+  --chip-bg-hover: rgba(255, 255, 255, 0.16);
+  --chip-border: rgba(255, 255, 255, 0.22);
+  --panel-bg: rgba(255, 255, 255, 0.07);
   --panel-border: rgba(255, 255, 255, 0.12);
 }
 [data-theme="light"] {
-  --bg-a: #b3a6e8;
-  --bg-b: #8f7fd6;
-  --on-bg: var(--ink);
-  --muted-on-bg: #5d5884;
-  --chip-bg: rgba(28, 17, 71, 0.07);
-  --chip-bg-hover: rgba(28, 17, 71, 0.14);
-  --chip-border: rgba(28, 17, 71, 0.18);
-  --panel-bg: rgba(255, 255, 255, 0.7);
-  --panel-border: rgba(28, 17, 71, 0.1);
+  --bg-a: #dfe7f7;
+  --bg-b: #bccbe8;
+  --on-bg: #16233f;
+  --muted-on-bg: #45557a;
+  --chip-bg: rgba(16, 24, 40, 0.06);
+  --chip-bg-hover: rgba(16, 24, 40, 0.12);
+  --chip-border: rgba(16, 24, 40, 0.16);
+  --panel-bg: rgba(255, 255, 255, 0.72);
+  --panel-border: rgba(16, 24, 40, 0.1);
 }
 
 * {
@@ -47,12 +51,14 @@ body {
   min-height: 100vh;
 }
 
-/* Unbounded — айдентика (заголовки, логотип); текст вопросов остаётся на Manrope — читаемее */
-h1, h2, .logo, .notfound-code, .pin {
-  font-family: "Unbounded", "Manrope", system-ui, sans-serif;
-}
+/* Unbounded — только айдентика: логотип, PIN, крупные цифры 404.
+   Заголовки — на Manrope 800: один шрифт текста, без «борьбы шрифтов» */
 h1, h2 {
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.logo, .pin, .notfound-code {
+  font-family: "Unbounded", "Manrope", system-ui, sans-serif;
 }
 /* крупный текст вопросов — без декоративного шрифта */
 .q-text, .q-text-sm {
@@ -70,13 +76,14 @@ h1, h2, h3 {
 input {
   font: inherit;
   padding: 12px 14px;
-  border: 2px solid #d8d5ea;
+  border: 1.5px solid #cfd7e6;
   border-radius: 10px;
   outline: none;
   width: 100%;
 }
 input:focus {
-  border-color: var(--accent2);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(46, 107, 255, 0.18);
 }
 
 .logo {
@@ -114,7 +121,7 @@ input:focus {
   flex: 1;
 }
 .accent {
-  color: #ffb43a;
+  color: var(--highlight);
 }
 
 .btn {
@@ -123,35 +130,49 @@ input:focus {
   font-weight: 700;
   padding: 10px 20px;
   border-radius: 10px;
-  border: none;
+  border: 1.5px solid transparent;
   cursor: pointer;
   text-decoration: none;
   text-align: center;
-  transition: transform 0.06s ease, filter 0.12s;
+  transition: transform 0.06s ease, background 0.15s, border-color 0.15s;
 }
 .btn:active {
   transform: scale(0.97);
 }
 .btn:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: default;
 }
+/* primary — единственный заливочный цвет; danger и outline всегда контурные */
 .btn-primary {
-  background: var(--accent);
+  background: var(--primary);
   color: #fff;
 }
-.btn-primary:hover {
-  filter: brightness(1.08);
+.btn-primary:hover:not(:disabled) {
+  background: var(--primary-strong);
 }
 .btn-outline {
   background: transparent;
   color: inherit;
-  border: 2px solid currentColor;
+  /* currentColor — рамка видна и на белой карточке, и на тёмном фоне;
+     plain-значение до color-mix — fallback для старых браузеров */
+  border-color: currentColor;
+  border-color: color-mix(in srgb, currentColor 32%, transparent);
+}
+.btn-outline:hover:not(:disabled) {
+  background: var(--chip-bg);
+  background: color-mix(in srgb, currentColor 10%, transparent);
 }
 .btn-danger {
   background: transparent;
   color: var(--bad);
-  border: 2px solid var(--bad);
+  border-color: rgba(229, 72, 77, 0.45);
+  border-color: color-mix(in srgb, var(--bad) 45%, transparent);
+}
+.btn-danger:hover:not(:disabled) {
+  background: rgba(229, 72, 77, 0.12);
+  background: color-mix(in srgb, var(--bad) 12%, transparent);
+  border-color: var(--bad);
 }
 .btn-lg {
   padding: 14px 28px;
@@ -177,8 +198,8 @@ input:focus {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: #efeafd;
-  color: var(--accent2);
+  background: #e6edfc;
+  color: var(--primary-strong);
   border-radius: 999px;
   padding: 4px 12px;
   font-size: 13px;
@@ -196,7 +217,7 @@ input:focus {
   vertical-align: -0.12em;
 }
 .badge-muted {
-  background: #eceaf3;
+  background: #edf0f6;
   color: var(--muted);
 }
 
@@ -254,8 +275,9 @@ input:focus {
   font-weight: 700;
 }
 .features {
+  /* ровная сетка 3×2 — без «дырок» в последнем ряду */
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 18px;
   text-align: left;
 }
@@ -308,6 +330,15 @@ input:focus {
   font-weight: 600;
   color: var(--ink);
 }
+/* ссылки «Зарегистрироваться»/«Войти» — в цвет primary, не дефолтный браузерный синий */
+.auth-card a {
+  color: var(--primary);
+  font-weight: 700;
+  text-decoration: none;
+}
+.auth-card a:hover {
+  text-decoration: underline;
+}
 
 /* ---------- Общие страницы ---------- */
 .page {
@@ -323,6 +354,10 @@ input:focus {
 }
 .page-header .btn-outline {
   color: var(--on-bg);
+}
+/* email в шапке лежит на градиентном фоне — нужен свой muted, иначе теряется в светлой теме */
+.page-header .muted {
+  color: var(--muted-on-bg);
 }
 .page-body {
   max-width: 900px;
@@ -347,7 +382,7 @@ input:focus {
   gap: 12px;
 }
 .type-option {
-  border: 2px solid #d8d5ea;
+  border: 1.5px solid #cfd7e6;
   border-radius: 12px;
   padding: 12px;
   display: flex;
@@ -356,8 +391,8 @@ input:focus {
   cursor: pointer;
 }
 .type-option.selected {
-  border-color: var(--accent2);
-  background: #f3efff;
+  border-color: var(--primary);
+  background: #eef4ff;
 }
 .type-option input {
   display: none;
@@ -371,6 +406,33 @@ input:focus {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+/* пустое состояние дашборда: заметная карточка с CTA вместо серой строчки */
+.empty-state {
+  background: var(--panel-bg);
+  border: 1.5px dashed var(--chip-border);
+  border-radius: 16px;
+  padding: 56px 24px;
+  text-align: center;
+  color: var(--on-bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.empty-state svg {
+  width: 44px;
+  height: 44px;
+  opacity: 0.7;
+}
+.empty-state h3 {
+  margin: 8px 0 0;
+  font-size: 20px;
+}
+.empty-state p {
+  margin: 0 0 16px;
+  color: var(--muted-on-bg);
+  max-width: 420px;
 }
 .quiz-card {
   display: flex;
@@ -443,14 +505,14 @@ input:focus {
   display: flex;
   align-items: center;
   gap: 8px;
-  border: 2px solid #eee;
+  border: 1.5px solid #e3e8f2;
   border-radius: 10px;
   padding: 6px 8px;
 }
-.answer-edit.c0 { background: #fdecee; }
-.answer-edit.c1 { background: #e8f1fd; }
-.answer-edit.c2 { background: #fdf5e2; }
-.answer-edit.c3 { background: #ecf7e9; }
+.answer-edit.c0 { background: #fdeef0; }
+.answer-edit.c1 { background: #eef4ff; }
+.answer-edit.c2 { background: #fdf6e7; }
+.answer-edit.c3 { background: #eef8ec; }
 .answer-dot {
   font-size: 14px;
 }
@@ -530,9 +592,9 @@ input:focus {
 }
 .pin {
   font-size: 44px;
-  font-weight: 900;
+  font-weight: 800;
   letter-spacing: 8px;
-  color: var(--accent);
+  color: var(--primary);
 }
 .lobby-players h2 {
   margin-bottom: 16px;
@@ -613,7 +675,14 @@ input:focus {
   text-align: left;
 }
 .result-row.correct {
-  outline: 3px solid #ffd23a;
+  outline: 2px solid var(--ok);
+  background: rgba(47, 179, 68, 0.16);
+  background: color-mix(in srgb, var(--ok) 16%, transparent);
+}
+.result-row.correct .result-label::after {
+  content: " ✓";
+  color: var(--ok);
+  font-weight: 800;
 }
 .result-label {
   font-weight: 600;
@@ -680,7 +749,7 @@ input:focus {
 .timer {
   font-size: 42px;
   font-weight: 800; /* Manrope variable — максимум 800 */
-  color: #ffd23a;
+  color: var(--highlight);
   font-variant-numeric: tabular-nums;
   display: inline-flex;
   align-items: center;
@@ -691,7 +760,7 @@ input:focus {
   height: 0.85em;
 }
 .timer.timer-low {
-  color: #ff4d6d;
+  color: var(--bad);
   animation: pulse 0.6s ease infinite;
 }
 @keyframes pulse {
@@ -791,7 +860,7 @@ input:focus {
   align-items: flex-start;
 }
 .avatar-preview {
-  background: linear-gradient(160deg, #e8e3fb, #d5cdf3);
+  background: linear-gradient(160deg, #e6edfa, #cfdaef);
   border-radius: 14px;
   padding: 10px;
   flex-shrink: 0;
@@ -804,7 +873,7 @@ input:focus {
   flex: 1;
 }
 .preset-choice {
-  background: #f1eefb;
+  background: #eef2fa;
   border: 2px solid transparent;
   border-radius: 10px;
   padding: 4px 2px;
@@ -813,8 +882,8 @@ input:focus {
   justify-content: center;
 }
 .preset-choice.selected {
-  border-color: var(--accent2);
-  background: #e4dcff;
+  border-color: var(--primary);
+  background: #dfeaff;
 }
 .picker-row {
   display: grid;
@@ -832,7 +901,7 @@ input:focus {
 .picker-row select {
   font: inherit;
   padding: 8px 10px;
-  border: 2px solid #d8d5ea;
+  border: 1.5px solid #cfd7e6;
   border-radius: 8px;
   background: #fff;
 }
@@ -845,6 +914,8 @@ input:focus {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  font-weight: 800;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
 }
 .player-chip .board-player-name {
   flex-direction: row;
@@ -869,7 +940,7 @@ input:focus {
   font-size: 18px;
   font-weight: 700;
   padding: 8px 10px;
-  background: #241663;
+  background: #101b33;
   border-radius: 10px;
 }
 .time-label {
@@ -883,7 +954,7 @@ input:focus {
 .time-label select {
   font: inherit;
   padding: 5px 8px;
-  border: 2px solid #d8d5ea;
+  border: 1.5px solid #cfd7e6;
   border-radius: 8px;
 }
 .time-label .dd {
@@ -923,7 +994,7 @@ input:focus {
   gap: 8px;
   font: inherit;
   padding: 9px 12px;
-  border: 2px solid #d8d5ea;
+  border: 1.5px solid #cfd7e6;
   border-radius: 8px;
   background: #fff;
   cursor: pointer;
@@ -932,7 +1003,7 @@ input:focus {
 }
 .dd.open .dd-toggle,
 .dd-toggle:focus-visible {
-  border-color: var(--accent2);
+  border-color: var(--primary);
   outline: none;
 }
 .dd-arrow {
@@ -950,8 +1021,8 @@ input:focus {
   right: 0;
   background: #fff;
   border-radius: 10px;
-  box-shadow: 0 10px 30px rgba(28, 17, 71, 0.25);
-  border: 1px solid #eceafb;
+  box-shadow: 0 10px 30px rgba(10, 16, 32, 0.25);
+  border: 1px solid #e3e8f2;
   overflow: hidden;
   max-height: 260px;
   overflow-y: auto;
@@ -970,10 +1041,10 @@ input:focus {
   text-align: left;
 }
 .dd-item:hover {
-  background: #f3efff;
+  background: #eef4ff;
 }
 .dd-item.selected {
-  background: #e9e2ff;
+  background: #dfeaff;
   font-weight: 700;
 }
 .dd-check {
@@ -1083,7 +1154,7 @@ input:focus {
 /* :where — нулевая специфичность, чтобы не перебивать стили компонентов (у .dd-toggle свой фокус).
    input без рамки-фокуса: у полей уже есть видимый фокус через input:focus (border-color) */
 :where(a, button, select, [tabindex]):focus-visible {
-  outline: 3px solid #ffd23a;
+  outline: 3px solid var(--primary);
   outline-offset: 2px;
 }
 
@@ -1150,7 +1221,7 @@ input:focus {
   border-radius: 12px;
   padding: 12px 18px;
   font-weight: 600;
-  box-shadow: 0 10px 30px rgba(28, 17, 71, 0.35);
+  box-shadow: 0 10px 30px rgba(10, 16, 32, 0.35);
   border-left: 5px solid var(--accent2);
   max-width: 320px;
   animation: pop 0.25s ease;
@@ -1166,7 +1237,7 @@ input:focus {
 .dialog-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(20, 10, 50, 0.55);
+  background: rgba(6, 11, 24, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1187,7 +1258,7 @@ input:focus {
 .skeleton {
   height: 16px;
   border-radius: 8px;
-  background: linear-gradient(90deg, #e6e2f2 25%, #f3f0fa 50%, #e6e2f2 75%);
+  background: linear-gradient(90deg, #e2e8f3 25%, #f0f4fb 50%, #e2e8f3 75%);
   background-size: 200% 100%;
   animation: shimmer 1.4s ease infinite;
 }
@@ -1216,6 +1287,9 @@ input:focus {
 
 /* ---------- Адаптив ---------- */
 @media (max-width: 760px) {
+  .features {
+    grid-template-columns: 1fr;
+  }
   .host-lobby {
     grid-template-columns: 1fr;
   }
