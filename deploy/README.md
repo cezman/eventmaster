@@ -24,10 +24,26 @@ git clone <url-этого-репозитория> && cd eventmaster   # или �
 bash deploy/setup-server.sh <URL-репозитория>
 ```
 
-Скрипт сам: поставит Node 24 + nginx, склоняет код, соберёт клиент (`client/dist`),
-сгенерирует `JWT_SECRET`, поставит systemd-юнит и конфиг nginx, запустит всё.
+Скрипт сам: поставит Node 24 + nginx + sqlite3, склоняет код, соберёт клиент (`client/dist`),
+сгенерирует `JWT_SECRET`, поставит systemd-юнит и конфиг nginx, включит ежедневный бэкап
+SQLite (таймер `eventmaster-backup.timer`, копии в `/var/backups/eventmaster/`, хранятся 14 дней)
+и запустит всё.
 
-Проверка: открыть `http://<внешний-IP>/` в браузере — должна открыться лендинг-страница.
+Проверка: `curl http://<внешний-IP>/api/health` → `{"ok":true,...}`, и открыть `http://<внешний-IP>/` в браузере.
+
+## 3a. Бэкапы (после обновления репозитория на уже настроенной ВМ)
+
+Если сервер настраивался до появления блока бэкапов, один раз доустановить:
+
+```bash
+sudo apt install -y sqlite3
+sudo cp deploy/backup-eventmaster.sh /opt/eventmaster/deploy/ && sudo chmod 755 /opt/eventmaster/deploy/backup-eventmaster.sh
+sudo cp deploy/eventmaster-backup.service deploy/eventmaster-backup.timer /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now eventmaster-backup.timer
+sudo systemctl start eventmaster-backup.service   # первый бэкап сразу
+```
+
+Восстановление: `sudo systemctl stop eventmaster && sudo cp /var/backups/eventmaster/app-<дата>.db /var/lib/eventmaster/app.db && sudo systemctl start eventmaster`
 
 ## 4. Для игры по HTTPS (рекомендуется)
 

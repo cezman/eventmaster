@@ -4,6 +4,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Server } from "socket.io";
+import helmet from "helmet";
+import compression from "compression";
+import rateLimit from "express-rate-limit";
 import { instrument } from "@socket.io/admin-ui";
 import { authRoutes } from "./auth.js";
 import { quizRoutes } from "./quizzes.js";
@@ -16,7 +19,37 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
+// nginx проксирует на 127.0.0.1 — без этого rate-limit увидит все запросы с одного IP
+app.set("trust proxy", 1);
+
+// CSP и HSTS включим осознанно после переезда на HTTPS: дефолтный CSP helmet
+// содержит upgrade-insecure-requests, а HSTS ломает доступ по http://<IP>
+app.use(helmet({ contentSecurityPolicy: false, hsts: false }));
+app.use(compression());
 app.use(express.json());
+
+// healthcheck для мониторинга — без лимитов
+app.get("/api/health", (req, res) => {
+  res.json({ ok: true, uptime: process.uptime() });
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 50, // /api/auth/me дергается на каждой загрузке страницы — лимит с запасом
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Слишком много попыток входа. Подождите 15 минут." },
+});
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Слишком много запросов. Подождите минуту." },
+});
+app.use("/api/auth", authLimiter);
+app.use("/api", apiLimiter);
+
 app.use("/api/auth", authRoutes);
 app.use("/api/quizzes", quizRoutes);
 

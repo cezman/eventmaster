@@ -1,0 +1,10 @@
+[Unit]
+Description=EventMaster daily SQLite backup
+
+[Timer]
+# каждый день в 04:00 по времени сервера; persistent — догонит, если ВМ была выключена
+OnCalendar=*-*-* 04:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

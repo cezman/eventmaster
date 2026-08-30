@@ -1,0 +1,6 @@
+[Unit]
+Description=EventMaster SQLite backup (one-shot)
+
+[Service]
+Type=oneshot
+ExecStart=/opt/eventmaster/deploy/backup-eventmaster.sh
