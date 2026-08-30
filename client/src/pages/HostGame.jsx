@@ -123,9 +123,9 @@ export default function HostGame() {
 
   // салют на большом экране, когда игра завершена
   useEffect(() => {
-    if (final) {
-      confetti({ particleCount: 260, spread: 110, origin: { y: 0.5 } });
-    }
+    if (!final) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    confetti({ particleCount: 160, spread: 110, origin: { y: 0.5 } });
   }, [final]);
 
   if (error) {

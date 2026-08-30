@@ -7,6 +7,7 @@ import ThemeToggle from "../components/ThemeToggle";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { useToast } from "../components/Toast";
 import { QuizIcon, PollIcon } from "../components/icons";
+import { plural } from "../plural";
 
 // 3 карточки-заглушки на время загрузки списка
 function QuizListSkeleton() {
@@ -152,7 +153,8 @@ export default function Dashboard() {
                   <h3>{q.title}</h3>
                   <p className="muted">
                     {q.type === "quiz" ? <QuizIcon className="inline-icon" /> : <PollIcon className="inline-icon" />}{" "}
-                    {q.type === "quiz" ? "Викторина" : "Голосование"} · вопросов: {q.question_count}
+                    {q.type === "quiz" ? "Викторина" : "Голосование"} · {q.question_count}{" "}
+                    {plural(q.question_count, ["вопрос", "вопроса", "вопросов"])}
                   </p>
                 </div>
                 <div className="quiz-card-actions">
