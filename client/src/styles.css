@@ -1308,7 +1308,6 @@ input:focus {
 
 /* ---------- Переключатель темы ---------- */
 .theme-toggle {
-  font-size: 17px;
   line-height: 1;
   padding: 8px 12px;
 }

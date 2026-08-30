@@ -34,16 +34,27 @@ export default function QuizEditor() {
       .catch((e) => setError(e.message));
   }, [id]);
 
-  if (error) return <div className="page"><p className="error">{error}</p><Link to="/dashboard">Назад</Link></div>;
+  // шапка общая для всех состояний — лого не мигает, пока данные грузятся
+  if (error)
+    return (
+      <div className="page">
+        <AppHeader />
+        <p className="error">{error}</p>
+        <Link to="/dashboard">Назад</Link>
+      </div>
+    );
   if (!quiz) {
     return (
-      <div className="page page-body">
-        <div className="card">
-          <div className="skeleton-stack">
-            <div className="skeleton" style={{ width: "35%" }} />
-            <div className="skeleton" style={{ width: "80%" }} />
-            <div className="skeleton" style={{ width: "80%" }} />
-            <div className="skeleton" style={{ width: "60%" }} />
+      <div className="page">
+        <AppHeader />
+        <div className="page-body">
+          <div className="card">
+            <div className="skeleton-stack">
+              <div className="skeleton" style={{ width: "35%" }} />
+              <div className="skeleton" style={{ width: "80%" }} />
+              <div className="skeleton" style={{ width: "80%" }} />
+              <div className="skeleton" style={{ width: "60%" }} />
+            </div>
           </div>
         </div>
       </div>

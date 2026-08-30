@@ -6,7 +6,7 @@ import ThemeToggle from "./ThemeToggle";
 
 // Единая шапка внутренних страниц: логотип всегда первый слева,
 // служебные ссылки («назад» и пр.) — в .subnav под шапкой, не рядом с лого,
-// иначе при переходах лено прыгает. Справа — тема, имя пользователя, выход.
+// иначе при переходах лого прыгает. Справа — тема, имя пользователя, выход.
 export default function AppHeader() {
   const { user, signOut } = useAuth();
   const displayName = [user?.name, user?.surname].filter(Boolean).join(" ");
