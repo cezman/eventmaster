@@ -49,6 +49,26 @@ function playersList(game) {
   }));
 }
 
+// вопросы квиза из БД — снапшот делаем при создании игры и при «Играть снова»,
+// чтобы правки редактора (таймер, очки, ответы) применялись к новой партии
+function loadQuiz(quizId) {
+  const quiz = db.prepare("SELECT id, title, type FROM quizzes WHERE id = ?").get(quizId);
+  if (!quiz) return null;
+  const questions = db
+    .prepare("SELECT id, text, position, time_limit, points, mode FROM questions WHERE quiz_id = ? ORDER BY position")
+    .all(quiz.id);
+  if (!questions.length) return null;
+  const answersStmt = db.prepare("SELECT text, is_correct FROM answers WHERE question_id = ? ORDER BY position");
+  const fullQuestions = questions.map((q) => ({
+    text: q.text,
+    time_limit: q.time_limit,
+    points: q.points,
+    mode: q.mode === "tf" ? "tf" : "choice",
+    answers: answersStmt.all(q.id),
+  }));
+  return { title: quiz.title, type: quiz.type, questions: fullQuestions };
+}
+
 function questionForRoom(game) {
   const q = game.quiz.questions[game.qIndex];
   return {
@@ -164,18 +184,9 @@ export function registerGameHandlers(io) {
         .prepare("SELECT id, title, type FROM quizzes WHERE id = ? AND host_id = ?")
         .get(Number(quizId), hostId);
       if (!quiz) return ack({ error: "Викторина не найдена" });
-      const questions = db
-        .prepare("SELECT id, text, position, time_limit, points, mode FROM questions WHERE quiz_id = ? ORDER BY position")
-        .all(quiz.id);
-      if (!questions.length) return ack({ error: "Добавьте хотя бы один вопрос" });
-      const answersStmt = db.prepare("SELECT text, is_correct FROM answers WHERE question_id = ? ORDER BY position");
-      const fullQuestions = questions.map((q) => ({
-        text: q.text,
-        time_limit: q.time_limit,
-        points: q.points,
-        mode: q.mode === "tf" ? "tf" : "choice",
-        answers: answersStmt.all(q.id),
-      }));
+      const loaded = loadQuiz(quiz.id);
+      if (!loaded) return ack({ error: "Добавьте хотя бы один вопрос" });
+      const fullQuestions = loaded.questions;
 
       // одну викторину можно запустить только один раз одновременно
       for (const [pin, g] of games) {
@@ -302,6 +313,14 @@ export function registerGameHandlers(io) {
       const game = hostGame(socket);
       if (!game || game.state !== "finished") return;
       stopRevealTimer(game);
+      // перечитываем квиз из БД: правки между партиями применяются к новой игре;
+      // если квиз удалён — тихо играем по последнему снапшоту, это graceful fallback
+      const loaded = loadQuiz(game.quizId);
+      if (loaded) {
+        game.quiz = loaded;
+        game.title = loaded.title;
+        game.type = loaded.type;
+      }
       game.state = "lobby";
       game.qIndex = -1;
       game.recorded = false;
@@ -311,6 +330,8 @@ export function registerGameHandlers(io) {
         p.awarded = 0;
         p.lastCorrect = false;
       }
+      // игрокам явный сигнал вернуться в лобби (иначе остаются на reveal)
+      io.to(`game:${game.pin}`).emit("game:lobby");
       broadcastPlayers(io, game);
       socket.emit("host:game", snapshotForHost(game));
     });

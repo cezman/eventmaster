@@ -18,6 +18,12 @@ import {
   SKIN_OPTIONS,
   HAIR_COLOR_OPTIONS,
 } from "../customize";
+import { plural } from "../plural";
+
+// салют с уважением к prefers-reduced-motion (канвас-анимация недоступна/не нужна)
+function canConfetti() {
+  return !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
 
 const ANSWER_COLORS = ["c0", "c1", "c2", "c3"];
 const ANSWER_SHAPES = ["▲", "◆", "●", "■"];
@@ -69,18 +75,28 @@ export default function PlayGame() {
       setReveal(null);
       setSecondsLeft(null);
     };
+    // ведущий нажал «Играть снова» — возвращаемся в лобби
+    const onLobby = () => {
+      setQuestion(null);
+      setReveal(null);
+      setFinal(null);
+      setSubmitted(null);
+      setSecondsLeft(null);
+    };
     const onClosed = () => setClosed(true);
 
     socket.on("players", onPlayers);
     socket.on("question", onQuestion);
     socket.on("reveal", onReveal);
     socket.on("finished", onFinished);
+    socket.on("game:lobby", onLobby);
     socket.on("game:closed", onClosed);
     return () => {
       socket.off("players", onPlayers);
       socket.off("question", onQuestion);
       socket.off("reveal", onReveal);
       socket.off("finished", onFinished);
+      socket.off("game:lobby", onLobby);
       socket.off("game:closed", onClosed);
     };
   }, [socket]);
@@ -98,11 +114,11 @@ export default function PlayGame() {
 
   // салют при финале — громче, если игрок в топ-3
   useEffect(() => {
-    if (!final) return;
+    if (!final || !canConfetti()) return;
     const place = final.leaderboard.findIndex((p) => p.name === myName);
     if (place < 0 || place > 2) return;
     confetti({
-      particleCount: place === 0 ? 220 : 130,
+      particleCount: place === 0 ? 160 : 90,
       spread: place === 0 ? 100 : 70,
       origin: { y: 0.6 },
     });
@@ -288,7 +304,8 @@ export default function PlayGame() {
         <h1>{["🎉 Победа!", "👏 Отлично!", "👍 Спасибо за игру!"][me >= 0 ? Math.min(me, 2) : 2]}</h1>
         {me >= 0 ? (
           <p>
-            Вы заняли <b>{me + 1}</b> место с <b>{final.leaderboard[me].score}</b> очков
+            Вы заняли <b>{me + 1}</b> {plural(me + 1, ["место", "места", "мест"])} с{" "}
+            <b>{final.leaderboard[me].score}</b> {plural(final.leaderboard[me].score, ["очком", "очка", "очков"])}
           </p>
         ) : (
           myRow && <p>Ваш счёт: <b>{myRow.score}</b></p>
@@ -357,7 +374,9 @@ export default function PlayGame() {
             {reveal.myCorrect ? (
               <>
                 <h1>✓ Верно!</h1>
-                <p className="points-big">+{reveal.myAwarded} очков</p>
+                <p className="points-big">
+                  +{reveal.myAwarded} {plural(reveal.myAwarded, ["очко", "очка", "очков"])}
+                </p>
               </>
             ) : (
               <>
@@ -416,7 +435,7 @@ export default function PlayGame() {
         </p>
       )}
       <p>
-        Игроков в комнате: <b>{players.length}</b>
+        В комнате: <b>{players.length}</b> {plural(players.length, ["игрок", "игрока", "игроков"])}
       </p>
       <div className="reaction-bar">
         {REACTION_EMOJIS.map((e, i) => (

@@ -5,6 +5,7 @@ import { useToast } from "../components/Toast";
 import Logo from "../components/Logo";
 import ThemeToggle from "../components/ThemeToggle";
 import { QuizIcon, PollIcon } from "../components/icons";
+import { plural } from "../plural";
 
 // CSV с BOM — чтобы Excel из РФ открывал кириллицу без танцев; разделитель ; для RU-локали
 function downloadCsv(result) {
@@ -99,7 +100,8 @@ export default function HistoryPage() {
                   <h3>{r.quiz_title}</h3>
                   <p className="muted">
                     {r.quiz_type === "quiz" ? <QuizIcon className="inline-icon" /> : <PollIcon className="inline-icon" />}{" "}
-                    {r.quiz_type === "quiz" ? "Викторина" : "Голосование"} · игроков: {r.players_count} ·{" "}
+                    {r.quiz_type === "quiz" ? "Викторина" : "Голосование"} · {r.players_count}{" "}
+                    {plural(r.players_count, ["игрок", "игрока", "игроков"])} ·{" "}
                     {new Date(String(r.played_at).replace(" ", "T") + "Z").toLocaleString("ru-RU")}
                   </p>
                 </div>
