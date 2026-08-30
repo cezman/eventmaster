@@ -10,6 +10,7 @@ import PlayGame from "./pages/PlayGame";
 import NotFound from "./pages/NotFound";
 import ProfilePage from "./pages/ProfilePage";
 import HistoryPage from "./pages/HistoryPage";
+import AdminPage from "./pages/AdminPage";
 
 function RequireAuth({ children }) {
   const { token } = useAuth();
@@ -37,6 +38,14 @@ export default function App() {
         element={
           <RequireAuth>
             <QuizEditor />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          <RequireAuth>
+            <AdminPage />
           </RequireAuth>
         }
       />

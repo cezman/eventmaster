@@ -12,6 +12,10 @@ export function authRequired(req, res, next) {
   try {
     const payload = jwt.verify(token, SECRET);
     req.userId = payload.uid;
+    const row = db.prepare("SELECT status FROM users WHERE id = ?").get(payload.uid);
+    if (!row || row.status !== "active") {
+      return res.status(401).json({ error: "Аккаунт заблокирован администратором" });
+    }
     next();
   } catch {
     return res.status(401).json({ error: "Сессия истекла, войдите заново" });
@@ -21,6 +25,9 @@ export function authRequired(req, res, next) {
 export function verifyToken(token) {
   try {
     const payload = jwt.verify(token, SECRET);
+    // заблокированный ведущий не может создавать/переходить в игры
+    const row = db.prepare("SELECT status FROM users WHERE id = ?").get(payload.uid);
+    if (!row || row.status !== "active") return null;
     return payload.uid;
   } catch {
     return null;
@@ -60,7 +67,10 @@ authRoutes.post("/register", (req, res) => {
 authRoutes.post("/login", (req, res) => {
   const { email, password } = req.body || {};
   const row = db.prepare("SELECT * FROM users WHERE email = ?").get(String(email || "").trim().toLowerCase());
-  if (!row || !bcrypt.compareSync(String(password || ""), row.password_hash)) {
+  if (!row || row.status !== "active") {
+    return res.status(400).json({ error: row ? "Аккаунт заблокирован администратором" : "Неверный email или пароль" });
+  }
+  if (!bcrypt.compareSync(String(password || ""), row.password_hash)) {
     return res.status(400).json({ error: "Неверный email или пароль" });
   }
   const token = jwt.sign({ uid: row.id }, SECRET, { expiresIn: "30d" });

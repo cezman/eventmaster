@@ -11,6 +11,7 @@ import { instrument } from "@socket.io/admin-ui";
 import { authRoutes } from "./auth.js";
 import { quizRoutes } from "./quizzes.js";
 import { resultRoutes } from "./results.js";
+import { adminRoutes } from "./admin.js";
 import { registerGameHandlers } from "./game.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -54,6 +55,7 @@ app.use("/api", apiLimiter);
 app.use("/api/auth", authRoutes);
 app.use("/api/quizzes", quizRoutes);
 app.use("/api/results", resultRoutes);
+app.use("/api/admin", adminRoutes);
 
 // в продакшене раздаём собранный клиент
 const dist = path.join(__dirname, "..", "..", "client", "dist");
