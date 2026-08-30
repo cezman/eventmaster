@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { getSocket } from "../socket";
 import PlayerAvatar, { parseAvatar } from "../components/PlayerAvatar";
 import Dropdown from "../components/Dropdown";
+import { ClockIcon, PollIcon } from "../components/icons";
 import {
   NAME_COLORS,
   REACTION_EMOJIS,
@@ -299,7 +300,8 @@ export default function PlayGame() {
           Вопрос {question.index + 1} / {question.total}
         </div>
         <div className={`timer ${secondsLeft != null && secondsLeft <= 5 ? "timer-low" : ""}`}>
-          ⏱ {secondsLeft != null && secondsLeft >= 0 ? secondsLeft : "…"}
+          <ClockIcon className="timer-icon" aria-hidden="true" />{" "}
+          {secondsLeft != null && secondsLeft >= 0 ? secondsLeft : "…"}
         </div>
         <h2 className="q-text-sm">{question.text}</h2>
         {submitted == null ? (
@@ -354,7 +356,7 @@ export default function PlayGame() {
           </div>
         ) : (
           <div className="reveal-card ok">
-            <h1>🗳️ Голос учтён</h1>
+            <h1><PollIcon className="h1-icon" /> Голос учтён</h1>
             <p>Смотрите результаты на экране ведущего</p>
           </div>
         )}

@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { useAuth } from "../auth";
+import Logo from "../components/Logo";
+import { QuizIcon, PollIcon } from "../components/icons";
 
 export default function Dashboard() {
   const { user, signOut } = useAuth();
@@ -46,8 +48,8 @@ export default function Dashboard() {
   return (
     <div className="page">
       <header className="page-header">
-        <Link to="/" className="logo logo-link">
-          EventMaster
+        <Link to="/" className="logo-link">
+          <Logo />
         </Link>
         <div className="spacer" />
         <span className="muted">{user?.email}</span>
@@ -78,12 +80,12 @@ export default function Dashboard() {
             <div className="type-choice">
               <label className={`type-option ${type === "quiz" ? "selected" : ""}`}>
                 <input type="radio" name="type" checked={type === "quiz"} onChange={() => setType("quiz")} />
-                <b>🧠 Викторина</b>
+                <b><QuizIcon className="inline-icon" /> Викторина</b>
                 <span>Вопросы с правильными ответами и очками</span>
               </label>
               <label className={`type-option ${type === "poll" ? "selected" : ""}`}>
                 <input type="radio" name="type" checked={type === "poll"} onChange={() => setType("poll")} />
-                <b>🗳️ Голосование</b>
+                <b><PollIcon className="inline-icon" /> Голосование</b>
                 <span>Живой опрос зала без правильных ответов</span>
               </label>
             </div>
@@ -105,7 +107,8 @@ export default function Dashboard() {
                 <div>
                   <h3>{q.title}</h3>
                   <p className="muted">
-                    {q.type === "quiz" ? "🧠 Викторина" : "🗳️ Голосование"} · вопросов: {q.question_count}
+                    {q.type === "quiz" ? <QuizIcon className="inline-icon" /> : <PollIcon className="inline-icon" />}{" "}
+                    {q.type === "quiz" ? "Викторина" : "Голосование"} · вопросов: {q.question_count}
                   </p>
                 </div>
                 <div className="quiz-card-actions">

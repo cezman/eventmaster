@@ -20,10 +20,22 @@
 
 body {
   margin: 0;
-  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-family: "Manrope", "Segoe UI", system-ui, -apple-system, sans-serif;
   background: radial-gradient(circle at 20% 10%, var(--accent2), var(--bg) 60%);
   color: var(--ink);
   min-height: 100vh;
+}
+
+/* Unbounded — айдентика (заголовки, логотип); текст вопросов остаётся на Manrope — читаемее */
+h1, h2, .logo, .notfound-code, .pin {
+  font-family: "Unbounded", "Manrope", system-ui, sans-serif;
+}
+h1, h2 {
+  font-weight: 700;
+}
+/* крупный текст вопросов — без декоративного шрифта */
+.q-text, .q-text-sm {
+  font-family: "Manrope", system-ui, sans-serif;
 }
 
 #root {
@@ -47,10 +59,19 @@ input:focus {
 }
 
 .logo {
-  font-weight: 800;
-  font-size: 22px;
+  font-weight: 700;
+  font-size: 18px;
   color: #fff;
   letter-spacing: 0.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.logo-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  flex-shrink: 0;
 }
 .logo-link {
   text-decoration: none;
@@ -132,13 +153,26 @@ input:focus {
 }
 
 .badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   background: #efeafd;
   color: var(--accent2);
   border-radius: 999px;
   padding: 4px 12px;
   font-size: 13px;
   font-weight: 700;
+}
+.badge svg {
+  width: 14px;
+  height: 14px;
+}
+/* строчные иконки внутри текста/заголовков */
+.inline-icon,
+.h1-icon {
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.12em;
 }
 .badge-muted {
   background: #eceaf3;
@@ -213,8 +247,12 @@ input:focus {
 .feature-card.placeholder {
   opacity: 0.65;
 }
-.feature-emoji {
-  font-size: 34px;
+.feature-icon svg {
+  width: 36px;
+  height: 36px;
+}
+.feature-icon {
+  color: #fff;
 }
 .feature-card h3 {
   margin: 10px 0 6px;
@@ -607,6 +645,13 @@ input:focus {
   font-weight: 900;
   color: #ffd23a;
   font-variant-numeric: tabular-nums;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.timer-icon {
+  width: 0.85em;
+  height: 0.85em;
 }
 .timer.timer-low {
   color: #ff4d6d;
