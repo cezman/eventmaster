@@ -84,7 +84,8 @@ export default function AdminPage() {
           <h1>Админка · Пользователи</h1>
         </div>
 
-        {users === null ? (
+        {/* user ещё грузится (/me) — ждём, иначе на своей строке мигнут чужие кнопки */}
+        {users === null || !user ? (
           <div className="quiz-list">
             {[0, 1, 2].map((i) => (
               <div className="card quiz-card" key={i}>

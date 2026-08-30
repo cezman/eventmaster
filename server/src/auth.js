@@ -34,9 +34,16 @@ export function verifyToken(token) {
   }
 }
 
-// публичные поля пользователя — без хэша пароля
+// публичные поля пользователя — без хэша пароля; role нужен клиенту для кнопки «Админка»
 function userPublic(row) {
-  return { id: row.id, email: row.email, name: row.name || "", surname: row.surname || "", avatar: row.avatar || "" };
+  return {
+    id: row.id,
+    email: row.email,
+    name: row.name || "",
+    surname: row.surname || "",
+    avatar: row.avatar || "",
+    role: row.role || "host",
+  };
 }
 
 export const authRoutes = Router();
@@ -67,9 +74,10 @@ authRoutes.post("/register", (req, res) => {
 authRoutes.post("/login", (req, res) => {
   const { email, password } = req.body || {};
   const row = db.prepare("SELECT * FROM users WHERE email = ?").get(String(email || "").trim().toLowerCase());
-  if (!row || row.status !== "active") {
-    return res.status(400).json({ error: row ? "Аккаунт заблокирован администратором" : "Неверный email или пароль" });
-  }
+  if (!row) return res.status(400).json({ error: "Неверный email или пароль" });
+  // заблокированным сообщаем до проверки пароля: сознательный trade-off (утечка перечисления
+  // вскрывает только существование заблокированных email, лимит на /api/auth смягчает)
+  if (row.status !== "active") return res.status(400).json({ error: "Аккаунт заблокирован администратором" });
   if (!bcrypt.compareSync(String(password || ""), row.password_hash)) {
     return res.status(400).json({ error: "Неверный email или пароль" });
   }

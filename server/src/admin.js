@@ -1,5 +1,6 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
+import crypto from "node:crypto";
 import { db } from "./db.js";
 import { authRequired } from "./auth.js";
 
@@ -45,7 +46,7 @@ adminRoutes.put("/users/:id/password", (req, res) => {
   const target = db.prepare("SELECT id FROM users WHERE id = ?").get(Number(req.params.id));
   if (!target) return res.status(404).json({ error: "Пользователь не найден" });
   const chars = "abcdefghjkmnpqrstuvwxyz23456789";
-  let password = Array.from({ length: 10 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+  const password = Array.from({ length: 10 }, () => chars[crypto.randomInt(chars.length)]).join("");
   db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(bcrypt.hashSync(password, 10), target.id);
   res.json({ ok: true, password });
 });
@@ -55,7 +56,10 @@ adminRoutes.put("/users/:id/status", (req, res) => {
   if (id === req.userId) return res.status(400).json({ error: "Нельзя изменить свой статус" });
   const target = db.prepare("SELECT id FROM users WHERE id = ?").get(id);
   if (!target) return res.status(404).json({ error: "Пользователь не найден" });
-  const status = req.body?.status === "blocked" ? "blocked" : "active";
+  const status = req.body?.status;
+  if (!["active", "blocked"].includes(status)) {
+    return res.status(400).json({ error: "Неверный статус" });
+  }
   db.prepare("UPDATE users SET status = ? WHERE id = ?").run(status, id);
   res.json({ ok: true, status });
 });
