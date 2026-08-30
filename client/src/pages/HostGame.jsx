@@ -5,6 +5,8 @@ import { getSocket } from "../socket";
 import { useAuth } from "../auth";
 import { NAME_COLORS } from "../customize";
 import PlayerAvatar from "../components/PlayerAvatar";
+import Logo from "../components/Logo";
+import { ClockIcon, TrophyIcon } from "../components/icons";
 
 const ANSWER_LABELS = ["A", "B", "C", "D"];
 
@@ -136,7 +138,7 @@ export default function HostGame() {
   return (
     <div className="host-screen">
       <header className="host-header">
-        <span className="logo">{game.title}</span>
+        <Logo>{game.title}</Logo>
         <div className="spacer" />
         <button
           className="btn btn-danger"
@@ -203,7 +205,8 @@ export default function HostGame() {
             Вопрос {question.index + 1} / {question.total} · ответили: {answered} / {game.players.length}
           </div>
           <div className={`timer ${secondsLeft != null && secondsLeft <= 5 ? "timer-low" : ""}`}>
-            ⏱ {secondsLeft != null && secondsLeft >= 0 ? secondsLeft : "…"}
+            <ClockIcon className="timer-icon" aria-hidden="true" />
+            {secondsLeft != null && secondsLeft >= 0 ? secondsLeft : "…"}
           </div>
           <h1 className="q-text">{question.text}</h1>
           <div className="answers-grid big">
@@ -264,7 +267,7 @@ export default function HostGame() {
 
       {phase === "finished" && final && (
         <div className="host-finished">
-          <h1>🏆 Игра завершена!</h1>
+          <h1><TrophyIcon className="h1-icon" /> Игра завершена!</h1>
           <div className="board">
             {final.leaderboard.map((p, i) => (
               <div className={`board-row ${i === 0 ? "winner" : ""}`} key={p.name}>

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { useAuth } from "../auth";
+import Logo from "../components/Logo";
 
 export default function AuthPage({ mode }) {
   const isRegister = mode === "register";
@@ -33,8 +34,8 @@ export default function AuthPage({ mode }) {
 
   return (
     <div className="auth-page">
-      <Link to="/" className="logo logo-link">
-        EventMaster
+      <Link to="/" className="logo-link">
+        <Logo />
       </Link>
       <form className="card auth-card" onSubmit={submit}>
         <h1>{isRegister ? "Регистрация ведущего" : "Вход для ведущего"}</h1>

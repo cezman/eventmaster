@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
 import { TIME_OPTIONS } from "../customize";
 import Dropdown from "../components/Dropdown";
+import { QuizIcon, PollIcon, ClockIcon, TrophyIcon } from "../components/icons";
 
 const ANSWER_COLORS = ["🔴", "🔵", "🟡", "🟢"];
 
@@ -98,7 +99,10 @@ export default function QuizEditor() {
         <Link to="/dashboard" className="btn btn-outline">
           ← К списку
         </Link>
-        <span className="badge">{quiz.type === "quiz" ? "🧠 Викторина" : "🗳️ Голосование"}</span>
+        <span className="badge">
+          {quiz.type === "quiz" ? <QuizIcon /> : <PollIcon />}
+          {quiz.type === "quiz" ? "Викторина" : "Голосование"}
+        </span>
       </header>
 
       <div className="page-body editor">
@@ -127,7 +131,7 @@ export default function QuizEditor() {
               <b>Вопрос {qi + 1}</b>
               <div className="question-settings">
                 <label className="time-label">
-                  ⏱ Время:
+                  <ClockIcon className="inline-icon" /> Время:
                   <Dropdown
                     value={String(q.time_limit || 20)}
                     onChange={(v) => patchQuestion(qi, { time_limit: Number(v) })}
@@ -135,7 +139,7 @@ export default function QuizEditor() {
                   />
                 </label>
                 <label className="time-label">
-                  🏆 Очки:
+                  <TrophyIcon className="inline-icon" /> Очки:
                   <input
                     type="number"
                     className="points-input"
