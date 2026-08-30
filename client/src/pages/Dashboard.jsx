@@ -95,9 +95,14 @@ export default function Dashboard() {
       <div className="page-body">
         <div className="dashboard-head">
           <h1>Мои игры</h1>
-          <button className="btn btn-primary" onClick={() => setShowForm((v) => !v)}>
-            {showForm ? "Отмена" : "+ Создать"}
-          </button>
+          <div className="quiz-card-actions">
+            <Link className="btn btn-outline" to="/history">
+              История игр
+            </Link>
+            <button className="btn btn-primary" onClick={() => setShowForm((v) => !v)}>
+              {showForm ? "Отмена" : "+ Создать"}
+            </button>
+          </div>
         </div>
 
         {showForm && (

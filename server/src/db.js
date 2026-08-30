@@ -65,3 +65,17 @@ for (const col of ["name", "surname", "avatar"]) {
     // колонка уже есть
   }
 }
+
+// история игр (EM-12): одна строка на завершённую партию; results — JSON лидерборда
+db.exec(`
+  CREATE TABLE IF NOT EXISTS game_results (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    host_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    quiz_id INTEGER NOT NULL,
+    quiz_title TEXT NOT NULL,
+    quiz_type TEXT NOT NULL,
+    players_count INTEGER NOT NULL,
+    results TEXT NOT NULL,
+    played_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`);
