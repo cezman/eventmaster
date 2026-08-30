@@ -399,6 +399,14 @@ input:focus {
   gap: 18px;
 }
 
+/* ---------- Админка ---------- */
+.admin-edit {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
 /* ---------- Редактор ---------- */
 .editor {
   display: flex;

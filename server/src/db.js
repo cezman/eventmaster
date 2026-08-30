@@ -86,3 +86,12 @@ try {
 } catch {
   // колонка уже есть
 }
+
+// админка (EM-14): role 'host'|'admin', статус 'active'|'blocked'
+for (const [col, def] of [["role", "'host'"], ["status", "'active'"]]) {
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN ${col} TEXT NOT NULL DEFAULT ${def}`);
+  } catch {
+    // колонка уже есть
+  }
+}

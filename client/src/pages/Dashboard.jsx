@@ -96,6 +96,11 @@ export default function Dashboard() {
         <div className="dashboard-head">
           <h1>Мои игры</h1>
           <div className="quiz-card-actions">
+            {user?.role === "admin" && (
+              <Link className="btn btn-outline" to="/admin">
+                Админка
+              </Link>
+            )}
             <Link className="btn btn-outline" to="/history">
               История игр
             </Link>
