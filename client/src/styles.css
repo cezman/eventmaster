@@ -1,4 +1,5 @@
 :root {
+  color-scheme: dark;
   /* палитра: глубокий чернильно-синий фон + синий primary + янтарный акцент */
   --bg: #0b1120;
   --bg2: #16233f;
@@ -26,17 +27,27 @@
   --chip-border: rgba(255, 255, 255, 0.22);
   --panel-bg: rgba(255, 255, 255, 0.07);
   --panel-border: rgba(255, 255, 255, 0.12);
+  /* карточка на тёмном фоне отделяется только тенью */
+  --card-border: transparent;
+  --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
 }
 [data-theme="light"] {
-  --bg-a: #dfe7f7;
-  --bg-b: #bccbe8;
-  --on-bg: #16233f;
-  --muted-on-bg: #45557a;
-  --chip-bg: rgba(16, 24, 40, 0.06);
-  --chip-bg-hover: rgba(16, 24, 40, 0.12);
+  color-scheme: light;
+  /* чистый белый лист: без цветного градиента, фон почти нейтральный */
+  --bg-a: #ffffff;
+  --bg-b: #e9edf6;
+  --on-bg: #101828;
+  --muted-on-bg: #5d6b84;
+  --chip-bg: #eef1f7;
+  --chip-bg-hover: #e2e7f0;
   --chip-border: rgba(16, 24, 40, 0.16);
-  --panel-bg: rgba(255, 255, 255, 0.72);
+  --panel-bg: #ffffff;
   --panel-border: rgba(16, 24, 40, 0.1);
+  /* на белом янтарный #ffd23a вырождается, а тёмно-янтарный не понравился — акцентом становится primary */
+  --highlight: var(--primary);
+  /* белые карточки на белом фоне — отделяем рамкой и мягкой тенью */
+  --card-border: rgba(16, 24, 40, 0.08);
+  --card-shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 10px 30px rgba(16, 24, 40, 0.07);
 }
 
 * {
@@ -80,6 +91,9 @@ input {
   border-radius: 10px;
   outline: none;
   width: 100%;
+  /* color-scheme: dark красит нативные инпуты в тёмный, а карточки всегда белые */
+  background: #fff;
+  color: var(--ink);
 }
 input:focus {
   border-color: var(--primary);
@@ -189,9 +203,10 @@ input:focus {
 
 .card {
   background: var(--card);
+  border: 1px solid var(--card-border);
   border-radius: 16px;
   padding: 24px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--card-shadow);
 }
 
 .badge {
@@ -474,6 +489,9 @@ input:focus {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+/* карточки редактора всегда белые — текст внутри тёмный независимо от темы */
+.question-card {
   color: var(--ink);
 }
 .title-label {
@@ -670,6 +688,8 @@ input:focus {
   align-items: center;
   gap: 12px;
   background: var(--panel-bg);
+  /* в светлой теме панели белые на белом — отделяем рамкой, как .card */
+  border: 1px solid var(--panel-border);
   border-radius: 10px;
   padding: 10px 14px;
   text-align: left;
@@ -720,6 +740,9 @@ input:focus {
   border-radius: 14px;
   padding: 20px;
 }
+.board {
+  border: 1px solid var(--panel-border);
+}
 .board h3 {
   margin-top: 0;
   font-size: 20px;
@@ -738,6 +761,7 @@ input:focus {
 }
 .board-row.winner {
   background: rgba(255, 210, 58, 0.15);
+  background: color-mix(in srgb, var(--highlight) 15%, transparent);
   border-radius: 8px;
 }
 .board.mini {
@@ -956,6 +980,8 @@ input:focus {
   padding: 5px 8px;
   border: 1.5px solid #cfd7e6;
   border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
 }
 .time-label .dd {
   width: 110px;
@@ -1137,6 +1163,8 @@ input:focus {
 .reveal-card.bad { background: var(--bad); }
 .reveal-card .board {
   margin-top: 14px;
+  /* карточка reveal красит текст в белый, а фон мини-таблицы в светлой теме светлый */
+  color: var(--on-bg);
 }
 .spin {
   width: 40px;

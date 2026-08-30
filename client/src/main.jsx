@@ -8,8 +8,11 @@ import { ToastProvider } from "./components/Toast";
 import "./fonts.css";
 import "./styles.css";
 
-// тема применяется до первого рендера, чтобы не мигало
-document.documentElement.dataset.theme = localStorage.getItem("theme") === "light" ? "light" : "dark";
+// тема применяется до первого рендера, чтобы не мигало; meta theme-color держим в цвете фона
+const initialTheme = localStorage.getItem("theme") === "light" ? "light" : "dark";
+document.documentElement.dataset.theme = initialTheme;
+const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+if (themeColorMeta) themeColorMeta.setAttribute("content", initialTheme === "light" ? "#ffffff" : "#0b1120");
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
