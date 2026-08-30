@@ -38,6 +38,8 @@ export default function PlayGame() {
   });
   const [color, setColor] = useState(Number(sessionStorage.getItem("playerColor") ?? 0));
   const [joined, setJoined] = useState(false);
+  const [hostName, setHostName] = useState("");
+  const [hostAvatar, setHostAvatar] = useState(null);
   const [error, setError] = useState("");
   const [closed, setClosed] = useState(false);
   const [players, setPlayers] = useState([]);
@@ -122,6 +124,8 @@ export default function PlayGame() {
       sessionStorage.setItem("playerName", cleanName);
       sessionStorage.setItem("playerAvatar", JSON.stringify(avatar));
       sessionStorage.setItem("playerColor", String(color));
+      setHostName(res.hostName || "");
+      setHostAvatar(parseAvatar(res.hostAvatar || ""));
       setJoined(true);
     });
   };
@@ -393,6 +397,13 @@ export default function PlayGame() {
       </h1>
       <div className="spin" />
       <p className="muted">Ждём, пока ведущий начнёт…</p>
+      {hostName && (
+        <p>
+          Ведущий:{" "}
+          {hostAvatar && <PlayerAvatar avatar={JSON.stringify(hostAvatar)} size={22} />}{" "}
+          <b>{hostName}</b>
+        </p>
+      )}
       <p>
         Игроков в комнате: <b>{players.length}</b>
       </p>
