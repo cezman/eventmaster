@@ -10,7 +10,7 @@ function loadFullQuiz(id, hostId) {
   const quiz = db.prepare("SELECT * FROM quizzes WHERE id = ? AND host_id = ?").get(id, hostId);
   if (!quiz) return null;
   const questions = db
-    .prepare("SELECT id, text, position, time_limit, points FROM questions WHERE quiz_id = ? ORDER BY position")
+    .prepare("SELECT id, text, position, time_limit, points, mode FROM questions WHERE quiz_id = ? ORDER BY position")
     .all(id);
   const answersStmt = db.prepare(
     "SELECT id, text, is_correct, position FROM answers WHERE question_id = ? ORDER BY position"
@@ -21,6 +21,7 @@ function loadFullQuiz(id, hostId) {
       text: q.text,
       time_limit: q.time_limit,
       points: q.points,
+      mode: q.mode || "choice",
       answers: answersStmt.all(q.id).map((a) => ({ text: a.text, is_correct: !!a.is_correct })),
     })),
   };
@@ -32,7 +33,18 @@ function saveQuestions(quizId, questions) {
   const aStmt = db.prepare("INSERT INTO answers (question_id, text, is_correct, position) VALUES (?, ?, ?, ?)");
   questions.forEach((q, qi) => {
     if (!q.text || !q.text.trim()) throw new Error("Текст вопроса не может быть пустым");
-    const answers = (q.answers || []).filter((a) => a.text && a.text.trim());
+    const mode = q.mode === "tf" ? "tf" : "choice";
+    let answers = (q.answers || []).filter((a) => a.text && a.text.trim());
+    if (mode === "tf") {
+      // правда/ложь — всегда ровно два варианта с фиксированными подписями
+      answers = [
+        { text: "Правда", is_correct: !!answers[0]?.is_correct },
+        { text: "Ложь", is_correct: !answers[0]?.is_correct && !!answers[1]?.is_correct },
+      ];
+      // ровно один правильный: если хост не отметил — правильной считаем «Правду»
+      if (!answers[0].is_correct && !answers[1].is_correct) answers[0].is_correct = true;
+      if (answers[0].is_correct && answers[1].is_correct) answers[1].is_correct = false;
+    }
     if (answers.length < 2) throw new Error("У вопроса должно быть минимум 2 варианта ответа");
     const qRes = qStmt.run(quizId, q.text.trim(), qi);
     const timeLimit = Math.min(120, Math.max(5, Number(q.time_limit) || 20));
@@ -41,7 +53,12 @@ function saveQuestions(quizId, questions) {
     answers.forEach((a, ai) => {
       aStmt.run(Number(qRes.lastInsertRowid), a.text.trim(), a.is_correct ? 1 : 0, ai);
     });
-    db.prepare("UPDATE questions SET time_limit = ?, points = ? WHERE id = ?").run(timeLimit, points, Number(qRes.lastInsertRowid));
+    db.prepare("UPDATE questions SET time_limit = ?, points = ?, mode = ? WHERE id = ?").run(
+      timeLimit,
+      points,
+      mode,
+      Number(qRes.lastInsertRowid)
+    );
   });
 }
 

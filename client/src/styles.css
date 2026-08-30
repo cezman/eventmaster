@@ -1032,6 +1032,9 @@ input:focus {
 .answer-btn.c1 { background: var(--c1); }
 .answer-btn.c2 { background: var(--c2); }
 .answer-btn.c3 { background: var(--c3); }
+/* правда/ложь */
+.answer-btn.tf-yes { background: var(--ok); }
+.answer-btn.tf-no { background: var(--bad); }
 .wait-box {
   background: var(--chip-bg);
   border-radius: 14px;
