@@ -54,6 +54,12 @@
   box-sizing: border-box;
 }
 
+/* резервируем место под скроллбар на всех страницах: без него у короткого лендинга
+   нет полосы, а у длинного дашборда есть — и всё содержимое (включая лого) сдвигается */
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   margin: 0;
   font-family: "Manrope", "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -383,6 +389,10 @@ input:focus {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 20px;
+}
+/* у h1 глобально есть вертикальные поля 0.3em — в строке с кнопкой они ломают выравнивание */
+.dashboard-head h1 {
+  margin: 0;
 }
 .create-form {
   display: flex;
@@ -1307,9 +1317,9 @@ input:focus {
 }
 
 /* ---------- Переключатель темы ---------- */
+/* вертикальный отступ как у .btn (10px), чтобы высота совпадала с кнопками рядом */
 .theme-toggle {
-  line-height: 1;
-  padding: 8px 12px;
+  padding: 10px 12px;
 }
 
 /* ---------- Адаптив ---------- */
@@ -1366,6 +1376,8 @@ input:focus {
   gap: 4px;
   position: sticky;
   top: 18px;
+  /* «Выйти» прижат к низу сайдбара отдельной группой */
+  min-height: calc(100vh - 140px);
 }
 .cabinet-nav-item {
   display: flex;
@@ -1397,14 +1409,9 @@ input:focus {
   height: 18px;
   flex-shrink: 0;
 }
-.cabinet-user {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  line-height: 1.3;
-}
-.cabinet-user b {
-  font-weight: 700;
+.cabinet-nav-logout {
+  margin-top: auto;
+  color: var(--bad);
 }
 .cabinet-card {
   width: 100%;
@@ -1436,8 +1443,9 @@ input:focus {
   .cabinet-nav-item.active {
     padding: 9px 12px;
   }
-  .cabinet-user {
-    display: none; /* в узкой шапке имя/email не влезают, логин виден в разделе «Личные данные» */
+  .cabinet-nav-logout {
+    margin-top: 0;
+    margin-left: auto;
   }
 }
 
