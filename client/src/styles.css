@@ -1432,6 +1432,7 @@ input:focus {
   /* на телефоне сайдбар превращается в горизонтальную ленту вкладок */
   .cabinet-nav {
     position: static;
+    min-height: 0; /* десктопный min-height ради прижатого «Выйти» не нужен */
     flex-direction: row;
     overflow-x: auto;
     padding-bottom: 4px;
