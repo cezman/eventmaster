@@ -128,6 +128,32 @@ export default function PlayGame() {
 
   const react = (emoji) => socket.emit("player:reaction", { emoji });
 
+  // авто-reconnect: после обрыва связи игрок восстанавливается по токену (очки и имя сохраняются)
+  useEffect(() => {
+    const token = sessionStorage.getItem("playerToken");
+    const savedPin = sessionStorage.getItem("playerPin");
+    const savedName = (sessionStorage.getItem("playerName") || "").trim();
+    if (!pinParam || !token || savedPin !== pinParam || !savedName) return undefined;
+    socket.emit(
+      "player:join",
+      {
+        pin: pinParam,
+        name: savedName,
+        avatar: sessionStorage.getItem("playerAvatar"),
+        color: Number(sessionStorage.getItem("playerColor") ?? 0),
+        token,
+      },
+      (res) => {
+        if (!res || res.error) return; // тихо остаёмся на форме входа
+        setHostName(res.hostName || "");
+        setHostAvatar(parseAvatar(res.hostAvatar || ""));
+        setJoined(true);
+      }
+    );
+    return undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const join = (e) => {
     e.preventDefault();
     setError("");
@@ -135,15 +161,25 @@ export default function PlayGame() {
     const cleanName = name.trim().slice(0, 20);
     if (cleanPin.length !== 6) return setError("PIN состоит из 6 цифр");
     if (!cleanName) return setError("Введите имя");
-    socket.emit("player:join", { pin: cleanPin, name: cleanName, avatar: JSON.stringify(avatar), color }, (res) => {
-      if (res.error) return setError(res.error);
-      sessionStorage.setItem("playerName", cleanName);
-      sessionStorage.setItem("playerAvatar", JSON.stringify(avatar));
-      sessionStorage.setItem("playerColor", String(color));
-      setHostName(res.hostName || "");
-      setHostAvatar(parseAvatar(res.hostAvatar || ""));
-      setJoined(true);
-    });
+    // токен шлём только под своим сохранённым именем: иначе на общем устройстве
+    // новый игрок молча «присвоил» бы сессию предыдущего
+    const savedName = (sessionStorage.getItem("playerName") || "").trim();
+    const token = cleanName === savedName ? sessionStorage.getItem("playerToken") : null;
+    socket.emit(
+      "player:join",
+      { pin: cleanPin, name: cleanName, avatar: JSON.stringify(avatar), color, token },
+      (res) => {
+        if (res.error) return setError(res.error);
+        sessionStorage.setItem("playerName", cleanName);
+        sessionStorage.setItem("playerAvatar", JSON.stringify(avatar));
+        sessionStorage.setItem("playerColor", String(color));
+        sessionStorage.setItem("playerPin", cleanPin);
+        sessionStorage.setItem("playerToken", res.token);
+        setHostName(res.hostName || "");
+        setHostAvatar(parseAvatar(res.hostAvatar || ""));
+        setJoined(true);
+      }
+    );
   };
 
   const answer = (i) => {

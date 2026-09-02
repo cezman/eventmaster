@@ -190,8 +190,9 @@ export default function HostGame() {
             </h2>
             <div className="players-grid">
               {game.players.map((p) => (
-                <div className="player-chip" key={p.name}>
+                <div className={`player-chip${p.online === false ? " offline" : ""}`} key={p.name}>
                   <PlayerName p={p} />
+                  {p.online === false && <span className="chip-offline">нет связи</span>}
                 </div>
               ))}
             </div>
@@ -210,7 +211,8 @@ export default function HostGame() {
       {phase === "question" && question && (
         <div className="host-question">
           <div className="q-meta">
-            Вопрос {question.index + 1} / {question.total} · ответили: {answered} / {game.players.length}
+            Вопрос {question.index + 1} / {question.total} · ответили: {answered} /{" "}
+            {game.players.filter((p) => p.online !== false).length}
           </div>
           <div className={`timer ${secondsLeft != null && secondsLeft <= 5 ? "timer-low" : ""}`}>
             <ClockIcon className="timer-icon" aria-hidden="true" />
@@ -230,9 +232,14 @@ export default function HostGame() {
               );
             })}
           </div>
-          <button className="btn btn-primary btn-xl" onClick={hostAction("host:reveal")}>
-            Показать результаты
-          </button>
+          <div className="host-question-actions">
+            <button className="btn btn-primary btn-xl" onClick={hostAction("host:reveal")}>
+              Показать результаты
+            </button>
+            <button className="btn btn-outline btn-xl" onClick={hostAction("host:skip")}>
+              Пропустить вопрос
+            </button>
+          </div>
         </div>
       )}
 
