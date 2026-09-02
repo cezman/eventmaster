@@ -194,6 +194,19 @@ input:focus {
   background: color-mix(in srgb, var(--bad) 12%, transparent);
   border-color: var(--bad);
 }
+/* ghost — приглушённая деструктивная кнопка, опасность проявляется при наведении */
+.btn-ghost {
+  background: transparent;
+  color: var(--muted-on-bg);
+  border-color: transparent;
+}
+.btn-ghost:hover:not(:disabled) {
+  background: rgba(229, 72, 77, 0.12);
+  background: color-mix(in srgb, var(--bad) 12%, transparent);
+  color: var(--bad);
+  border-color: rgba(229, 72, 77, 0.45);
+  border-color: color-mix(in srgb, var(--bad) 45%, transparent);
+}
 .btn-lg {
   padding: 14px 28px;
   font-size: 18px;
@@ -1311,6 +1324,9 @@ input:focus {
 }
 .dialog {
   width: min(400px, 94vw);
+  /* карточка всегда белая: фиксируем цвет текста, иначе на host-screen
+     наследуется светлый --on-bg и заголовок/кнопки выцветают */
+  color: var(--ink);
 }
 .dialog h3 {
   margin-top: 0;
