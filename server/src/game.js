@@ -246,7 +246,6 @@ export function registerGameHandlers(io) {
     socket.on("player:join", ({ pin, name, avatar, color, token } = {}, ack = () => {}) => {
       const game = games.get(String(pin || "").trim());
       if (!game) return ack({ error: "Игра с таким PIN не найдена" });
-      if (game.state === "finished") return ack({ error: "Игра уже закончилась" });
 
       // повторный вход после обрыва связи: токен возвращает игрока с его счётом и именем
       if (token) {
@@ -269,9 +268,15 @@ export function registerGameHandlers(io) {
           broadcastPlayers(io, game);
           if (game.state === "question") socket.emit("question", questionForRoom(game));
           if (game.state === "reveal") reveal(io, game);
+          // вернулся после финала (закрыл вкладку, открыл заново) — досылаем итоговый экран
+          if (game.state === "finished")
+            socket.emit("finished", { leaderboard: leaderboard(game), players: playersList(game) });
           return;
         }
       }
+
+      // завершённая игра новых игроков не принимает: клиент покажет экран «Игра завершена»
+      if (game.state === "finished") return ack({ error: "Игра уже завершилась", finished: true });
 
       let clean = String(name || "").trim().slice(0, 20);
       if (!clean) return ack({ error: "Введите имя" });

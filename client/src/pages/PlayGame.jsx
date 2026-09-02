@@ -48,6 +48,7 @@ export default function PlayGame() {
   const [hostAvatar, setHostAvatar] = useState(null);
   const [error, setError] = useState("");
   const [closed, setClosed] = useState(false);
+  const [gameOver, setGameOver] = useState(false); // вход в уже завершённую игру
   const [players, setPlayers] = useState([]);
   const [question, setQuestion] = useState(null);
   const [submitted, setSubmitted] = useState(null); // индекс ответа
@@ -82,6 +83,7 @@ export default function PlayGame() {
       setFinal(null);
       setSubmitted(null);
       setSecondsLeft(null);
+      setGameOver(false); // хост нажал «Играть снова» — экран «Игра завершена» больше не нужен
     };
     const onClosed = () => setClosed(true);
 
@@ -144,6 +146,7 @@ export default function PlayGame() {
         token,
       },
       (res) => {
+        if (res?.finished) return setGameOver(true); // завершённая игра — экран «Игра завершена»
         if (!res || res.error) return; // тихо остаёмся на форме входа
         setHostName(res.hostName || "");
         setHostAvatar(parseAvatar(res.hostAvatar || ""));
@@ -169,7 +172,8 @@ export default function PlayGame() {
       "player:join",
       { pin: cleanPin, name: cleanName, avatar: JSON.stringify(avatar), color, token },
       (res) => {
-        if (res.error) return setError(res.error);
+        if (res?.finished) return setGameOver(true);
+        if (res?.error) return setError(res.error);
         sessionStorage.setItem("playerName", cleanName);
         sessionStorage.setItem("playerAvatar", JSON.stringify(avatar));
         sessionStorage.setItem("playerColor", String(color));
@@ -188,11 +192,13 @@ export default function PlayGame() {
     socket.emit("player:answer", { choice: i });
   };
 
-  if (closed) {
+  if (closed || gameOver) {
     return (
       <div className="play-screen">
-        <h1>Игра закрыта</h1>
-        <p className="muted">Ведущий завершил игру или она устарела.</p>
+        <h1>{gameOver ? "Игра завершена" : "Игра закрыта"}</h1>
+        <p className="muted">
+          {gameOver ? "Эта партия уже закончилась." : "Ведущий завершил игру или она устарела."}
+        </p>
         <Link className="btn btn-primary" to="/">
           На главную
         </Link>

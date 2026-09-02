@@ -1144,6 +1144,10 @@ body.presenter-mode .hide-in-presenter {
   padding: 24px;
   text-align: center;
 }
+/* двойной тап по кнопкам/реакциям не зумит страницу (iOS Safari), без user-scalable=no */
+.play-screen button {
+  touch-action: manipulation;
+}
 .play-card {
   width: min(400px, 92vw);
   display: flex;
