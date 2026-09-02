@@ -40,7 +40,7 @@ export default function QuizEditor() {
   const rerunRef = useRef(false); // изменение пришло, пока шёл запрос
   const rerunSilentRef = useRef(false);
 
-  const serialize = (q) => JSON.stringify({ title: q.title, questions: q.questions });
+  const serialize = (q) => JSON.stringify({ title: q.title, questions: q.questions, settings: q.settings });
   const isDirty = () => !!quizRef.current && serialize(quizRef.current) !== savedRef.current;
 
   useEffect(() => {
@@ -88,7 +88,7 @@ export default function QuizEditor() {
     setBusy(true);
     // снимок на момент запроса: если пользователь печатает во время сохранения,
     // локальные правки не перетираются ответом сервера
-    const payload = { title: quizRef.current.title, questions: quizRef.current.questions };
+    const payload = { title: quizRef.current.title, questions: quizRef.current.questions, settings: quizRef.current.settings };
     const attempted = serialize(payload);
     const p = (async () => {
       try {
@@ -271,6 +271,23 @@ export default function QuizEditor() {
             }}
           />
         </label>
+
+        {quiz.type === "poll" && (
+          <label className="live-check">
+            <input
+              type="checkbox"
+              checked={!!quiz.settings?.showLiveResults}
+              onChange={() => {
+                markDirty();
+                setQuiz({
+                  ...quiz,
+                  settings: { ...quiz.settings, showLiveResults: !quiz.settings?.showLiveResults },
+                });
+              }}
+            />
+            Показывать распределение ответов в реальном времени
+          </label>
+        )}
 
         {quiz.questions.length === 0 && (
           <p className="muted">

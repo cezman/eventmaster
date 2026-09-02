@@ -6,6 +6,15 @@ export const quizRoutes = Router();
 
 quizRoutes.use(authRequired);
 
+function parseSettings(raw) {
+  try {
+    const s = JSON.parse(raw || "{}");
+    return s && typeof s === "object" ? s : {};
+  } catch {
+    return {};
+  }
+}
+
 function loadFullQuiz(id, hostId) {
   const quiz = db.prepare("SELECT * FROM quizzes WHERE id = ? AND host_id = ?").get(id, hostId);
   if (!quiz) return null;
@@ -17,6 +26,7 @@ function loadFullQuiz(id, hostId) {
   );
   return {
     ...quiz,
+    settings: parseSettings(quiz.settings),
     questions: questions.map((q) => ({
       text: q.text,
       time_limit: q.time_limit,
@@ -95,14 +105,25 @@ quizRoutes.get("/:id", (req, res) => {
 });
 
 quizRoutes.put("/:id", (req, res) => {
-  const quiz = db.prepare("SELECT id FROM quizzes WHERE id = ? AND host_id = ?").get(req.params.id, req.userId);
+  const quiz = db.prepare("SELECT id, type FROM quizzes WHERE id = ? AND host_id = ?").get(req.params.id, req.userId);
   if (!quiz) return res.status(404).json({ error: "Викторина не найдена" });
-  const { title, questions } = req.body || {};
+  const { title, questions, settings } = req.body || {};
+  // title/settings/questions — одной транзакцией: частичный коммит при 400 недопустим
+  db.exec("BEGIN");
   try {
     if (title && title.trim()) db.prepare("UPDATE quizzes SET title = ? WHERE id = ?").run(title.trim(), quiz.id);
+    if (settings && typeof settings === "object" && !Array.isArray(settings)) {
+      // храним только известные флаги; live-распределение — только для голосований (EM-27)
+      db.prepare("UPDATE quizzes SET settings = ? WHERE id = ?").run(
+        JSON.stringify({ showLiveResults: quiz.type === "poll" && settings.showLiveResults === true }),
+        quiz.id
+      );
+    }
     if (Array.isArray(questions)) saveQuestions(quiz.id, questions);
+    db.exec("COMMIT");
     res.json({ quiz: loadFullQuiz(quiz.id, req.userId) });
   } catch (e) {
+    db.exec("ROLLBACK");
     res.status(400).json({ error: e.message });
   }
 });

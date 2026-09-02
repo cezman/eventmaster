@@ -87,6 +87,13 @@ try {
   // колонка уже есть
 }
 
+// настройки квиза (EM-27): JSON-строка, сейчас только showLiveResults (живое распределение)
+try {
+  db.exec("ALTER TABLE quizzes ADD COLUMN settings TEXT NOT NULL DEFAULT '{}'");
+} catch {
+  // колонка уже есть
+}
+
 // админка (EM-14): role 'host'|'admin', статус 'active'|'blocked'
 for (const [col, def] of [["role", "'host'"], ["status", "'active'"]]) {
   try {

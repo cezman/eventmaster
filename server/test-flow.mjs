@@ -74,6 +74,12 @@ const question1 = await new Promise((resolve) => {
 });
 log("Q1:", question1.text, "| варианты:", question1.answers.map((a) => a.text).join(", "));
 
+// EM-27: у квиза без флага распределение до reveal скрыто (counts = null)
+const count0 = await new Promise((resolve) => host.once("answer-count", resolve));
+if (question1.showLiveResults !== false) throw new Error("у квиза showLiveResults должен быть false");
+if (count0.counts !== null) throw new Error(`квиз: распределение должно быть скрыто, пришло ${JSON.stringify(count0.counts)}`);
+log("Квиз: распределение до reveal скрыто ✓");
+
 const reveal1 = await new Promise((resolve) => {
   let n = 0;
   host.on("answer-count", () => {
@@ -165,7 +171,63 @@ const b3 = finished.leaderboard.find((p) => p.name === "Боря");
 if (a3.score !== 2 || b3.score !== 1) throw new Error(`skip начислил очки: Аня ${a3.score}, Боря ${b3.score}`);
 log("Финал после skip:", JSON.stringify(finished.leaderboard));
 
-log("✅ Все этапы пройдены: создание, лобби, 3 вопроса, reconnect по токену, offline-счётчик, skip, финал");
+// — EM-27: голосование с включённым live-распределением —
+async function api(method, path, body) {
+  const res = await fetch(`${URL}${path}`, {
+    method,
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${TOKEN}` },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  return res.json();
+}
+const pollCreated = await api("POST", "/api/quizzes", {
+  title: "Тест-голосование",
+  type: "poll",
+  questions: [
+    {
+      text: "Кто победит?",
+      answers: [
+        { text: "Красные", is_correct: false },
+        { text: "Синие", is_correct: false },
+      ],
+    },
+  ],
+});
+if (!pollCreated.quiz) throw new Error("poll create failed: " + JSON.stringify(pollCreated));
+const saved = await api("PUT", `/api/quizzes/${pollCreated.quiz.id}`, {
+  settings: { showLiveResults: true },
+});
+if (saved.quiz?.settings?.showLiveResults !== true) {
+  throw new Error("settings.showLiveResults не сохранился: " + JSON.stringify(saved.quiz?.settings));
+}
+const h2 = io(URL);
+const p3 = io(URL);
+const pin2 = await new Promise((resolve, reject) => {
+  h2.emit("host:create-game", { token: TOKEN, quizId: pollCreated.quiz.id }, (res) =>
+    res.error ? reject(new Error(res.error)) : resolve(res.pin)
+  );
+});
+await wait(300);
+await new Promise((resolve, reject) => {
+  p3.emit("player:join", { pin: pin2, name: "Гость" }, (res) => (res.error ? reject(new Error(res.error)) : resolve()));
+});
+const pollQ = await new Promise((resolve) => {
+  h2.emit("host:start");
+  h2.once("question", resolve);
+});
+const pollCount0 = await new Promise((resolve) => h2.once("answer-count", resolve));
+if (pollQ.showLiveResults !== true) throw new Error("у голосования showLiveResults должен быть true");
+if (!Array.isArray(pollCount0.counts)) throw new Error("live-голосование: counts должны приходить");
+p3.emit("player:answer", { choice: 0 });
+const pollCount1 = await new Promise((resolve) => h2.once("answer-count", resolve));
+if (pollCount1.answered !== 1 || pollCount1.counts[0] !== 1) {
+  throw new Error(`live-голосование: неверный counts: ${JSON.stringify(pollCount1.counts)}`);
+}
+log("Голосование с live-распределением: counts приходят до reveal ✓");
+h2.close();
+p3.close();
+
+log("✅ Все этапы пройдены: создание, лобби, 3 вопроса, reconnect по токену, offline-счётчик, skip, финал, EM-27");
 host.close();
 p1.close();
 p2c.close();
