@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { db } from "./db.js";
 import { verifyToken } from "./auth.js";
 
@@ -46,7 +47,15 @@ function playersList(game) {
     score: p.score,
     avatar: p.avatar,
     color: p.color,
+    online: p.online !== false,
   }));
+}
+
+// offline-игроки остаются в игре до конца, но хост не ждёт их ответов
+function onlineCount(game) {
+  let n = 0;
+  for (const p of game.players.values()) if (p.online !== false) n += 1;
+  return n;
 }
 
 // вопросы квиза из БД — снапшот делаем при создании игры и при «Играть снова»,
@@ -116,7 +125,7 @@ function startQuestion(io, game) {
   for (const p of game.players.values()) p.answer = null;
   io.to(`game:${game.pin}`).emit("question", questionForRoom(game));
   const host = io.sockets.sockets.get(game.hostSocketId);
-  host?.emit("answer-count", { answered: 0, total: game.players.size, counts: countsFor(game) });
+  host?.emit("answer-count", { answered: 0, total: onlineCount(game), counts: countsFor(game) });
   const limit = (game.quiz.questions[game.qIndex].time_limit || 20) * 1000;
   stopRevealTimer(game);
   game.revealTimer = setTimeout(() => {
@@ -131,15 +140,20 @@ function reveal(io, game) {
   const q = game.quiz.questions[game.qIndex];
   const correctIndex = game.type === "quiz" ? q.answers.findIndex((a) => a.is_correct) : null;
 
-  if (game.type === "quiz" && correctIndex >= 0) {
-    for (const p of game.players.values()) {
-      if (p.answer === correctIndex) {
-        p.awarded = q.points || 1;
-        p.score += p.awarded;
-        p.lastCorrect = true;
-      } else {
-        p.awarded = 0;
-        p.lastCorrect = false;
+  // очки начисляются один раз на вопрос: rejoin/refresh хоста во время reveal
+  // повторно вызывает reveal() — без защиты было бы двойное начисление
+  if (game.scoredQIndex !== game.qIndex) {
+    game.scoredQIndex = game.qIndex;
+    if (game.type === "quiz" && correctIndex >= 0) {
+      for (const p of game.players.values()) {
+        if (p.answer === correctIndex) {
+          p.awarded = q.points || 1;
+          p.score += p.awarded;
+          p.lastCorrect = true;
+        } else {
+          p.awarded = 0;
+          p.lastCorrect = false;
+        }
       }
     }
   }
@@ -157,6 +171,16 @@ function reveal(io, game) {
       myAwarded: p ? p.awarded || 0 : 0,
     });
   }
+}
+
+// завершение партии: в историю и всем сигнал финала (из host:next и host:skip)
+function finishGame(io, game) {
+  game.state = "finished";
+  recordResult(game);
+  io.to(`game:${game.pin}`).emit("finished", {
+    leaderboard: leaderboard(game),
+    players: playersList(game),
+  });
 }
 
 export function registerGameHandlers(io) {
@@ -206,6 +230,7 @@ export function registerGameHandlers(io) {
         hostAvatar: typeof host?.avatar === "string" ? host.avatar.slice(0, 500) : "",
         state: "lobby",
         qIndex: -1,
+        scoredQIndex: -1,
         questionStart: 0,
         quiz: { title: quiz.title, questions: fullQuestions },
         players: new Map(),
@@ -218,10 +243,35 @@ export function registerGameHandlers(io) {
       ack({ ok: true, pin: game.pin });
     });
 
-    socket.on("player:join", ({ pin, name, avatar, color } = {}, ack = () => {}) => {
+    socket.on("player:join", ({ pin, name, avatar, color, token } = {}, ack = () => {}) => {
       const game = games.get(String(pin || "").trim());
       if (!game) return ack({ error: "Игра с таким PIN не найдена" });
       if (game.state === "finished") return ack({ error: "Игра уже закончилась" });
+
+      // повторный вход после обрыва связи: токен возвращает игрока с его счётом и именем
+      if (token) {
+        for (const [sid, p] of game.players) {
+          if (p.token !== token) continue;
+          game.players.delete(sid);
+          p.online = true;
+          game.players.set(socket.id, p);
+          socket.join(`game:${game.pin}`);
+          socket.data.gamePin = game.pin;
+          ack({
+            ok: true,
+            token,
+            rejoined: true,
+            type: game.type,
+            state: game.state,
+            hostName: game.hostName || "",
+            hostAvatar: game.hostAvatar || "",
+          });
+          broadcastPlayers(io, game);
+          if (game.state === "question") socket.emit("question", questionForRoom(game));
+          if (game.state === "reveal") reveal(io, game);
+          return;
+        }
+      }
 
       let clean = String(name || "").trim().slice(0, 20);
       if (!clean) return ack({ error: "Введите имя" });
@@ -230,7 +280,7 @@ export function registerGameHandlers(io) {
       let i = 2;
       while (taken.has(candidate.toLowerCase())) candidate = `${clean} ${i++}`;
 
-      game.players.set(socket.id, {
+      const player = {
         name: candidate,
         score: 0,
         answer: null,
@@ -239,11 +289,15 @@ export function registerGameHandlers(io) {
         avatar: typeof avatar === "string" ? avatar.slice(0, 500) : "🙂",
         color: Number.isInteger(color) && color >= 0 && color < 8 ? color : 0,
         lastReaction: 0,
-      });
+        online: true,
+        token: randomUUID(),
+      };
+      game.players.set(socket.id, player);
       socket.join(`game:${game.pin}`);
       socket.data.gamePin = game.pin;
       ack({
         ok: true,
+        token: player.token,
         type: game.type,
         state: game.state,
         hostName: game.hostName || "",
@@ -266,8 +320,8 @@ export function registerGameHandlers(io) {
       if (!Number.isInteger(idx) || idx < 0 || idx >= q.answers.length) return;
       p.answer = idx;
       const host = io.sockets.sockets.get(game.hostSocketId);
-      const answered = [...game.players.values()].filter((x) => x.answer != null).length;
-      host?.emit("answer-count", { answered, total: game.players.size, counts: countsFor(game) });
+      const answered = [...game.players.values()].filter((x) => x.answer != null && x.online !== false).length;
+      host?.emit("answer-count", { answered, total: onlineCount(game), counts: countsFor(game) });
     });
 
     socket.on("player:reaction", ({ emoji } = {}) => {
@@ -300,12 +354,18 @@ export function registerGameHandlers(io) {
       if (game.qIndex + 1 < game.quiz.questions.length) {
         startQuestion(io, game);
       } else {
-        game.state = "finished";
-        recordResult(game);
-        io.to(`game:${game.pin}`).emit("finished", {
-          leaderboard: leaderboard(game),
-          players: playersList(game),
-        });
+        finishGame(io, game);
+      }
+    });
+
+    // пропустить вопрос: без reveal и без очков, ответы текущего вопроса сбрасываются
+    socket.on("host:skip", () => {
+      const game = hostGame(socket);
+      if (!game || game.state !== "question") return;
+      if (game.qIndex + 1 < game.quiz.questions.length) {
+        startQuestion(io, game);
+      } else {
+        finishGame(io, game);
       }
     });
 
@@ -323,6 +383,7 @@ export function registerGameHandlers(io) {
       }
       game.state = "lobby";
       game.qIndex = -1;
+      game.scoredQIndex = -1;
       game.recorded = false;
       for (const p of game.players.values()) {
         p.score = 0;
@@ -348,7 +409,12 @@ export function registerGameHandlers(io) {
       const pin = socket.data.gamePin;
       if (pin && games.has(pin)) {
         const game = games.get(pin);
-        if (game.players.delete(socket.id)) broadcastPlayers(io, game);
+        const p = game.players.get(socket.id);
+        if (p) {
+          // не удаляем: игрок может вернуться по токену до конца игры, хост видит «нет связи»
+          p.online = false;
+          broadcastPlayers(io, game);
+        }
       }
       for (const game of games.values()) {
         if (game.hostSocketId === socket.id && !game.closeTimer) {
