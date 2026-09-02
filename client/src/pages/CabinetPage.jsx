@@ -2,7 +2,7 @@ import React from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth";
 import AppHeader from "../components/AppHeader";
-import { UserIcon, LockIcon, HistoryIcon, ShieldIcon, GamepadIcon } from "../components/icons";
+import { UserIcon, LockIcon, HistoryIcon, ShieldIcon, GamepadIcon, LogoutIcon } from "../components/icons";
 import GamesSection from "../cabinet/GamesSection";
 import ProfileSection from "../cabinet/ProfileSection";
 import PasswordSection from "../cabinet/PasswordSection";
@@ -18,7 +18,7 @@ const TABS = [
 // Кабинет ведущего: сайдбар с разделами + контент выбранной вкладки (?tab=, по умолчанию «Мероприятия»).
 // Новые разделы добавляются в TABS и рендер-переключатель ниже.
 export default function CabinetPage() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const [params, setParams] = useSearchParams();
   const tab = TABS.some((t) => t.id === params.get("tab")) ? params.get("tab") : "games";
 
@@ -49,6 +49,10 @@ export default function CabinetPage() {
               <ShieldIcon className="cabinet-nav-icon" /> Админка
             </Link>
           )}
+          {/* выход — внизу сайдбара, отдельным блоком: в шапке ему не место */}
+          <button type="button" className="cabinet-nav-item cabinet-nav-logout" onClick={signOut}>
+            <LogoutIcon className="cabinet-nav-icon" /> Выйти
+          </button>
         </nav>
 
         <section className="cabinet-content">

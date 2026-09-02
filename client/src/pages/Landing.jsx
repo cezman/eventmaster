@@ -24,7 +24,7 @@ export default function Landing() {
           <ThemeToggle />
           {user ? (
             <Link className="btn btn-outline" to="/dashboard">
-              Мои игры
+              Кабинет
             </Link>
           ) : (
             <>
