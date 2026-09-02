@@ -28,8 +28,6 @@ function canConfetti() {
 const ANSWER_COLORS = ["c0", "c1", "c2", "c3"];
 const ANSWER_SHAPES = ["▲", "◆", "●", "■"];
 
-const DEFAULT_AVATAR = AVATAR_PRESETS[0].props;
-
 export default function PlayGame() {
   const { pin: pinParam } = useParams();
   const navigate = useNavigate();
@@ -38,17 +36,20 @@ export default function PlayGame() {
   const [pin, setPin] = useState(pinParam || "");
   const [name, setName] = useState(sessionStorage.getItem("playerName") || "");
   const [avatar, setAvatar] = useState(() => {
-    const saved = sessionStorage.getItem("playerAvatar");
-    const parsed = parseAvatar(saved);
-    return parsed || DEFAULT_AVATAR;
+    const parsed = parseAvatar(sessionStorage.getItem("playerAvatar"));
+    return parsed || randomAvatarProps(); // при первом входе — случайный, тап по превью перегенерирует
   });
-  const [color, setColor] = useState(Number(sessionStorage.getItem("playerColor") ?? 0));
+  const [color, setColor] = useState(() => {
+    const saved = sessionStorage.getItem("playerColor");
+    return saved == null ? Math.floor(Math.random() * NAME_COLORS.length) : Number(saved);
+  });
   const [joined, setJoined] = useState(false);
   const [hostName, setHostName] = useState("");
   const [hostAvatar, setHostAvatar] = useState(null);
   const [error, setError] = useState("");
   const [closed, setClosed] = useState(false);
   const [gameOver, setGameOver] = useState(false); // вход в уже завершённую игру
+  const [customizeOpen, setCustomizeOpen] = useState(false); // конструктор аватара в лобби свёрнут
   const [players, setPlayers] = useState([]);
   const [question, setQuestion] = useState(null);
   const [submitted, setSubmitted] = useState(null); // индекс ответа
@@ -111,8 +112,6 @@ export default function PlayGame() {
   }, [secondsLeft]);
 
   const myName = (sessionStorage.getItem("playerName") || "").trim();
-  const myColor = Number(sessionStorage.getItem("playerColor") ?? 0);
-  const myAvatar = parseAvatar(sessionStorage.getItem("playerAvatar")) || DEFAULT_AVATAR;
 
   // салют при финале — громче, если игрок в топ-3
   useEffect(() => {
@@ -126,7 +125,16 @@ export default function PlayGame() {
     });
   }, [final, myName]);
 
-  const patchAvatar = (patch) => setAvatar((cur) => ({ ...cur, ...patch }));
+  // правка аватара/цвета: состояние + sessionStorage (для rejoin) + сервер, если уже в игре
+  const applyAvatar = (patch) => {
+    const nextAvatar = patch.avatar != null ? patch.avatar : { ...avatar, ...patch.props };
+    const nextColor = patch.color != null ? patch.color : color;
+    setAvatar(nextAvatar);
+    setColor(nextColor);
+    sessionStorage.setItem("playerAvatar", JSON.stringify(nextAvatar));
+    sessionStorage.setItem("playerColor", String(nextColor));
+    if (joined) socket.emit("update-avatar", { avatar: JSON.stringify(nextAvatar), color: nextColor });
+  };
 
   const react = (emoji) => socket.emit("player:reaction", { emoji });
 
@@ -233,104 +241,16 @@ export default function PlayGame() {
               required
             />
           </label>
-          <div className="customize">
-            <div className="avatar-preview-row">
-              <div className="avatar-preview">
-                <PlayerAvatar avatar={JSON.stringify(avatar)} size={110} />
-              </div>
-              <div className="preset-grid">
-                {AVATAR_PRESETS.map((p) => (
-                  <button
-                    type="button"
-                    key={p.label}
-                    title={p.label}
-                    aria-label={`Пресет аватара: ${p.label}`}
-                    aria-pressed={JSON.stringify(avatar) === JSON.stringify(p.props)}
-                    className={`preset-choice ${JSON.stringify(avatar) === JSON.stringify(p.props) ? "selected" : ""}`}
-                    onClick={() => setAvatar(p.props)}
-                  >
-                    <PlayerAvatar avatar={JSON.stringify(p.props)} size={44} />
-                  </button>
-                ))}
-              </div>
-            </div>
-            <button type="button" className="btn btn-outline" onClick={() => setAvatar(randomAvatarProps())}>
-              🎲 Случайный аватар
-            </button>
-            <div className="picker-row">
-              <label>
-                Причёска
-                <Dropdown
-                  value={avatar.hair || "short"}
-                  onChange={(v) => patchAvatar({ hair: v })}
-                  options={HAIR_OPTIONS}
-                />
-              </label>
-              <label>
-                Одежда
-                <Dropdown
-                  value={avatar.clothing || "shirt"}
-                  onChange={(v) => patchAvatar({ clothing: v })}
-                  options={CLOTHING_OPTIONS}
-                />
-              </label>
-            </div>
-            <div className="picker-row">
-              <label>
-                Цвет одежды
-                <Dropdown
-                  value={avatar.clothingColor || "blue"}
-                  onChange={(v) => patchAvatar({ clothingColor: v })}
-                  options={COLOR_OPTIONS}
-                />
-              </label>
-              <label>
-                Тип
-                <Dropdown
-                  value={avatar.body || "chest"}
-                  onChange={(v) => patchAvatar({ body: v })}
-                  options={BODY_OPTIONS}
-                />
-              </label>
-            </div>
-            <div className="picker-row">
-              <label>
-                Кожа
-                <Dropdown
-                  value={avatar.skinTone || "light"}
-                  onChange={(v) => patchAvatar({ skinTone: v })}
-                  options={SKIN_OPTIONS}
-                />
-              </label>
-              <label>
-                Волосы
-                <Dropdown
-                  value={avatar.hairColor || "brown"}
-                  onChange={(v) => patchAvatar({ hairColor: v })}
-                  options={HAIR_COLOR_OPTIONS}
-                />
-              </label>
-            </div>
-            <div className="customize">
-              <span className="muted">Цвет имени:</span>
-              <div className="color-grid">
-                {NAME_COLORS.map((c, i) => (
-                  <button
-                    type="button"
-                    key={c}
-                    className={`color-choice ${color === i ? "selected" : ""}`}
-                    style={{ background: c }}
-                    aria-label={`Цвет имени ${i + 1}`}
-                    aria-pressed={color === i}
-                    onClick={() => setColor(i)}
-                  />
-                ))}
-              </div>
-              <div className="preview-line" style={{ color: NAME_COLORS[color] }}>
-                <PlayerAvatar avatar={JSON.stringify(avatar)} size={22} /> {name.trim() || "Ваше имя"}
-              </div>
-            </div>
-          </div>
+          {/* вход из двух шагов: на форме только PIN, имя и случайный аватар (тап — перегенерация) */}
+          <button
+            type="button"
+            className="avatar-tap"
+            onClick={() => applyAvatar({ avatar: randomAvatarProps() })}
+            aria-label="Сменить аватар на случайный"
+          >
+            <PlayerAvatar avatar={JSON.stringify(avatar)} size={96} />
+          </button>
+          <span className="muted small">Тапните по аватару, чтобы сменить</span>
           {error && <div className="error">{error}</div>}
           <button className="btn btn-primary btn-lg">Войти в игру</button>
         </form>
@@ -462,8 +382,8 @@ export default function PlayGame() {
   return (
     <div className="play-screen">
       <h1>
-        <span style={{ color: NAME_COLORS[myColor] }}>
-          <PlayerAvatar avatar={JSON.stringify(myAvatar)} size={30} /> {myName}
+        <span style={{ color: NAME_COLORS[color] }}>
+          <PlayerAvatar avatar={JSON.stringify(avatar)} size={30} /> {myName}
         </span>
         , вы в игре!
       </h1>
@@ -479,6 +399,120 @@ export default function PlayGame() {
       <p>
         В комнате: <b>{players.length}</b> {plural(players.length, ["игрок", "игрока", "игроков"])}
       </p>
+      <div className="lobby-customize">
+        <button
+          type="button"
+          className="btn btn-outline"
+          aria-expanded={customizeOpen}
+          onClick={() => setCustomizeOpen((o) => !o)}
+        >
+          {customizeOpen ? "Скрыть настройки аватара" : "Настроить аватар"}
+        </button>
+        {customizeOpen && (
+          <div className="customize">
+            <div className="avatar-preview-row">
+              <div className="avatar-preview">
+                <PlayerAvatar avatar={JSON.stringify(avatar)} size={110} />
+              </div>
+              <div className="preset-grid">
+                {AVATAR_PRESETS.map((p) => (
+                  <button
+                    type="button"
+                    key={p.label}
+                    title={p.label}
+                    aria-label={`Пресет аватара: ${p.label}`}
+                    aria-pressed={JSON.stringify(avatar) === JSON.stringify(p.props)}
+                    className={`preset-choice ${JSON.stringify(avatar) === JSON.stringify(p.props) ? "selected" : ""}`}
+                    onClick={() => applyAvatar({ avatar: p.props })}
+                  >
+                    <PlayerAvatar avatar={JSON.stringify(p.props)} size={44} />
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={() => applyAvatar({ avatar: randomAvatarProps() })}
+            >
+              🎲 Случайный аватар
+            </button>
+            <div className="picker-row">
+              <label>
+                Причёска
+                <Dropdown
+                  value={avatar.hair || "short"}
+                  onChange={(v) => applyAvatar({ props: { hair: v } })}
+                  options={HAIR_OPTIONS}
+                />
+              </label>
+              <label>
+                Одежда
+                <Dropdown
+                  value={avatar.clothing || "shirt"}
+                  onChange={(v) => applyAvatar({ props: { clothing: v } })}
+                  options={CLOTHING_OPTIONS}
+                />
+              </label>
+            </div>
+            <div className="picker-row">
+              <label>
+                Цвет одежды
+                <Dropdown
+                  value={avatar.clothingColor || "blue"}
+                  onChange={(v) => applyAvatar({ props: { clothingColor: v } })}
+                  options={COLOR_OPTIONS}
+                />
+              </label>
+              <label>
+                Тип
+                <Dropdown
+                  value={avatar.body || "chest"}
+                  onChange={(v) => applyAvatar({ props: { body: v } })}
+                  options={BODY_OPTIONS}
+                />
+              </label>
+            </div>
+            <div className="picker-row">
+              <label>
+                Кожа
+                <Dropdown
+                  value={avatar.skinTone || "light"}
+                  onChange={(v) => applyAvatar({ props: { skinTone: v } })}
+                  options={SKIN_OPTIONS}
+                />
+              </label>
+              <label>
+                Волосы
+                <Dropdown
+                  value={avatar.hairColor || "brown"}
+                  onChange={(v) => applyAvatar({ props: { hairColor: v } })}
+                  options={HAIR_COLOR_OPTIONS}
+                />
+              </label>
+            </div>
+            <div className="customize">
+              <span className="muted">Цвет имени:</span>
+              <div className="color-grid">
+                {NAME_COLORS.map((c, i) => (
+                  <button
+                    type="button"
+                    key={c}
+                    className={`color-choice ${color === i ? "selected" : ""}`}
+                    style={{ background: c }}
+                    aria-label={`Цвет имени ${i + 1}`}
+                    aria-pressed={color === i}
+                    onClick={() => applyAvatar({ color: i })}
+                  />
+                ))}
+              </div>
+              <div className="preview-line" style={{ color: NAME_COLORS[color] }}>
+                <PlayerAvatar avatar={JSON.stringify(avatar)} size={22} /> {myName || "Ваше имя"}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
       <div className="reaction-bar">
         {REACTION_EMOJIS.map((e, i) => (
           <button

@@ -933,6 +933,25 @@ body.presenter-mode .hide-in-presenter {
   gap: 8px;
   text-align: left;
 }
+/* тапабельный аватар на форме входа (EM-26): без рамки, клик = случайный аватар */
+.avatar-tap {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 50%;
+}
+/* свёрнутая секция кастомизации в лобби игрока (EM-26) */
+.lobby-customize {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: min(420px, 92vw);
+}
+.lobby-customize .customize {
+  width: 100%;
+}
 .avatar-preview-row {
   display: flex;
   gap: 12px;
