@@ -7,6 +7,7 @@ import { NAME_COLORS } from "../customize";
 import PlayerAvatar from "../components/PlayerAvatar";
 import Logo from "../components/Logo";
 import { ClockIcon, TrophyIcon } from "../components/icons";
+import ConfirmDialog from "../components/ConfirmDialog";
 import confetti from "canvas-confetti";
 
 const ANSWER_LABELS = ["A", "B", "C", "D"];
@@ -34,6 +35,7 @@ export default function HostGame() {
   const [secondsLeft, setSecondsLeft] = useState(null);
   const [reactions, setReactions] = useState([]); // летающие эмодзи
   const [error, setError] = useState("");
+  const [confirmEnd, setConfirmEnd] = useState(false);
   const [joinUrl, setJoinUrl] = useState("");
   const canvasRef = useRef(null);
   const pinKey = `hostpin-${quizId}`;
@@ -143,22 +145,34 @@ export default function HostGame() {
 
   const hostAction = (event) => () => socket.emit(event);
 
+  const endGame = () => {
+    socket.emit("host:end");
+    sessionStorage.removeItem(pinKey);
+    navigate("/dashboard");
+  };
+
   return (
     <div className="host-screen">
       <header className="host-header">
         <Logo>{game.title}</Logo>
         <div className="spacer" />
-        <button
-          className="btn btn-danger"
-          onClick={() => {
-            socket.emit("host:end");
-            sessionStorage.removeItem(pinKey);
-            navigate("/dashboard");
-          }}
-        >
+        <button className="btn btn-ghost" onClick={() => setConfirmEnd(true)}>
           Завершить игру
         </button>
       </header>
+
+      {confirmEnd && (
+        <ConfirmDialog
+          title="Завершить игру?"
+          text="Игра закончится для всех игроков, результаты сохранятся в истории."
+          confirmLabel="Завершить"
+          onConfirm={() => {
+            setConfirmEnd(false);
+            endGame();
+          }}
+          onCancel={() => setConfirmEnd(false)}
+        />
+      )}
 
       {showReactions && (
         <div className="reaction-layer">
@@ -297,14 +311,7 @@ export default function HostGame() {
             <button className="btn btn-primary btn-lg" onClick={hostAction("host:play-again")}>
               Играть снова
             </button>
-            <button
-              className="btn btn-outline btn-lg"
-              onClick={() => {
-                socket.emit("host:end");
-                sessionStorage.removeItem(pinKey);
-                navigate("/dashboard");
-              }}
-            >
+            <button className="btn btn-outline btn-lg" onClick={endGame}>
               В кабинет
             </button>
           </div>
