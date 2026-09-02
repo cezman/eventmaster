@@ -6,7 +6,7 @@ import { useAuth } from "../auth";
 import { NAME_COLORS } from "../customize";
 import PlayerAvatar from "../components/PlayerAvatar";
 import Logo from "../components/Logo";
-import { ClockIcon, TrophyIcon } from "../components/icons";
+import { ClockIcon, TrophyIcon, ExpandIcon, MinimizeIcon } from "../components/icons";
 import ConfirmDialog from "../components/ConfirmDialog";
 import confetti from "canvas-confetti";
 
@@ -130,6 +130,35 @@ export default function HostGame() {
     confetti({ particleCount: 160, spread: 110, origin: { y: 0.5 } });
   }, [final]);
 
+  // presenter mode: класс на body живёт, пока экран хоста в fullscreen
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  useEffect(() => {
+    const sync = () => {
+      const active = Boolean(document.fullscreenElement);
+      setIsFullscreen(active);
+      document.body.classList.toggle("presenter-mode", active);
+    };
+    // начальная синхронизация (remount в уже активном fullscreen, HMR)
+    sync();
+    document.addEventListener("fullscreenchange", sync);
+    return () => {
+      document.removeEventListener("fullscreenchange", sync);
+      document.body.classList.remove("presenter-mode");
+      // уход со страницы хоста — гасим fullscreen, чтобы не остаться в нём на дашборде
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    };
+  }, []);
+
+  const toggleFullscreen = () => {
+    // iPhone Safari: API для не-видео элементов нет — без guard будет синхронный TypeError
+    if (!document.documentElement.requestFullscreen) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+  };
+
   if (error) {
     return (
       <div className="page">
@@ -156,7 +185,11 @@ export default function HostGame() {
       <header className="host-header">
         <Logo>{game.title}</Logo>
         <div className="spacer" />
-        <button className="btn btn-ghost" onClick={() => setConfirmEnd(true)}>
+        <button className="btn btn-ghost" onClick={toggleFullscreen}>
+          {isFullscreen ? <MinimizeIcon className="inline-icon" /> : <ExpandIcon className="inline-icon" />}
+          {isFullscreen ? "Выйти из полноэкрана" : "Во весь экран"}
+        </button>
+        <button className="btn btn-ghost hide-in-presenter" onClick={() => setConfirmEnd(true)}>
           Завершить игру
         </button>
       </header>
