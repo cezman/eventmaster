@@ -253,6 +253,9 @@ export function registerGameHandlers(io) {
           if (p.token !== token) continue;
           game.players.delete(sid);
           p.online = true;
+          // аватар/цвет могли измениться в лобби, но не доехать до сервера — берём из payload
+          if (typeof avatar === "string") p.avatar = avatar.slice(0, 500);
+          if (Number.isInteger(color) && color >= 0 && color < 8) p.color = color;
           game.players.set(socket.id, p);
           socket.join(`game:${game.pin}`);
           socket.data.gamePin = game.pin;
@@ -339,6 +342,23 @@ export function registerGameHandlers(io) {
       if (now - p.lastReaction < 700) return; // антиспам
       p.lastReaction = now;
       io.to(`game:${pin}`).emit("reaction", { name: p.name, avatar: p.avatar, color: p.color, emoji });
+    });
+
+    // кастомизация в лобби: игрок меняет аватар/цвет имени без повторного входа
+    socket.on("update-avatar", ({ avatar, color } = {}, ack = () => {}) => {
+      const pin = socket.data.gamePin;
+      const game = games.get(pin);
+      const p = game?.players.get(socket.id);
+      if (!p) return ack({ error: "Вы не в игре" });
+      if (typeof avatar === "string") p.avatar = avatar.slice(0, 500);
+      if (Number.isInteger(color) && color >= 0 && color < 8) p.color = color;
+      // состояние применяем всегда, а broadcast ограничиваем — иначе флуд дёргает всю комнату
+      const now = Date.now();
+      if (now - (p.lastAvatarBroadcast || 0) >= 300) {
+        p.lastAvatarBroadcast = now;
+        broadcastPlayers(io, game);
+      }
+      ack({ ok: true });
     });
 
     socket.on("host:start", () => {
