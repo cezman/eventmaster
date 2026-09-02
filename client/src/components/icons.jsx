@@ -144,5 +144,3 @@ export const LogoutIcon = (p) => (
     <path d="M21 12H9" />
   </Base>
 );
-
-

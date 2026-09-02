@@ -376,10 +376,6 @@ input:focus {
 .page-header .btn-outline {
   color: var(--on-bg);
 }
-/* email в шапке лежит на градиентном фоне — нужен свой muted, иначе теряется в светлой теме */
-.page-header .muted {
-  color: var(--muted-on-bg);
-}
 .page-body {
   max-width: 900px;
   margin: 0 auto;
