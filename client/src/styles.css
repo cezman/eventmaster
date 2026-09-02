@@ -496,6 +496,18 @@ input:focus {
   flex-direction: column;
   gap: 16px;
 }
+/* индикатор автосохранения в сабнаве: сохранено/сохранение/несохранённые */
+.save-status {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.save-status.saved {
+  color: var(--ok);
+}
+.save-status.dirty {
+  color: var(--highlight);
+}
 /* карточки редактора всегда белые — текст внутри тёмный независимо от темы */
 .question-card {
   color: var(--ink);

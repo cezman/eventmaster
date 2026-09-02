@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import React, { useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
 import { TIME_OPTIONS } from "../customize";
 import Dropdown from "../components/Dropdown";
 import AppHeader from "../components/AppHeader";
+import ConfirmDialog from "../components/ConfirmDialog";
 import { useToast } from "../components/Toast";
 import { QuizIcon, PollIcon, ClockIcon, TrophyIcon } from "../components/icons";
 
@@ -23,16 +24,125 @@ function emptyQuestion() {
 
 export default function QuizEditor() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const showToast = useToast();
   const [quiz, setQuiz] = useState(null);
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(false); // идёт запрос сохранения
+  const [leaveTarget, setLeaveTarget] = useState(null); // путь, с которого спросили подтверждение
+
+  // ref-копии для сохранения без устаревших замыканий (автосейв, beforeunload)
+  const quizRef = useRef(null);
+  const savedRef = useRef(null); // сериализованная последняя сохранённая версия
+  const timerRef = useRef(null);
+  const savingRef = useRef(false);
+  const savingPromiseRef = useRef(null); // текущий in-flight запрос — его await-ят launch/confirmLeave
+  const rerunRef = useRef(false); // изменение пришло, пока шёл запрос
+  const rerunSilentRef = useRef(false);
+
+  const serialize = (q) => JSON.stringify({ title: q.title, questions: q.questions });
+  const isDirty = () => !!quizRef.current && serialize(quizRef.current) !== savedRef.current;
 
   useEffect(() => {
     api(`/quizzes/${id}`, { token: localStorage.getItem("token") })
-      .then((d) => setQuiz(d.quiz))
+      .then((d) => {
+        quizRef.current = d.quiz;
+        savedRef.current = serialize(d.quiz);
+        setQuiz(d.quiz);
+      })
       .catch((e) => setError(e.message));
   }, [id]);
+
+  // ref идёт в ногу с состоянием — сохранение и beforeunload видят последние правки
+  useEffect(() => {
+    if (quiz) quizRef.current = quiz;
+  }, [quiz]);
+
+  // предупреждение браузера при закрытии/обновлении вкладки с несохранённым
+  useEffect(() => {
+    const onUnload = (e) => {
+      if (isDirty()) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", onUnload);
+    return () => {
+      window.removeEventListener("beforeunload", onUnload);
+      clearTimeout(timerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // сохраняет сейчас; если запрос уже идёт — возвращает его промис (дождётся и отложенный прогон).
+  // silent: автосейв не тостит об ошибке — о ней говорит индикатор «Несохранённые изменения»
+  const saveNow = (silent = false) => {
+    if (savingRef.current) {
+      rerunRef.current = true;
+      rerunSilentRef.current = silent;
+      return savingPromiseRef.current;
+    }
+    if (!isDirty()) return Promise.resolve(); // таймер сработал впустую (правки откатились/уже сохранено)
+    savingRef.current = true;
+    clearTimeout(timerRef.current);
+    setBusy(true);
+    // снимок на момент запроса: если пользователь печатает во время сохранения,
+    // локальные правки не перетираются ответом сервера
+    const payload = { title: quizRef.current.title, questions: quizRef.current.questions };
+    const attempted = serialize(payload);
+    const p = (async () => {
+      try {
+        const d = await api(`/quizzes/${id}`, {
+          method: "PUT",
+          token: localStorage.getItem("token"),
+          body: payload,
+        });
+        // эталон — нормализованный сервером ответ: иначе trim/clamp сервера
+        // вечно расходятся с локальным снимком и статус не доходит до «Сохранено»
+        const editedWhileSaving = serialize(quizRef.current) !== attempted;
+        savedRef.current = serialize(d.quiz);
+        if (!editedWhileSaving) setQuiz(d.quiz);
+      } catch (e) {
+        if (!silent) showToast(`Не сохранено: ${e.message}`, "error");
+      } finally {
+        savingRef.current = false;
+        savingPromiseRef.current = null;
+        setBusy(false);
+        if (rerunRef.current) {
+          rerunRef.current = false;
+          await saveNow(rerunSilentRef.current); // внутри p — вызывающий дождёт и отложенный прогон
+        } else if (serialize(quizRef.current) !== attempted) {
+          scheduleSave(); // правки во время запроса — сохраняем следом по таймеру
+        }
+        // при провале тот же payload не ретраим по кругу: ждём новых правок (markDirty)
+      }
+    })();
+    savingPromiseRef.current = p;
+    return p;
+  };
+
+  const scheduleSave = () => {
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => saveNow(true), 5000);
+  };
+
+  // каждое изменение контента откладывает автосейв на 5 с (грязность проверится при срабатывании)
+  const markDirty = scheduleSave;
+
+  // переход по внутренним ссылкам: сначала диалог про несохранённые изменения
+  const tryLeave = (path) => (e) => {
+    if (e) e.preventDefault();
+    if (isDirty()) setLeaveTarget(path);
+    else navigate(path);
+  };
+
+  const confirmLeave = async () => {
+    const target = leaveTarget;
+    setLeaveTarget(null);
+    await saveNow();
+    // ушли только если изменения ушли на сервер; при ошибке остаёмся с тостом
+    if (!isDirty()) navigate(target);
+  };
 
   // шапка общая для всех состояний — лого не мигает, пока данные грузятся
   if (error)
@@ -62,6 +172,7 @@ export default function QuizEditor() {
   }
 
   const patchQuestion = (qi, patch) => {
+    markDirty();
     setQuiz((cur) => {
       const questions = cur.questions.map((q, i) => (i === qi ? { ...q, ...patch } : q));
       return { ...cur, questions };
@@ -69,10 +180,12 @@ export default function QuizEditor() {
   };
 
   const addQuestion = () => {
+    markDirty();
     setQuiz((cur) => ({ ...cur, questions: [...cur.questions, emptyQuestion()] }));
   };
 
   const removeQuestion = (qi) => {
+    markDirty();
     setQuiz((cur) => ({ ...cur, questions: cur.questions.filter((_, i) => i !== qi) }));
   };
 
@@ -114,33 +227,36 @@ export default function QuizEditor() {
     }
   };
 
-  const save = async () => {
-    setBusy(true);
-    try {
-      const d = await api(`/quizzes/${id}`, {
-        method: "PUT",
-        token: localStorage.getItem("token"),
-        body: { title: quiz.title, questions: quiz.questions },
-      });
-      setQuiz(d.quiz);
-      showToast("Сохранено", "ok");
-    } catch (e) {
-      showToast(`Не сохранено: ${e.message}`, "error");
-    } finally {
-      setBusy(false);
-    }
+  const save = () => {
+    clearTimeout(timerRef.current);
+    void saveNow();
   };
 
   return (
     <div className="page">
-      <AppHeader />
+      <AppHeader
+        onNav={() => {
+          if (isDirty()) {
+            setLeaveTarget("/");
+            return false;
+          }
+        }}
+      />
       <div className="subnav">
-        <Link to="/dashboard" className="btn btn-outline">
+        <Link to="/dashboard" className="btn btn-outline" onClick={tryLeave("/dashboard")}>
           ← К списку
         </Link>
         <span className="badge">
           {quiz.type === "quiz" ? <QuizIcon /> : <PollIcon />}
           {quiz.type === "quiz" ? "Викторина" : "Голосование"}
+        </span>
+        {/* dirty считаем от состояния рендера: quizRef догоняет его только в effect */}
+        <span
+          className={`save-status ${busy ? "saving" : serialize(quiz) !== savedRef.current ? "dirty" : "saved"}`}
+          role="status"
+          aria-live="polite"
+        >
+          {busy ? "Сохранение…" : serialize(quiz) !== savedRef.current ? "Несохранённые изменения" : "Сохранено"}
         </span>
       </div>
 
@@ -149,7 +265,10 @@ export default function QuizEditor() {
           Название
           <input
             value={quiz.title}
-            onChange={(e) => setQuiz({ ...quiz, title: e.target.value })}
+            onChange={(e) => {
+              markDirty();
+              setQuiz({ ...quiz, title: e.target.value });
+            }}
           />
         </label>
 
@@ -281,11 +400,30 @@ export default function QuizEditor() {
         </div>
 
         {quiz.questions.length > 0 && (
-          <Link className="btn btn-primary btn-lg launch" to={`/host/${quiz.id}`}>
+          <button
+            className="btn btn-primary btn-lg launch"
+            onClick={async () => {
+              // игра идёт по сохранённым данным — сохраняем перед запуском
+              clearTimeout(timerRef.current);
+              await saveNow();
+              if (!isDirty()) navigate(`/host/${quiz.id}`);
+            }}
+          >
             ▶ Запустить игру
-          </Link>
+          </button>
         )}
       </div>
+
+      {leaveTarget && (
+        <ConfirmDialog
+          title="Несохранённые изменения"
+          text="Сохранить изменения перед выходом? При ошибке сохранения вы останетесь в редакторе."
+          confirmLabel="Сохранить и выйти"
+          danger={false}
+          onConfirm={confirmLeave}
+          onCancel={() => setLeaveTarget(null)}
+        />
+      )}
     </div>
   );
 }
