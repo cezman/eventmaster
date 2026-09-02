@@ -613,6 +613,11 @@ input:focus {
   gap: 14px;
   padding: 18px 0;
 }
+/* presenter mode (fullscreen на проекторе): опасные кнопки скрыты,
+   выход — Esc или кнопка fullscreen, оставшаяся в шапке */
+body.presenter-mode .hide-in-presenter {
+  display: none;
+}
 .host-lobby {
   display: grid;
   grid-template-columns: minmax(280px, 420px) 1fr;
