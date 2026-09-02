@@ -32,6 +32,7 @@ export default function HostGame() {
   const [final, setFinal] = useState(null);
   const [answered, setAnswered] = useState(0);
   const [counts, setCounts] = useState([]);
+  const [live, setLive] = useState(false); // показывать распределение по вариантам до reveal
   const [secondsLeft, setSecondsLeft] = useState(null);
   const [reactions, setReactions] = useState([]); // летающие эмодзи
   const [error, setError] = useState("");
@@ -66,6 +67,7 @@ export default function HostGame() {
       setFinal(null);
       setAnswered(0);
       setCounts(q.answers.map(() => 0));
+      setLive(q.showLiveResults === true);
       setSecondsLeft(q.timeLimit);
     };
     const onReveal = (r) => {
@@ -81,7 +83,8 @@ export default function HostGame() {
     };
     const onCount = (d) => {
       setAnswered(d.answered);
-      setCounts(d.counts);
+      // без showLiveResults сервер шлёт counts: null — распределение скрыто до reveal
+      if (d.counts) setCounts(d.counts);
     };
     const onReaction = (r) => {
       const item = { ...r, id: Date.now() + Math.random(), left: 8 + Math.random() * 84 };
@@ -274,7 +277,11 @@ export default function HostGame() {
                 <div className={`answer-tile c${i}`} key={i}>
                   <b>{ANSWER_LABELS[i]}</b>
                   <span className="answer-tile-text">{a.text}</span>
-                  <span className="answer-live">{counts[i] || 0} · {pct}%</span>
+                  {live && (
+                    <span className="answer-live">
+                      {counts[i] || 0} · {pct}%
+                    </span>
+                  )}
                 </div>
               );
             })}

@@ -531,6 +531,17 @@ input:focus {
   gap: 6px;
   font-weight: 700;
 }
+/* чекбокс live-распределения в редакторе (EM-27): обычная строка, не блочный лейбл */
+.live-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.live-check input {
+  accent-color: var(--primary);
+}
 .question-card {
   display: flex;
   flex-direction: column;

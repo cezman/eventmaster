@@ -61,7 +61,7 @@ function onlineCount(game) {
 // вопросы квиза из БД — снапшот делаем при создании игры и при «Играть снова»,
 // чтобы правки редактора (таймер, очки, ответы) применялись к новой партии
 function loadQuiz(quizId) {
-  const quiz = db.prepare("SELECT id, title, type FROM quizzes WHERE id = ?").get(quizId);
+  const quiz = db.prepare("SELECT id, title, type, settings FROM quizzes WHERE id = ?").get(quizId);
   if (!quiz) return null;
   const questions = db
     .prepare("SELECT id, text, position, time_limit, points, mode FROM questions WHERE quiz_id = ? ORDER BY position")
@@ -75,7 +75,10 @@ function loadQuiz(quizId) {
     mode: q.mode === "tf" ? "tf" : "choice",
     answers: answersStmt.all(q.id),
   }));
-  return { title: quiz.title, type: quiz.type, questions: fullQuestions };
+  // флаг из quizzes.settings (EM-27): показывать распределение по вариантам до reveal
+  let showLiveResults = false;
+  try { showLiveResults = !!JSON.parse(quiz.settings).showLiveResults; } catch { /* выключен */ }
+  return { title: quiz.title, type: quiz.type, showLiveResults, questions: fullQuestions };
 }
 
 function questionForRoom(game) {
@@ -87,6 +90,7 @@ function questionForRoom(game) {
     text: q.text,
     timeLimit: q.time_limit || 20,
     mode: q.mode || "choice",
+    showLiveResults: !!game.quiz.showLiveResults,
     answers: q.answers.map((a) => ({ text: a.text })),
   };
 }
@@ -125,7 +129,11 @@ function startQuestion(io, game) {
   for (const p of game.players.values()) p.answer = null;
   io.to(`game:${game.pin}`).emit("question", questionForRoom(game));
   const host = io.sockets.sockets.get(game.hostSocketId);
-  host?.emit("answer-count", { answered: 0, total: onlineCount(game), counts: countsFor(game) });
+  host?.emit("answer-count", {
+    answered: 0,
+    total: onlineCount(game),
+    counts: game.quiz.showLiveResults ? countsFor(game) : null,
+  });
   const limit = (game.quiz.questions[game.qIndex].time_limit || 20) * 1000;
   stopRevealTimer(game);
   game.revealTimer = setTimeout(() => {
@@ -232,7 +240,7 @@ export function registerGameHandlers(io) {
         qIndex: -1,
         scoredQIndex: -1,
         questionStart: 0,
-        quiz: { title: quiz.title, questions: fullQuestions },
+        quiz: { title: quiz.title, showLiveResults: loaded.showLiveResults, questions: fullQuestions },
         players: new Map(),
         closeTimer: null,
         recorded: false,
@@ -329,7 +337,11 @@ export function registerGameHandlers(io) {
       p.answer = idx;
       const host = io.sockets.sockets.get(game.hostSocketId);
       const answered = [...game.players.values()].filter((x) => x.answer != null && x.online !== false).length;
-      host?.emit("answer-count", { answered, total: onlineCount(game), counts: countsFor(game) });
+      host?.emit("answer-count", {
+        answered,
+        total: onlineCount(game),
+        counts: game.quiz.showLiveResults ? countsFor(game) : null,
+      });
     });
 
     socket.on("player:reaction", ({ emoji } = {}) => {
