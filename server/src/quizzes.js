@@ -38,6 +38,7 @@ function loadFullQuiz(id, hostId) {
 }
 
 function saveQuestions(quizId, questions) {
+  const quizType = db.prepare("SELECT type FROM quizzes WHERE id = ?").get(quizId)?.type;
   db.prepare("DELETE FROM questions WHERE quiz_id = ?").run(quizId);
   const qStmt = db.prepare("INSERT INTO questions (quiz_id, text, position) VALUES (?, ?, ?)");
   const aStmt = db.prepare("INSERT INTO answers (question_id, text, is_correct, position) VALUES (?, ?, ?, ?)");
@@ -56,6 +57,10 @@ function saveQuestions(quizId, questions) {
       if (answers[0].is_correct && answers[1].is_correct) answers[1].is_correct = false;
     }
     if (answers.length < 2) throw new Error("У вопроса должно быть минимум 2 варианта ответа");
+    // в викторине должен быть отмечен верный ответ (EM-28)
+    if (quizType === "quiz" && mode === "choice" && !answers.some((a) => a.is_correct)) {
+      throw new Error(`Вопрос ${qi + 1}: отметьте верный ответ`);
+    }
     const qRes = qStmt.run(quizId, q.text.trim(), qi);
     const timeLimit = Math.min(120, Math.max(5, Number(q.time_limit) || 20));
     const pointsRaw = Math.round(Number(q.points));

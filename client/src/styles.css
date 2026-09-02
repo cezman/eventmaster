@@ -525,6 +525,11 @@ input:focus {
 .question-card {
   color: var(--ink);
 }
+/* вопрос с ошибками валидации (EM-28): красная рамка после неудачной попытки запуска */
+.question-invalid {
+  outline: 2px solid var(--bad);
+  outline-offset: 2px;
+}
 .title-label {
   display: flex;
   flex-direction: column;

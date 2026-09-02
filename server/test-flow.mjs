@@ -227,6 +227,23 @@ log("Голосование с live-распределением: counts при�
 h2.close();
 p3.close();
 
+// — EM-28: сервер отклоняет вопрос викторины без верного ответа —
+const badQuiz = await api("PUT", `/api/quizzes/${quiz.id}`, {
+  questions: [
+    {
+      text: "Без верного",
+      answers: [
+        { text: "Один", is_correct: false },
+        { text: "Два", is_correct: false },
+      ],
+    },
+  ],
+});
+if (!badQuiz.error || !badQuiz.error.includes("верный ответ")) {
+  throw new Error("сервер принял викторину без верного ответа: " + JSON.stringify(badQuiz));
+}
+log("Викторина без верного ответа отклонена сервером ✓");
+
 log("✅ Все этапы пройдены: создание, лобби, 3 вопроса, reconnect по токену, offline-счётчик, skip, финал, EM-27");
 host.close();
 p1.close();

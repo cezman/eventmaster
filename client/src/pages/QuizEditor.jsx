@@ -30,6 +30,7 @@ export default function QuizEditor() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false); // идёт запрос сохранения
   const [leaveTarget, setLeaveTarget] = useState(null); // путь, с которого спросили подтверждение
+  const [showErrors, setShowErrors] = useState(false); // подсветка проблем включается первой попыткой запуска
 
   // ref-копии для сохранения без устаревших замыканий (автосейв, beforeunload)
   const quizRef = useRef(null);
@@ -49,6 +50,8 @@ export default function QuizEditor() {
         quizRef.current = d.quiz;
         savedRef.current = serialize(d.quiz);
         setQuiz(d.quiz);
+        // старые квизы могут не проходить валидацию (EM-28) — показываем проблемы сразу
+        setShowErrors(validateQuiz(d.quiz).length > 0);
       })
       .catch((e) => setError(e.message));
   }, [id]);
@@ -73,6 +76,29 @@ export default function QuizEditor() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // EM-28: валидация перед запуском — текст, ≥2 варианта, верный ответ у квизов
+  const validateQuiz = (qz) => {
+    const problems = [];
+    qz.questions.forEach((q, qi) => {
+      if (!q.text || !q.text.trim()) return problems.push({ qi, reason: "заполните текст вопроса" });
+      const filled = q.answers.filter((a) => a.text && a.text.trim());
+      if (filled.length < 2) return problems.push({ qi, reason: "нужно минимум 2 варианта ответа" });
+      if (qz.type === "quiz" && q.mode !== "tf" && !filled.some((a) => a.is_correct)) {
+        problems.push({ qi, reason: "отметьте верный ответ" });
+      }
+    });
+    return problems;
+  };
+  const problems = showErrors && quiz ? validateQuiz(quiz) : [];
+
+  // скролл к первой битой карточке — после ре-рендера, когда класс уже в DOM;
+  // без behavior:"smooth" — при prefers-reduced-motion анимация скролла подавляется
+  useEffect(() => {
+    if (showErrors) {
+      document.querySelector(".question-invalid")?.scrollIntoView({ block: "center" });
+    }
+  }, [showErrors]);
 
   // сохраняет сейчас; если запрос уже идёт — возвращает его промис (дождётся и отложенный прогон).
   // silent: автосейв не тостит об ошибке — о ней говорит индикатор «Несохранённые изменения»
@@ -298,7 +324,10 @@ export default function QuizEditor() {
         )}
 
         {quiz.questions.map((q, qi) => (
-          <div className="card question-card" key={qi}>
+          <div
+            className={`card question-card${problems.some((p) => p.qi === qi) ? " question-invalid" : ""}`}
+            key={qi}
+          >
             <div className="question-head">
               <b>Вопрос {qi + 1}</b>
               <div className="question-settings">
@@ -420,6 +449,13 @@ export default function QuizEditor() {
           <button
             className="btn btn-primary btn-lg launch"
             onClick={async () => {
+              const errs = validateQuiz(quiz);
+              if (errs.length) {
+                setShowErrors(true);
+                showToast(`Вопрос ${errs[0].qi + 1}: ${errs[0].reason}`, "error");
+                return;
+              }
+              setShowErrors(false);
               // игра идёт по сохранённым данным — сохраняем перед запуском
               clearTimeout(timerRef.current);
               await saveNow();
