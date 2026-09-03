@@ -426,13 +426,19 @@ export default function QuizEditor() {
               value={q.text}
               onChange={(e) => patchQuestion(qi, { text: e.target.value })}
             />
+            {quiz.type === "quiz" && (
+              <div className="answers-hint">Отметьте один верный ответ</div>
+            )}
             {q.mode === "tf" ? (
               <div className="answers-grid">
                 {["Правда", "Ложь"].map((label, ai) => (
                   <div className={`answer-edit c${ai}`} key={label}>
                     <input value={label} readOnly aria-label={label} />
                     {quiz.type === "quiz" && (
-                      <label className="correct-check" title="Правильный ответ">
+                      <label
+                        className={`correct-toggle${q.answers[ai]?.is_correct ? " on" : ""}`}
+                        title="Правильный ответ"
+                      >
                         <input
                           type="radio"
                           name={`correct-${qi}`}
@@ -440,7 +446,7 @@ export default function QuizEditor() {
                           onChange={() => setCorrect(qi, ai)}
                           aria-label={`${label} — отметить правильным`}
                         />
-                        ✓
+                        ✓ Верный
                       </label>
                     )}
                   </div>
@@ -457,7 +463,10 @@ export default function QuizEditor() {
                       onChange={(e) => patchAnswer(qi, ai, { text: e.target.value })}
                     />
                     {quiz.type === "quiz" && (
-                      <label className="correct-check" title="Правильный ответ">
+                      <label
+                        className={`correct-toggle${a.is_correct ? " on" : ""}`}
+                        title="Правильный ответ"
+                      >
                         <input
                           type="radio"
                           name={`correct-${qi}`}
@@ -465,7 +474,7 @@ export default function QuizEditor() {
                           onChange={() => setCorrect(qi, ai)}
                           aria-label={`Вариант ${ai + 1} — отметить правильным`}
                         />
-                        ✓
+                        ✓ Верный
                       </label>
                     )}
                     {q.answers.length > 2 && (
