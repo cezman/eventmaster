@@ -1045,19 +1045,22 @@ body.presenter-mode .hide-in-presenter {
 }
 .picker-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* minmax(0,1fr) — как в .preset-grid: дорожки сжимаются ниже min-content select, без вылезания на iPhone */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 .picker-row label {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
   font-size: 13px;
   font-weight: 600;
   color: var(--muted);
 }
 .picker-row select {
   font: inherit;
+  min-width: 0;
   padding: 8px 10px;
   border: 1.5px solid #cfd7e6;
   border-radius: 8px;
@@ -1160,6 +1163,12 @@ body.presenter-mode .hide-in-presenter {
   cursor: pointer;
   color: var(--ink);
   white-space: nowrap;
+}
+/* дорожка может сжаться ниже текста (minmax(0,1fr) в .picker-row) — подпись обрезается, а не вылезает */
+.dd-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .dd.open .dd-toggle,
 .dd-toggle:focus-visible {
