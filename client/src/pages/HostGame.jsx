@@ -39,18 +39,29 @@ export default function HostGame() {
   const [confirmEnd, setConfirmEnd] = useState(false);
   const [joinUrl, setJoinUrl] = useState("");
   const canvasRef = useRef(null);
+  const claimedRef = useRef(false); // успешный claim уже был — не заводим новую партию после host:end
   const pinKey = `hostpin-${quizId}`;
 
   useEffect(() => {
-    socket.emit(
-      "host:create-game",
-      { token, quizId, reclaimPin: sessionStorage.getItem(pinKey) },
-      (res) => {
-        if (res.error) return setError(res.error);
-        sessionStorage.setItem(pinKey, res.pin);
-        setJoinUrl(`${window.location.origin}/play/${res.pin}`);
-      }
-    );
+    // claim = создать игру или вернуть свою по сохранённому PIN.
+    // На «connect» вешаем тот же claim: при тёплом переподключении транспорта hostSocketId
+    // протухает — reclaim по PIN возвращает хоста в игру со снапшотом состояния.
+    const claim = () => {
+      const savedPin = sessionStorage.getItem(pinKey);
+      if (!savedPin && claimedRef.current) return; // после host:end (pinKey очищен)
+      socket.emit(
+        "host:create-game",
+        { token, quizId, reclaimPin: savedPin },
+        (res) => {
+          if (res.error) return setError(res.error);
+          claimedRef.current = true;
+          sessionStorage.setItem(pinKey, res.pin);
+          setJoinUrl(`${window.location.origin}/play/${res.pin}`);
+        }
+      );
+    };
+    if (socket.connected) claim();
+    socket.on("connect", claim);
 
     const onSnapshot = (snap) => {
       setGame(snap);
@@ -110,6 +121,7 @@ export default function HostGame() {
       socket.off("answer-count", onCount);
       socket.off("reaction", onReaction);
       socket.off("game:closed", onClosed);
+      socket.off("connect", claim);
     };
   }, [socket, token, quizId]);
 
