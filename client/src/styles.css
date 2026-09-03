@@ -557,6 +557,19 @@ input:focus {
   justify-content: space-between;
   align-items: center;
 }
+/* тулбар вопроса (EM-29): ↑/↓, дублировать, удалить; wrap — на 320px карточка уже блока */
+.q-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  flex-wrap: wrap;
+}
+.icon-btn {
+  min-width: 32px;
+  padding: 6px 0;
+  font-weight: 700;
+}
 .question-text {
   font-size: 18px;
   font-weight: 600;
