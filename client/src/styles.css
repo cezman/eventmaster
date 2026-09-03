@@ -1,51 +1,78 @@
 :root {
   color-scheme: dark;
-  /* палитра: глубокий чернильно-синий фон + синий primary + янтарный акцент */
+  /* Deep Stage (EM-39): тёмные поверхности поверх градиентного фона;
+     белое — только инпуты, дропдауны и диалоги */
   --bg: #0b1120;
   --bg2: #16233f;
-  --card: #ffffff;
-  --ink: #101828;
-  --muted: #5d6b84;
-  --primary: #2e6bff;        /* CTA, ссылки, фокусы */
-  --primary-strong: #1d51d8; /* hover */
-  --accent: var(--primary);  /* историческое имя, теперь = primary */
-  --accent2: #1d51d8;        /* рамки фокуса, чеки в дропдаунах */
-  --highlight: #ffd23a;      /* янтарный: акцент слова в заголовке, таймер, победитель */
-  --c0: #e5484d;             /* цвета ответов A-D */
-  --c1: #2e6bff;
+  --surface: #161d2f;         /* карточки и контейнеры */
+  --surface-alt: #1c2540;     /* вложенные поверхности: сайдбар, панели, empty-state */
+  --card: var(--surface);     /* историческое имя карточки = surface */
+  --text: #e8ebf2;            /* текст на surface */
+  --muted: #7c88a5;           /* приглушённый текст на surface/фоне */
+  --ink: #101828;             /* текст на белом: инпуты и диалоги, от темы не зависит */
+  --muted-ink: #5d6b84;       /* приглушённый текст на белом */
+  --primary: #5b8def;         /* CTA, ссылки, фокусы */
+  --primary-strong: #7ba4ff;  /* hover */
+  --accent: var(--primary);   /* историческое имя, теперь = primary */
+  --accent2: #7ba4ff;         /* рамки фокуса, чеки в дропдаунах */
+  --highlight: #ffbe56;       /* янтарный: акцент слова в заголовке, таймер, победитель */
+  --c0: #e5484d;              /* цвета ответов A-D */
+  --c1: #5b8def;
   --c2: #e79d13;
-  --c3: #2fb344;
-  --ok: #2fb344;
+  --c3: #30c760;
+  --ok: #30c760;
   --bad: #e5484d;
-  /* тёмная тема (по умолчанию): поверхности поверх градиентного фона */
+  --border: #2a3352;
+  --border-strong: #3d4a6a;
   --bg-a: var(--bg2);
   --bg-b: var(--bg);
   --on-bg: #f4f7ff;            /* текст на градиентном фоне */
   --muted-on-bg: #9fb0d0;      /* приглушённый текст на фоне */
-  --chip-bg: rgba(255, 255, 255, 0.08);
-  --chip-bg-hover: rgba(255, 255, 255, 0.16);
-  --chip-border: rgba(255, 255, 255, 0.22);
-  --panel-bg: rgba(255, 255, 255, 0.07);
-  --panel-border: rgba(255, 255, 255, 0.12);
-  /* карточка на тёмном фоне отделяется только тенью */
-  --card-border: transparent;
-  --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  --chip-bg: rgba(255, 255, 255, 0.07);
+  --chip-bg-hover: rgba(255, 255, 255, 0.14);
+  --chip-border: #2a3352;
+  --panel-bg: #1c2540;
+  --panel-border: #2a3352;
+  --overlay: rgba(6, 11, 24, 0.65);
+  /* shimmer скелетона: от surfaceAlt к чуть более светлому тону */
+  --skeleton-a: #1c2540;
+  --skeleton-b: #263252;
+  --card-border: #2a3352;
+  --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.12), 0 10px 30px rgba(0, 0, 0, 0.18);
 }
 [data-theme="light"] {
   color-scheme: light;
-  /* чистый белый лист: без цветного градиента, фон почти нейтральный */
+  /* светлые поверхности: карточки белые, вложенные — light-gray */
+  --surface: #ffffff;
+  --surface-alt: #f5f7fc;
+  --card: var(--surface);
+  --text: #101828;
+  --muted: #5d6b84;
+  --muted-ink: #5d6b84;
+  --primary: #3d6fe0;
+  --primary-strong: #2d55b8;
+  --accent2: #2d55b8;
+  --highlight: var(--primary);
+  --c0: #d93a3f;
+  --c1: #3d6fe0;
+  --c2: #c98a0e;
+  --c3: #239e48;
+  --ok: #239e48;
+  --bad: #d93a3f;
+  --border: #d8dee8;
+  --border-strong: #b8c1d2;
   --bg-a: #ffffff;
   --bg-b: #e9edf6;
   --on-bg: #101828;
   --muted-on-bg: #5d6b84;
   --chip-bg: #eef1f7;
   --chip-bg-hover: #e2e7f0;
-  --chip-border: rgba(16, 24, 40, 0.16);
-  --panel-bg: #ffffff;
-  --panel-border: rgba(16, 24, 40, 0.1);
-  /* на белом янтарный #ffd23a вырождается, а тёмно-янтарный не понравился — акцентом становится primary */
-  --highlight: var(--primary);
-  /* белые карточки на белом фоне — отделяем рамкой и мягкой тенью */
+  --chip-border: #d8dee8;
+  --panel-bg: #f5f7fc;
+  --panel-border: #d8dee8;
+  --overlay: rgba(16, 24, 40, 0.45);
+  --skeleton-a: #e2e8f3;
+  --skeleton-b: #f0f4fb;
   --card-border: rgba(16, 24, 40, 0.08);
   --card-shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 10px 30px rgba(16, 24, 40, 0.07);
 }
@@ -64,7 +91,7 @@ body {
   margin: 0;
   font-family: "Manrope", "Segoe UI", system-ui, -apple-system, sans-serif;
   background: radial-gradient(circle at 20% 10%, var(--bg-a), var(--bg-b) 60%);
-  color: var(--ink);
+  color: var(--text);
   min-height: 100vh;
 }
 
@@ -97,13 +124,14 @@ input {
   border-radius: 10px;
   outline: none;
   width: 100%;
-  /* color-scheme: dark красит нативные инпуты в тёмный, а карточки всегда белые */
+  /* color-scheme: dark красит нативные инпуты в тёмный — бэкграундом фиксируем белый */
   background: #fff;
   color: var(--ink);
 }
 input:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(46, 107, 255, 0.18);
+  box-shadow: 0 0 0 3px rgba(91, 141, 239, 0.18);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
 }
 
 .logo {
@@ -232,8 +260,9 @@ input:focus {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: #e6edfc;
-  color: var(--primary-strong);
+  background: rgba(91, 141, 239, 0.14); /* fallback до color-mix */
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+  color: var(--primary);
   border-radius: 999px;
   padding: 4px 12px;
   font-size: 13px;
@@ -250,9 +279,11 @@ input:focus {
   height: 1em;
   vertical-align: -0.12em;
 }
+/* бейдж «Скоро»/«Заблокирован» — warning-тинт по спеке (badge: «Скоро») */
 .badge-muted {
-  background: #edf0f6;
-  color: var(--muted);
+  background: rgba(231, 157, 19, 0.14); /* fallback до color-mix */
+  background: color-mix(in srgb, var(--c2) 12%, var(--surface));
+  color: var(--c2);
 }
 
 /* ---------- Лендинг ---------- */
@@ -362,7 +393,7 @@ input:focus {
   flex-direction: column;
   gap: 6px;
   font-weight: 600;
-  color: var(--ink);
+  color: var(--text);
 }
 /* ссылки «Зарегистрироваться»/«Войти» — в цвет primary, не дефолтный браузерный синий */
 .auth-card a {
@@ -408,13 +439,14 @@ input:focus {
   flex-direction: column;
   gap: 14px;
   margin-bottom: 24px;
-  color: var(--ink);
+  color: var(--text);
 }
 .type-choice {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
+/* выбор типа — форм-control, поэтому белый, как инпуты */
 .type-option {
   border: 1.5px solid #cfd7e6;
   border-radius: 12px;
@@ -423,6 +455,8 @@ input:focus {
   flex-direction: column;
   gap: 4px;
   cursor: pointer;
+  background: #fff;
+  color: var(--ink);
 }
 .type-option.selected {
   border-color: var(--primary);
@@ -432,7 +466,7 @@ input:focus {
   display: none;
 }
 .type-option span {
-  color: var(--muted);
+  color: var(--muted-ink);
   font-size: 13px;
 }
 
@@ -444,7 +478,7 @@ input:focus {
 /* пустое состояние дашборда: заметная карточка с CTA вместо серой строчки */
 .empty-state {
   background: var(--panel-bg);
-  border: 1.5px dashed var(--chip-border);
+  border: 1.5px dashed var(--border-strong);
   border-radius: 16px;
   padding: 56px 24px;
   text-align: center;
@@ -474,7 +508,7 @@ input:focus {
   justify-content: space-between;
   gap: 14px;
   flex-wrap: wrap;
-  color: var(--ink);
+  color: var(--text);
 }
 .quiz-card h3 {
   margin: 0;
@@ -521,9 +555,10 @@ input:focus {
 .save-status.dirty {
   color: var(--highlight);
 }
-/* карточки редактора всегда белые — текст внутри тёмный независимо от темы */
+/* карточки редактора — surface (Deep Stage), текст светлый в тёмной теме;
+   инпуты внутри остаются белыми */
 .question-card {
-  color: var(--ink);
+  color: var(--text);
 }
 /* вопрос с ошибками валидации (EM-28): красная рамка после неудачной попытки запуска */
 .question-invalid {
@@ -542,7 +577,7 @@ input:focus {
   align-items: center;
   gap: 8px;
   font-weight: 600;
-  color: var(--ink);
+  color: var(--text);
 }
 .live-check input {
   accent-color: var(--primary);
@@ -579,25 +614,28 @@ input:focus {
   grid-template-columns: 1fr 1fr;
   gap: 10px;
 }
+/* вариант ответа в редакторе: surfaceAlt + цветная точка (по спеке answer-edit) */
 .answer-edit {
   display: flex;
   align-items: center;
   gap: 8px;
-  border: 1.5px solid #e3e8f2;
+  border: 1.5px solid var(--border-strong); /* --border на surfaceAlt почти невидим в тёмной теме */
   border-radius: 10px;
   padding: 6px 8px;
+  background: var(--surface-alt);
 }
-.answer-edit.c0 { background: #fdeef0; }
-.answer-edit.c1 { background: #eef4ff; }
-.answer-edit.c2 { background: #fdf6e7; }
-.answer-edit.c3 { background: #eef8ec; }
 .answer-edit > input {
   flex: 1;
   min-width: 0;
 }
 .answer-dot {
   font-size: 14px;
+  font-weight: 800;
 }
+.answer-edit.c0 .answer-dot { color: var(--c0); }
+.answer-edit.c1 .answer-dot { color: var(--c1); }
+.answer-edit.c2 .answer-dot { color: var(--c2); }
+.answer-edit.c3 .answer-dot { color: var(--c3); }
 .answers-hint {
   font-size: 12.5px;
   color: var(--muted);
@@ -685,8 +723,9 @@ body.presenter-mode .hide-in-presenter {
   align-items: start;
 }
 .lobby-qr {
-  background: #fff;
-  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  color: var(--text);
   border-radius: 16px;
   padding: 24px;
   text-align: center;
@@ -694,6 +733,7 @@ body.presenter-mode .hide-in-presenter {
 .lobby-qr canvas {
   margin: 12px auto;
   display: block;
+  border-radius: 8px; /* QR-канвас всегда белый — скругляю под карточку */
 }
 .join-url {
   word-break: break-all;
@@ -742,7 +782,7 @@ body.presenter-mode .hide-in-presenter {
   font-size: 11px;
   font-weight: 600;
   color: var(--muted-on-bg);
-  border: 1px dashed var(--chip-border);
+  border: 1px dashed var(--border-strong);
   border-radius: 999px;
   padding: 1px 8px;
   margin-left: 8px;
@@ -808,7 +848,7 @@ body.presenter-mode .hide-in-presenter {
 .chip-confirm-text {
   font-size: 13px;
   font-weight: 600;
-  color: var(--ink);
+  color: var(--text);
 }
 .chip-confirm-actions {
   display: flex;
@@ -898,7 +938,7 @@ body.presenter-mode .hide-in-presenter {
   align-items: center;
   gap: 12px;
   background: var(--panel-bg);
-  /* в светлой теме панели белые на белом — отделяем рамкой, как .card */
+  /* в светлой теме панели светло-серые на белом — отделяем рамкой, как .card */
   border: 1px solid var(--panel-border);
   border-radius: 10px;
   padding: 10px 14px;
@@ -970,7 +1010,7 @@ body.presenter-mode .hide-in-presenter {
   border-bottom: none;
 }
 .board-row.winner {
-  background: rgba(255, 210, 58, 0.15);
+  background: rgba(255, 190, 86, 0.15);
   background: color-mix(in srgb, var(--highlight) 15%, transparent);
   border-radius: 8px;
 }
@@ -1113,7 +1153,7 @@ body.presenter-mode .hide-in-presenter {
   align-items: flex-start;
 }
 .avatar-preview {
-  background: linear-gradient(160deg, #e6edfa, #cfdaef);
+  background: var(--surface-alt);
   border-radius: 14px;
   padding: 10px;
   flex-shrink: 0;
@@ -1126,7 +1166,7 @@ body.presenter-mode .hide-in-presenter {
   flex: 1;
 }
 .preset-choice {
-  background: #eef2fa;
+  background: var(--surface-alt);
   border: 2px solid transparent;
   border-radius: 10px;
   padding: 4px 2px;
@@ -1136,7 +1176,6 @@ body.presenter-mode .hide-in-presenter {
 }
 .preset-choice.selected {
   border-color: var(--primary);
-  background: #dfeaff;
 }
 .picker-row {
   display: grid;
@@ -1156,6 +1195,7 @@ body.presenter-mode .hide-in-presenter {
 .picker-row select {
   font: inherit;
   min-width: 0;
+  color: var(--ink);
   padding: 8px 10px;
   border: 1.5px solid #cfd7e6;
   border-radius: 8px;
@@ -1189,7 +1229,7 @@ body.presenter-mode .hide-in-presenter {
   cursor: pointer;
 }
 .color-choice.selected {
-  border-color: var(--ink);
+  border-color: var(--text);
   transform: scale(1.12);
 }
 .preview-line {
@@ -1271,7 +1311,7 @@ body.presenter-mode .hide-in-presenter {
   outline: none;
 }
 .dd-arrow {
-  color: var(--muted);
+  color: var(--muted-ink); /* стрелка на белом тогле */
   transition: transform 0.15s;
 }
 .dd.open .dd-arrow {
@@ -1312,7 +1352,8 @@ body.presenter-mode .hide-in-presenter {
   font-weight: 700;
 }
 .dd-check {
-  color: var(--accent2);
+  /* галка живёт на белом меню — фиксированный тёмно-синий, не темозависимый акцент */
+  color: #2d55b8;
 }
 
 /* ---------- Экран игрока ---------- */
@@ -1336,7 +1377,7 @@ body.presenter-mode .hide-in-presenter {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  color: var(--ink);
+  color: var(--text);
 }
 /* подпись над полем (как в .picker-row) */
 .field-label {
@@ -1407,6 +1448,11 @@ body.presenter-mode .hide-in-presenter {
   margin-top: 14px;
   /* карточка reveal красит текст в белый, а фон мини-таблицы в светлой теме светлый */
   color: var(--on-bg);
+}
+/* цветные имена игроков читаются только на нейтральной surface,
+   а не на зелёной/красной карточке reveal */
+.reveal-card .board.mini {
+  background: var(--surface);
 }
 .spin {
   width: 40px;
@@ -1487,7 +1533,7 @@ body.presenter-mode .hide-in-presenter {
 }
 .toast {
   background: var(--card);
-  color: var(--ink);
+  color: var(--text);
   border-radius: 12px;
   padding: 12px 18px;
   font-weight: 600;
@@ -1508,6 +1554,7 @@ body.presenter-mode .hide-in-presenter {
   position: fixed;
   inset: 0;
   background: rgba(6, 11, 24, 0.6);
+  background: var(--overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1516,8 +1563,9 @@ body.presenter-mode .hide-in-presenter {
 }
 .dialog {
   width: min(400px, 94vw);
-  /* карточка всегда белая: фиксируем цвет текста, иначе на host-screen
-     наследуется светлый --on-bg и заголовок/кнопки выцветают */
+  /* диалог всегда белый (по спеке R1): фон .card в тёмной теме тёмный,
+     поэтому фиксируем фон и цвет текста явно */
+  background: #fff;
   color: var(--ink);
 }
 .dialog h3 {
@@ -1526,12 +1574,16 @@ body.presenter-mode .hide-in-presenter {
 .dialog p {
   margin-top: 0;
 }
+/* приглушённый текст диалога живёт на белой карточке — фиксированный серый */
+.dialog .muted {
+  color: var(--muted-ink);
+}
 
 /* ---------- Skeleton-загрузки ---------- */
 .skeleton {
   height: 16px;
   border-radius: 8px;
-  background: linear-gradient(90deg, #e2e8f3 25%, #f0f4fb 50%, #e2e8f3 75%);
+  background: linear-gradient(90deg, var(--skeleton-a) 25%, var(--skeleton-b) 50%, var(--skeleton-a) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.4s ease infinite;
 }
@@ -1651,8 +1703,8 @@ body.presenter-mode .hide-in-presenter {
 .cabinet-card {
   width: 100%;
   max-width: 560px;
-  /* карточки всегда белые — текст внутри тёмный независимо от темы страницы */
-  color: var(--ink);
+  /* карточка surface — текст светлый в тёмной теме, инпуты внутри белые */
+  color: var(--text);
 }
 .cabinet-email {
   margin-top: 14px;
