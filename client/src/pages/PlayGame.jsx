@@ -138,30 +138,38 @@ export default function PlayGame() {
 
   const react = (emoji) => socket.emit("player:reaction", { emoji });
 
-  // авто-reconnect: после обрыва связи игрок восстанавливается по токену (очки и имя сохраняются)
+  // восстановление по токену: и на монтировании страницы, и на «connect» — при тёплом
+  // переподключении транспорта (свернул браузер, умер TCP) сокет получает новый id,
+  // повторный player:join по токену возвращает игрока в комнату (сервер идемпотентен)
   useEffect(() => {
-    const token = sessionStorage.getItem("playerToken");
-    const savedPin = sessionStorage.getItem("playerPin");
-    const savedName = (sessionStorage.getItem("playerName") || "").trim();
-    if (!pinParam || !token || savedPin !== pinParam || !savedName) return undefined;
-    socket.emit(
-      "player:join",
-      {
-        pin: pinParam,
-        name: savedName,
-        avatar: sessionStorage.getItem("playerAvatar"),
-        color: Number(sessionStorage.getItem("playerColor") ?? 0),
-        token,
-      },
-      (res) => {
-        if (res?.finished) return setGameOver(true); // завершённая игра — экран «Игра завершена»
-        if (!res || res.error) return; // тихо остаёмся на форме входа
-        setHostName(res.hostName || "");
-        setHostAvatar(parseAvatar(res.hostAvatar || ""));
-        setJoined(true);
-      }
-    );
-    return undefined;
+    const rejoin = () => {
+      const token = sessionStorage.getItem("playerToken");
+      const savedPin = sessionStorage.getItem("playerPin");
+      const savedName = (sessionStorage.getItem("playerName") || "").trim();
+      if (!pinParam || !token || savedPin !== pinParam || !savedName) return;
+      socket.emit(
+        "player:join",
+        {
+          pin: pinParam,
+          name: savedName,
+          avatar: sessionStorage.getItem("playerAvatar"),
+          color: Number(sessionStorage.getItem("playerColor") ?? 0),
+          token,
+        },
+        (res) => {
+          if (res?.finished) return setGameOver(true); // завершённая игра — экран «Игра завершена»
+          if (!res || res.error) return; // тихо остаёмся на форме входа
+          setHostName(res.hostName || "");
+          setHostAvatar(parseAvatar(res.hostAvatar || ""));
+          setJoined(true);
+        }
+      );
+    };
+    // если сокет уже подключён, «connect» не прилетит — rejoin сразу;
+    // иначе его сделает обработчик «connect» (единственный emit на каждое соединение)
+    if (socket.connected) rejoin();
+    socket.on("connect", rejoin);
+    return () => socket.off("connect", rejoin);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
