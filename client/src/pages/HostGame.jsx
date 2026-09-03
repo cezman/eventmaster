@@ -6,18 +6,63 @@ import { useAuth } from "../auth";
 import { NAME_COLORS } from "../customize";
 import PlayerAvatar from "../components/PlayerAvatar";
 import Logo from "../components/Logo";
-import { ClockIcon, TrophyIcon, ExpandIcon, MinimizeIcon } from "../components/icons";
+import { TrophyIcon, ExpandIcon, MinimizeIcon } from "../components/icons";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { useToast } from "../components/Toast";
 import confetti from "canvas-confetti";
 
 const ANSWER_LABELS = ["A", "B", "C", "D"];
+const RING_CIRC = 2 * Math.PI * 34; // длина окружности ring-таймера (r=34)
 
 function PlayerName({ p }) {
   return (
     <span className="board-player-name" style={{ color: NAME_COLORS[p.color] || "#fff" }}>
       <PlayerAvatar avatar={p.avatar} size={26} /> {p.name}
     </span>
+  );
+}
+
+// строки reveal (спека §6.4/§6.6): появление со stagger i×200ms,
+// бары анимируются от нуля после монтирования
+function RevealRows({ reveal, correctIndex, isQuiz, question }) {
+  const [barsIn, setBarsIn] = useState(false);
+  useEffect(() => {
+    setBarsIn(false);
+    let cancelled = false;
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        if (!cancelled) setBarsIn(true);
+      })
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [reveal]);
+  const total = Math.max(1, reveal.counts.reduce((s, c) => s + c, 0));
+  return (
+    <div className="results">
+      {reveal.counts.map((count, i) => {
+        const correct = isQuiz && correctIndex === i;
+        return (
+          <div
+            className={`result-row c${i} ${correct ? "correct" : ""}`}
+            key={i}
+            style={{ animationDelay: `${i * 200}ms` }}
+          >
+            <span className="result-label">
+              {ANSWER_LABELS[i]}. {question?.answers[i]?.text}
+            </span>
+            <div className="result-bar-wrap">
+              <div
+                className="result-bar"
+                style={{ width: barsIn ? `${(count / total) * 100}%` : "0%", transitionDelay: `${i * 200}ms` }}
+              />
+            </div>
+            <span className="result-count">{count}</span>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -382,9 +427,31 @@ export default function HostGame() {
             Вопрос {question.index + 1} / {question.total} · ответили: {answered} /{" "}
             {game.players.filter((p) => p.online !== false).length}
           </div>
-          <div className={`timer ${secondsLeft != null && secondsLeft <= 5 ? "timer-low" : ""}`}>
-            <ClockIcon className="timer-icon" aria-hidden="true" />
-            {secondsLeft != null && secondsLeft >= 0 ? secondsLeft : "…"}
+          <div className="answer-progress" aria-hidden="true">
+            <div
+              className="answer-progress-fill"
+              style={{
+                /* Math.min: offline-игрок мог ответить до отключения — answered может быть больше знаменателя */
+                width: `${Math.min(100, (answered / Math.max(1, game.players.filter((p) => p.online !== false).length)) * 100)}%`,
+              }}
+            />
+          </div>
+          <div className={`timer-wrap ${secondsLeft != null && secondsLeft <= 5 ? "low" : ""}`}>
+            <svg className="timer-ring" viewBox="0 0 80 80" aria-hidden="true">
+              <circle className="timer-ring-track" cx="40" cy="40" r="34" />
+              <circle
+                className="timer-ring-fill"
+                cx="40"
+                cy="40"
+                r="34"
+                strokeDasharray={RING_CIRC}
+                strokeDashoffset={
+                  RING_CIRC *
+                  (1 - (secondsLeft == null ? 0 : Math.max(0, Math.min(1, secondsLeft / (question.timeLimit || 20)))))
+                }
+              />
+            </svg>
+            <span className="timer-digit">{secondsLeft != null && secondsLeft >= 0 ? secondsLeft : "…"}</span>
           </div>
           <h1 className="q-text">{question.text}</h1>
           <div className="answers-grid big">
@@ -393,12 +460,19 @@ export default function HostGame() {
               const pct = Math.round(((counts[i] || 0) / total) * 100);
               return (
                 <div className={`answer-tile c${i}`} key={i}>
-                  <b>{ANSWER_LABELS[i]}</b>
-                  <span className="answer-tile-text">{a.text}</span>
+                  <div className="tile-top">
+                    <b>{ANSWER_LABELS[i]}</b>
+                    <span className="answer-tile-text">{a.text}</span>
+                    {live && (
+                      <span className="answer-live">
+                        {counts[i] || 0} · {pct}%
+                      </span>
+                    )}
+                  </div>
                   {live && (
-                    <span className="answer-live">
-                      {counts[i] || 0} · {pct}%
-                    </span>
+                    <div className="tile-live-bar">
+                      <div className="tile-live-fill" style={{ width: `${pct}%` }} />
+                    </div>
                   )}
                 </div>
               );
@@ -418,23 +492,12 @@ export default function HostGame() {
       {phase === "reveal" && reveal && (
         <div className="host-reveal">
           <h2>{game.type === "quiz" ? "Правильные ответы и очки" : "Результаты голосования"}</h2>
-          <div className="results">
-            {reveal.counts.map((count, i) => {
-              const total = Math.max(1, reveal.counts.reduce((s, c) => s + c, 0));
-              const correct = game.type === "quiz" && reveal.correctIndex === i;
-              return (
-                <div className={`result-row c${i} ${correct ? "correct" : ""}`} key={i}>
-                  <span className="result-label">
-                    {ANSWER_LABELS[i]}. {question?.answers[i]?.text}
-                  </span>
-                  <div className="result-bar-wrap">
-                    <div className="result-bar" style={{ width: `${(count / total) * 100}%` }} />
-                  </div>
-                  <span className="result-count">{count}</span>
-                </div>
-              );
-            })}
-          </div>
+          <RevealRows
+            reveal={reveal}
+            correctIndex={reveal.correctIndex}
+            isQuiz={game.type === "quiz"}
+            question={question}
+          />
           {game.type === "quiz" && (
             <div className="board">
               <h3>Промежуточные результаты</h3>
@@ -455,16 +518,48 @@ export default function HostGame() {
       {phase === "finished" && final && (
         <div className="host-finished">
           <h1><TrophyIcon className="h1-icon" /> Игра завершена!</h1>
-          <div className="board">
-            {final.leaderboard.map((p, i) => (
-              <div className={`board-row ${i === 0 ? "winner" : ""}`} key={p.name}>
-                <span className="board-player">
-                  {["🥇", "🥈", "🥉"][i] || `${i + 1}.`} <PlayerName p={p} />
-                </span>
-                <b>{p.score}</b>
+          {final.leaderboard.length >= 3 ? (
+            <>
+              {/* подиум 2-1-3 (спека §6.4): 2-е слева, 1-е по центру крупнее, 3-е справа */}
+              <div className="podium">
+                {[1, 0, 2].map((place, col) => {
+                  const p = final.leaderboard[place];
+                  return (
+                    <div className={`podium-place p${place + 1}`} key={p.name} style={{ animationDelay: `${col * 120}ms` }}>
+                      <span className="podium-medal" aria-hidden="true">
+                        {place === 0 ? "👑" : place === 1 ? "🥈" : "🥉"}
+                      </span>
+                      <PlayerName p={p} />
+                      <b className="podium-score">{p.score}</b>
+                    </div>
+                  );
+                })}
               </div>
-            ))}
-          </div>
+              {final.leaderboard.length > 3 && (
+                <div className="board">
+                  {final.leaderboard.slice(3).map((p, i) => (
+                    <div className="board-row" key={p.name}>
+                      <span className="board-player">
+                        {i + 4}. <PlayerName p={p} />
+                      </span>
+                      <b>{p.score}</b>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="board">
+              {final.leaderboard.map((p, i) => (
+                <div className={`board-row ${i === 0 ? "winner" : ""}`} key={p.name}>
+                  <span className="board-player">
+                    {["🥇", "🥈", "🥉"][i] || `${i + 1}.`} <PlayerName p={p} />
+                  </span>
+                  <b>{p.score}</b>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="editor-actions center">
             <button className="btn btn-primary btn-lg" onClick={hostAction("host:play-again")}>
               Играть снова

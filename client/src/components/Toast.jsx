@@ -20,6 +20,8 @@ export function ToastProvider({ children }) {
       <div className="toast-stack" aria-live="polite">
         {toasts.map((t) => (
           <div key={t.id} className={`toast toast-${t.type}`} role="status">
+            {/* тип — цветная точка слева (спека §6.7.6) */}
+            <span className="toast-dot" aria-hidden="true" />
             {t.message}
           </div>
         ))}
