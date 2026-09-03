@@ -897,8 +897,25 @@ body.presenter-mode .hide-in-presenter {
   font-weight: 600;
   margin-bottom: 8px;
 }
+/* прогресс «ответили N/M»: 4px под meta (спека question-header) */
+.answer-progress {
+  width: min(420px, 80%);
+  height: 4px;
+  border-radius: 999px;
+  background: var(--chip-bg);
+  margin: 6px auto 14px;
+  overflow: hidden;
+}
+.answer-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--primary);
+  transition: width 0.2s ease;
+}
 .q-text {
-  font-size: clamp(26px, 4vw, 44px);
+  font-size: clamp(36px, 5vw, 52px); /* display по спеке (вопрос зала) */
+  font-weight: 900;
+  line-height: 1.08;
   margin: 10px 0 30px;
 }
 .answers-grid.big {
@@ -913,9 +930,14 @@ body.presenter-mode .hide-in-presenter {
   font-weight: 600;
   color: #fff;
   display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: left;
+}
+.tile-top {
+  display: flex;
   gap: 12px;
   align-items: center;
-  text-align: left;
 }
 .answer-tile.c0 { background: var(--c0); }
 .answer-tile.c1 { background: var(--c1); }
@@ -1018,11 +1040,77 @@ body.presenter-mode .hide-in-presenter {
   margin-top: 14px;
   background: var(--chip-bg);
 }
+/* stagger-появление строк reveal (спека §6.4/§6.6): задержка i×200ms из JSX */
+.result-row {
+  animation: rowIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes rowIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* ---------- Подиум финала (2-1-3, спека §6.4/§6.7.3) ---------- */
+.podium {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr 1fr; /* 2-е | 1-е крупнее | 3-е */
+  gap: 14px;
+  align-items: end;
+  max-width: 760px;
+  margin: 0 auto 26px;
+}
+.podium-place {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  padding: 18px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  animation: podiumIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes podiumIn {
+  from {
+    opacity: 0;
+    translate: 0 14px; /* отдельное свойство, чтобы не конфликтовать с scale в transform */
+  }
+}
+.podium-place.p1 {
+  transform: scale(1.15);
+  /* свечение победителя: янтарная рамка + ореол */
+  box-shadow: 0 0 0 2px rgba(255, 190, 86, 0.45);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--highlight) 45%, transparent),
+    0 0 34px color-mix(in srgb, var(--highlight) 35%, transparent);
+  z-index: 1;
+}
+.podium-place.p2 {
+  opacity: 0.8;
+  transform: scale(0.9);
+}
+.podium-place.p3 {
+  opacity: 0.7;
+  transform: scale(0.85);
+}
+.podium-medal {
+  font-size: 34px;
+  line-height: 1;
+}
+.podium-place .board-player-name {
+  font-size: 17px;
+  font-weight: 800;
+}
+.podium-score {
+  font-size: 26px;
+  font-weight: 800;
+}
 
 /* ---------- Таймер ---------- */
+/* базовый (телефон до EM-43): иконка + цифра */
 .timer {
-  font-size: 42px;
-  font-weight: 800; /* Manrope variable — максимум 800 */
+  font-weight: 800;
   color: var(--highlight);
   font-variant-numeric: tabular-nums;
   display: inline-flex;
@@ -1033,7 +1121,45 @@ body.presenter-mode .hide-in-presenter {
   width: 0.85em;
   height: 0.85em;
 }
-.timer.timer-low {
+/* ring-таймер зала (спека §6.4/§6.7.1): SVG-кольцо вокруг цифры,
+   дуга убывает по секундам (stroke-dashoffset из JSX) */
+.timer-wrap {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.timer-ring {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+}
+.timer-ring circle {
+  fill: none;
+  stroke-width: 6;
+}
+.timer-ring-track {
+  stroke: var(--chip-border); /* на белом фоне chip-bg невидим */
+}
+.timer-ring-fill {
+  stroke: var(--highlight);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s linear, stroke 0.2s ease;
+}
+.timer-digit {
+  font-family: "Unbounded", "Manrope", sans-serif;
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--highlight);
+  font-variant-numeric: tabular-nums;
+}
+.timer-wrap.low .timer-ring-fill {
+  stroke: var(--bad);
+}
+.timer-wrap.low .timer-digit {
   color: var(--bad);
   animation: pulse 0.6s ease infinite;
 }
@@ -1042,6 +1168,11 @@ body.presenter-mode .hide-in-presenter {
 }
 .play-screen .timer {
   font-size: 34px;
+}
+/* low-состояние таймера игрока (кольцо появится в EM-43) */
+.timer.timer-low {
+  color: var(--bad);
+  animation: pulse 0.6s ease infinite;
 }
 
 /* ---------- Живые ответы на тайле ---------- */
@@ -1060,6 +1191,19 @@ body.presenter-mode .hide-in-presenter {
   font-size: 15px;
   min-width: 64px;
   text-align: center;
+}
+/* live-бар внутри тайла (только при showLiveResults): мини-бар под текстом */
+.tile-live-bar {
+  height: 8px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.28);
+  overflow: hidden;
+}
+.tile-live-fill {
+  height: 100%;
+  border-radius: 6px;
+  background: #fff;
+  transition: width 0.4s ease;
 }
 
 /* ---------- Реакции ---------- */
@@ -1479,8 +1623,10 @@ body.presenter-mode .hide-in-presenter {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0s !important; /* stagger-задержки не должны оставлять элементы невидимыми (fill-mode: both) */
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
   }
 }
 
@@ -1534,19 +1680,29 @@ body.presenter-mode .hide-in-presenter {
 .toast {
   background: var(--card);
   color: var(--text);
-  border-radius: 12px;
-  padding: 12px 18px;
+  border-radius: 999px; /* pill по спеке */
+  padding: 10px 18px;
   font-weight: 600;
-  box-shadow: 0 10px 30px rgba(10, 16, 32, 0.35);
-  border-left: 5px solid var(--accent2);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   max-width: 320px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   animation: pop 0.25s ease;
 }
-.toast-ok {
-  border-left-color: var(--ok);
+/* тип — цветная точка слева (спека §6.7.6: dot вместо border-left) */
+.toast-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--primary);
+  flex-shrink: 0;
 }
-.toast-error {
-  border-left-color: var(--bad);
+.toast-ok .toast-dot {
+  background: var(--ok);
+}
+.toast-error .toast-dot {
+  background: var(--bad);
 }
 
 /* ---------- Диалог подтверждения ---------- */
