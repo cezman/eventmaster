@@ -178,6 +178,8 @@ function reveal(io, game) {
       leaderboard: board,
       myCorrect: p ? p.lastCorrect : false,
       myAwarded: p ? p.awarded || 0 : 0,
+      // EM-43: игрок без ответа видит «Время вышло!», а не «Мимо»
+      myAnswered: p ? p.answer != null : false,
     });
   }
 }

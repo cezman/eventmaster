@@ -95,6 +95,8 @@ log(
   "| Аня:", reveal1.leaderboard.find((p) => p.name === "Аня")?.score,
   "| Боря:", reveal1.leaderboard.find((p) => p.name === "Боря")?.score
 );
+if (reveal1.myAnswered !== true) throw new Error("reveal: myAnswered должен быть true у ответившего");
+log("Reveal: myAnswered ✓");
 
 const question2 = await new Promise((resolve) => {
   host.emit("host:next");
@@ -224,8 +226,21 @@ if (pollCount1.answered !== 1 || pollCount1.counts[0] !== 1) {
   throw new Error(`live-голосование: неверный counts: ${JSON.stringify(pollCount1.counts)}`);
 }
 log("Голосование с live-распределением: counts приходят до reveal ✓");
+// EM-43: reveal в голосовании — молчун получает myAnswered: false («Время вышло!»)
+const p4 = io(URL);
+await new Promise((resolve, reject) => {
+  p4.emit("player:join", { pin: pin2, name: "Молчун" }, (res) => (res.error ? reject(new Error(res.error)) : resolve()));
+});
+const [pollRevealVoted, pollRevealSilent] = await Promise.all([
+  new Promise((resolve) => p3.once("reveal", resolve)),
+  new Promise((resolve) => p4.once("reveal", resolve)),
+]);
+if (pollRevealVoted.myAnswered !== true) throw new Error("poll: у голосовавшего myAnswered должен быть true");
+if (pollRevealSilent.myAnswered !== false) throw new Error("poll: у молчуна myAnswered должен быть false");
+log("Голосование reveal: myAnswered true/false ✓");
 h2.close();
 p3.close();
+p4.close();
 
 // — EM-28: сервер отклоняет вопрос викторины без верного ответа —
 const badQuiz = await api("PUT", `/api/quizzes/${quiz.id}`, {
