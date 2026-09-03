@@ -170,8 +170,7 @@ export default function PlayGame() {
     if (socket.connected) rejoin();
     socket.on("connect", rejoin);
     return () => socket.off("connect", rejoin);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [socket, pinParam]);
 
   const join = (e) => {
     e.preventDefault();
