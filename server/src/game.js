@@ -468,17 +468,23 @@ export function registerGameHandlers(io) {
 
     // кик игрока из лобби: только хост и только до старта вопросов;
     // id игрока — ключ в Map (у offline-игрока остаётся старый socket.id)
-    socket.on("kick-player", ({ playerId } = {}) => {
+    socket.on("kick-player", ({ playerId } = {}, ack = () => {}) => {
       const game = hostGame(socket);
-      if (!game || game.state !== "lobby") return;
+      if (!game || game.state !== "lobby") return ack({ error: "Только из лобби" });
       const key = String(playerId || "");
       const p = game.players.get(key);
-      if (!p) return;
+      if (!p) return ack({ error: "Игрок не найден" });
       game.kickedTokens.add(p.token);
       game.players.delete(key);
       const target = io.sockets.sockets.get(key);
-      if (target) target.emit("kicked");
+      if (target) {
+        target.emit("kicked");
+        // без выхода из комнаты кикнутый продолжал бы получать question/reveal/finished
+        target.leave(`game:${game.pin}`);
+        delete target.data.gamePin;
+      }
       broadcastPlayers(io, game);
+      ack({ ok: true });
     });
 
     socket.on("disconnect", () => {

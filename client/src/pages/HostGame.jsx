@@ -46,11 +46,19 @@ function PlayerChip({ p, onKick }) {
         setConfirmOpen(false);
       }
     };
+    const onEsc = (e) => {
+      if (e.key === "Escape") {
+        setMenuOpen(false);
+        setConfirmOpen(false);
+      }
+    };
     document.addEventListener("mousedown", close);
     document.addEventListener("touchstart", close);
+    document.addEventListener("keydown", onEsc);
     return () => {
       document.removeEventListener("mousedown", close);
       document.removeEventListener("touchstart", close);
+      document.removeEventListener("keydown", onEsc);
     };
   }, [menuOpen, confirmOpen]);
 
@@ -61,6 +69,7 @@ function PlayerChip({ p, onKick }) {
   };
   const onPointerDown = (e) => {
     if (e.pointerType !== "touch") return;
+    if (e.target.closest("button")) return; // нажатия кнопок поповера — не long-press
     clearPress();
     pressTimer.current = setTimeout(() => setMenuOpen(true), 500);
   };
@@ -282,10 +291,11 @@ export default function HostGame() {
 
   const hostAction = (event) => () => socket.emit(event);
 
-  // кик из лобби: сервер удаляет игрока и шлёт ему kicked; тост информирующий (undo — P1)
+  // кик из лобби: тост только по ack сервера (иначе мог бы соврать при гонке со стартом)
   const kickPlayer = (p) => {
-    socket.emit("kick-player", { playerId: p.id });
-    showToast(`${p.name} исключён(а)`, "info");
+    socket.emit("kick-player", { playerId: p.id }, (res) => {
+      if (res?.ok) showToast(`${p.name} исключён(а)`, "info");
+    });
   };
 
   const endGame = () => {
@@ -351,7 +361,7 @@ export default function HostGame() {
             </h2>
             <div className="players-grid">
               {game.players.map((p) => (
-                <PlayerChip p={p} key={p.name} onKick={kickPlayer} />
+                <PlayerChip p={p} key={p.id} onKick={kickPlayer} />
               ))}
             </div>
             <p className="muted lobby-hint">

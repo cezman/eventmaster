@@ -749,6 +749,9 @@ body.presenter-mode .hide-in-presenter {
 }
 /* кик игрока (EM-30): на десктопе × по hover, на таче long-press → popover;
    оффлайн-игрок кикается без confirm, поэтому подтверждение живёт в компоненте */
+.player-chip.kickable {
+  position: relative; /* якорь для .chip-popover */
+}
 .chip-kick {
   display: none;
   width: 24px;
@@ -767,8 +770,13 @@ body.presenter-mode .hide-in-presenter {
   background: rgba(229, 72, 77, 0.14);
   background: color-mix(in srgb, var(--bad) 16%, transparent);
 }
-.player-chip.kickable:hover .chip-kick {
-  display: inline-flex;
+/* hover-× только на устройствах с настоящим hover: на таче залипает и мешает long-press;
+   :focus-within оставляет кик доступным с клавиатуры */
+@media (hover: hover) {
+  .player-chip.kickable:hover .chip-kick,
+  .player-chip.kickable:focus-within .chip-kick {
+    display: inline-flex;
+  }
 }
 .chip-popover {
   position: absolute;

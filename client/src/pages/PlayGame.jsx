@@ -67,6 +67,11 @@ export default function PlayGame() {
     sessionStorage.removeItem("playerToken");
     sessionStorage.removeItem("playerPin");
     setJoined(false); // иначе после экрана кика останемся в «лобби» игры, из которой выгнаны
+    setQuestion(null); // стейт партии мог доехать до кика — сбрасываем, чтобы не «вернулся» после экрана
+    setReveal(null);
+    setFinal(null);
+    setSubmitted(null);
+    setSecondsLeft(null);
     setKickedPin(saved);
     setKicked(true);
   };
