@@ -591,6 +591,10 @@ input:focus {
 .answer-edit.c1 { background: #eef4ff; }
 .answer-edit.c2 { background: #fdf6e7; }
 .answer-edit.c3 { background: #eef8ec; }
+.answer-edit > input {
+  flex: 1;
+  min-width: 0;
+}
 .answer-dot {
   font-size: 14px;
 }
@@ -610,6 +614,7 @@ input:focus {
   white-space: nowrap;
   user-select: none;
   color: var(--ok);
+  border: 1.5px solid rgba(47, 179, 68, 0.45); /* fallback до color-mix */
   border: 1.5px solid color-mix(in srgb, var(--ok) 45%, transparent);
   border-radius: 999px;
   padding: 3px 10px;
@@ -623,6 +628,7 @@ input:focus {
   pointer-events: none;
 }
 .correct-toggle.on {
+  background: rgba(47, 179, 68, 0.16); /* fallback до color-mix */
   background: color-mix(in srgb, var(--ok) 16%, transparent);
   border-color: var(--ok);
 }
