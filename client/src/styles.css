@@ -8,9 +8,9 @@
   --surface-alt: #1c2540;     /* вложенные поверхности: сайдбар, панели, empty-state */
   --card: var(--surface);     /* историческое имя карточки = surface */
   --text: #e8ebf2;            /* текст на surface */
-  --muted: #7c88a5;           /* приглушённый текст на surface/фоне */
+  --text-muted: #7c88a5;           /* приглушённый текст на surface/фоне */
   --ink: #101828;             /* текст на белом: инпуты и диалоги, от темы не зависит */
-  --muted-ink: #5d6b84;       /* приглушённый текст на белом */
+  --text-muted-on-card: #5d6b84;       /* приглушённый текст на белом */
   --primary: #5b8def;         /* CTA, ссылки, фокусы */
   --primary-strong: #7ba4ff;  /* hover */
   --accent: var(--primary);   /* историческое имя, теперь = primary */
@@ -47,8 +47,8 @@
   --surface-alt: #f5f7fc;
   --card: var(--surface);
   --text: #101828;
-  --muted: #5d6b84;
-  --muted-ink: #5d6b84;
+  --text-muted: #5d6b84;
+  --text-muted-on-card: #5d6b84;
   --primary: #3d6fe0;
   --primary-strong: #2d55b8;
   --accent2: #2d55b8;
@@ -154,7 +154,7 @@ input:focus {
 }
 
 .muted {
-  color: var(--muted);
+  color: var(--text-muted);
 }
 .error {
   color: var(--bad);
@@ -466,7 +466,7 @@ input:focus {
   display: none;
 }
 .type-option span {
-  color: var(--muted-ink);
+  color: var(--text-muted-on-card);
   font-size: 13px;
 }
 
@@ -547,7 +547,7 @@ input:focus {
 .save-status {
   font-size: 13px;
   font-weight: 700;
-  color: var(--muted);
+  color: var(--text-muted);
 }
 .save-status.saved {
   color: var(--ok);
@@ -638,7 +638,7 @@ input:focus {
 .answer-edit.c3 .answer-dot { color: var(--c3); }
 .answers-hint {
   font-size: 12.5px;
-  color: var(--muted);
+  color: var(--text-muted);
   margin: -2px 0 2px;
 }
 .correct-toggle {
@@ -678,7 +678,7 @@ input:focus {
   border: none;
   background: none;
   font-size: 20px;
-  color: var(--muted);
+  color: var(--text-muted);
   cursor: pointer;
   padding: 0 4px;
 }
@@ -738,7 +738,7 @@ body.presenter-mode .hide-in-presenter {
 .join-url {
   word-break: break-all;
   font-size: 13px;
-  color: var(--muted);
+  color: var(--text-muted);
   margin: 4px 0 12px;
 }
 .pin-box {
@@ -1108,20 +1108,7 @@ body.presenter-mode .hide-in-presenter {
 }
 
 /* ---------- Таймер ---------- */
-/* базовый (телефон до EM-43): иконка + цифра */
-.timer {
-  font-weight: 800;
-  color: var(--highlight);
-  font-variant-numeric: tabular-nums;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-}
-.timer-icon {
-  width: 0.85em;
-  height: 0.85em;
-}
-/* ring-таймер зала (спека §6.4/§6.7.1): SVG-кольцо вокруг цифры,
+/* ring-таймер (спека §6.4/§6.7.1): SVG-кольцо вокруг цифры,
    дуга убывает по секундам (stroke-dashoffset из JSX) */
 .timer-wrap {
   position: relative;
@@ -1166,13 +1153,14 @@ body.presenter-mode .hide-in-presenter {
 @keyframes pulse {
   50% { transform: scale(1.18); }
 }
-.play-screen .timer {
-  font-size: 34px;
+/* телефон (EM-43, спека §6.4): кольцо 60×60, цифра 24px — 34px из спеки не
+   влезает в кольцо 60×60 при stroke 6 (та же причина, что 32px вместо 42px в зале) */
+.play-screen .timer-wrap {
+  width: 60px;
+  height: 60px;
 }
-/* low-состояние таймера игрока (кольцо появится в EM-43) */
-.timer.timer-low {
-  color: var(--bad);
-  animation: pulse 0.6s ease infinite;
+.play-screen .timer-digit {
+  font-size: 24px;
 }
 
 /* ---------- Живые ответы на тайле ---------- */
@@ -1334,7 +1322,7 @@ body.presenter-mode .hide-in-presenter {
   min-width: 0;
   font-size: 13px;
   font-weight: 600;
-  color: var(--muted);
+  color: var(--text-muted);
 }
 .picker-row select {
   font: inherit;
@@ -1387,7 +1375,7 @@ body.presenter-mode .hide-in-presenter {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--muted);
+  color: var(--text-muted);
   font-weight: 600;
   font-size: 14px;
 }
@@ -1455,7 +1443,7 @@ body.presenter-mode .hide-in-presenter {
   outline: none;
 }
 .dd-arrow {
-  color: var(--muted-ink); /* стрелка на белом тогле */
+  color: var(--text-muted-on-card); /* стрелка на белом тогле */
   transition: transform 0.15s;
 }
 .dd.open .dd-arrow {
@@ -1516,6 +1504,10 @@ body.presenter-mode .hide-in-presenter {
 .play-screen button {
   touch-action: manipulation;
 }
+/* тач-таргеты ≥44px (спека §6.5) */
+.play-screen .btn {
+  min-height: 44px;
+}
 .play-card {
   width: min(400px, 92vw);
   display: flex;
@@ -1530,7 +1522,7 @@ body.presenter-mode .hide-in-presenter {
   gap: 4px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--muted);
+  color: var(--text-muted);
   text-align: left;
 }
 .play-card .pin-input {
@@ -1573,30 +1565,57 @@ body.presenter-mode .hide-in-presenter {
 /* правда/ложь */
 .answer-btn.tf-yes { background: var(--ok); }
 .answer-btn.tf-no { background: var(--bad); }
-.wait-box {
-  background: var(--chip-bg);
-  border-radius: 14px;
+/* waiting-card (спека §6.4 + §6.5 отличие): surfaceAlt вместо chipBg */
+.waiting-card {
+  background: var(--surface-alt);
+  border-radius: 18px;
   padding: 30px;
   font-size: 20px;
   font-weight: 700;
 }
+/* reveal-card (спека §6.5 отличие + §6.7.7): surface + цветной left-border и
+   иконка слева вместо сплошной зелёной/красной заливки; timeout — «Время вышло!» */
 .reveal-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 5px solid var(--border-strong);
   border-radius: 18px;
-  padding: 26px 40px;
-  color: #fff;
+  padding: 26px 30px;
   min-width: min(420px, 90vw);
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  text-align: left;
 }
-.reveal-card.ok { background: var(--ok); }
-.reveal-card.bad { background: var(--bad); }
+.reveal-card.ok { border-left-color: var(--ok); }
+.reveal-card.bad { border-left-color: var(--bad); }
+.reveal-card.timeout { border-left-color: var(--highlight); }
+.reveal-mark {
+  font-size: 38px;
+  line-height: 1.15;
+  flex-shrink: 0;
+}
+.reveal-card.ok .reveal-mark { color: var(--ok); }
+.reveal-card.bad .reveal-mark { color: var(--bad); }
+.reveal-card.timeout .reveal-mark { color: var(--highlight); }
+.reveal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0; /* длинные имена/ответы сжимаются, а не выпирают из карточки */
+}
+.reveal-body h1,
+.reveal-body p {
+  margin: 0;
+}
 .reveal-card .board {
   margin-top: 14px;
-  /* карточка reveal красит текст в белый, а фон мини-таблицы в светлой теме светлый */
-  color: var(--on-bg);
 }
-/* цветные имена игроков читаются только на нейтральной surface,
-   а не на зелёной/красной карточке reveal */
+/* мини-таблица на вложенной surface-alt: карточка не сливается с таблицей,
+   цветные имена читаются */
 .reveal-card .board.mini {
-  background: var(--surface);
+  background: var(--surface-alt);
 }
 .spin {
   width: 40px;
@@ -1732,7 +1751,7 @@ body.presenter-mode .hide-in-presenter {
 }
 /* приглушённый текст диалога живёт на белой карточке — фиксированный серый */
 .dialog .muted {
-  color: var(--muted-ink);
+  color: var(--text-muted-on-card);
 }
 
 /* ---------- Skeleton-загрузки ---------- */
@@ -1779,9 +1798,6 @@ body.presenter-mode .hide-in-presenter {
   .answers-grid.big {
     grid-template-columns: 1fr;
   }
-  .play-answers {
-    grid-template-columns: 1fr;
-  }
   .type-choice {
     grid-template-columns: 1fr;
   }
@@ -1802,6 +1818,22 @@ body.presenter-mode .hide-in-presenter {
     margin-left: 0;
     flex-wrap: wrap;
     justify-content: center;
+  }
+}
+
+/* телефон игрока (EM-43, спека §6.5): ответы в одну колонку, компактные тапы */
+@media (max-width: 480px) {
+  .play-answers {
+    grid-template-columns: 1fr;
+  }
+  .answer-btn {
+    padding: 20px 14px;
+    font-size: 16px;
+  }
+  .avatar-tap svg {
+    /* BigHead красит размер inline-стилем — перекрыть можно только important'ом */
+    width: 80px !important;
+    height: 80px !important;
   }
 }
 

@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { getSocket } from "../socket";
 import PlayerAvatar, { parseAvatar } from "../components/PlayerAvatar";
 import Dropdown from "../components/Dropdown";
-import { ClockIcon, PollIcon, DoorIcon } from "../components/icons";
+import { DoorIcon } from "../components/icons";
 import confetti from "canvas-confetti";
 import {
   NAME_COLORS,
@@ -27,6 +27,7 @@ function canConfetti() {
 
 const ANSWER_COLORS = ["c0", "c1", "c2", "c3"];
 const ANSWER_SHAPES = ["▲", "◆", "●", "■"];
+const RING_CIRC = 2 * Math.PI * 34; // длина окружности ring-таймера (r=34)
 
 export default function PlayGame() {
   const { pin: pinParam } = useParams();
@@ -364,9 +365,22 @@ export default function PlayGame() {
         <div className="q-meta">
           Вопрос {question.index + 1} / {question.total}
         </div>
-        <div className={`timer ${secondsLeft != null && secondsLeft <= 5 ? "timer-low" : ""}`}>
-          <ClockIcon className="timer-icon" aria-hidden="true" />
-          {secondsLeft != null && secondsLeft >= 0 ? secondsLeft : "…"}
+        <div className={`timer-wrap ${secondsLeft != null && secondsLeft <= 5 ? "low" : ""}`}>
+          <svg className="timer-ring" viewBox="0 0 80 80" aria-hidden="true">
+            <circle className="timer-ring-track" cx="40" cy="40" r="34" />
+            <circle
+              className="timer-ring-fill"
+              cx="40"
+              cy="40"
+              r="34"
+              strokeDasharray={RING_CIRC}
+              strokeDashoffset={
+                RING_CIRC *
+                (1 - (secondsLeft == null ? 0 : Math.max(0, Math.min(1, secondsLeft / (question.timeLimit || 20)))))
+              }
+            />
+          </svg>
+          <span className="timer-digit">{secondsLeft != null && secondsLeft >= 0 ? secondsLeft : "…"}</span>
         </div>
         <h2 className="q-text-sm">{question.text}</h2>
         {submitted == null ? (
@@ -390,52 +404,77 @@ export default function PlayGame() {
                 ))}
           </div>
         ) : (
-          <div className="wait-box">Ответ принят! Ждём остальных…</div>
+          <div className="waiting-card">Ответ принят! Ждём остальных…</div>
         )}
       </div>
     );
   }
 
   if (reveal) {
+    // «Время вышло!» — сервер не засчитал ответ игрока на этом вопросе (хвост EM-44)
+    const timedOut = reveal.myAnswered === false;
     return (
       <div className="play-screen">
         {question && <h2 className="q-text-sm">{question.text}</h2>}
         {question?.type === "quiz" ? (
-          <div className={`reveal-card ${reveal.myCorrect ? "ok" : "bad"}`}>
-            {reveal.myCorrect ? (
-              <>
-                <h1>✓ Верно!</h1>
-                <p className="points-big">
-                  +{reveal.myAwarded} {plural(reveal.myAwarded, ["очко", "очка", "очков"])}
-                </p>
-              </>
-            ) : (
-              <>
-                <h1>✗ Мимо</h1>
-                <p>
-                  Правильный ответ: <b>{question.answers[reveal.correctIndex]?.text}</b>
-                </p>
-              </>
-            )}
-            <div className="board mini">
-              <h3>Промежуточные результаты</h3>
-              {reveal.leaderboard.slice(0, 5).map((p, i) => (
-                <div className="board-row" key={p.name}>
-                  <span className="board-player">
-                    {i + 1}.{" "}
-                    <span style={{ color: NAME_COLORS[p.color] || "#fff" }} className="board-player-name">
-                      <PlayerAvatar avatar={p.avatar} size={24} /> {p.name}
+          <div className={`reveal-card ${reveal.myCorrect ? "ok" : timedOut ? "timeout" : "bad"}`}>
+            <span className="reveal-mark" aria-hidden="true">
+              {reveal.myCorrect ? "✓" : timedOut ? "⏱" : "✗"}
+            </span>
+            <div className="reveal-body">
+              {reveal.myCorrect ? (
+                <>
+                  <h1>Верно!</h1>
+                  <p className="points-big">
+                    +{reveal.myAwarded} {plural(reveal.myAwarded, ["очко", "очка", "очков"])}
+                  </p>
+                </>
+              ) : timedOut ? (
+                <>
+                  <h1>Время вышло!</h1>
+                  <p>
+                    Правильный ответ: <b>{question.answers[reveal.correctIndex]?.text}</b>
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h1>Мимо</h1>
+                  <p>
+                    Правильный ответ: <b>{question.answers[reveal.correctIndex]?.text}</b>
+                  </p>
+                </>
+              )}
+              <div className="board mini">
+                <h3>Промежуточные результаты</h3>
+                {reveal.leaderboard.slice(0, 5).map((p, i) => (
+                  <div className="board-row" key={p.name}>
+                    <span className="board-player">
+                      {i + 1}.{" "}
+                      <span style={{ color: NAME_COLORS[p.color] || "#fff" }} className="board-player-name">
+                        <PlayerAvatar avatar={p.avatar} size={24} /> {p.name}
+                      </span>
                     </span>
-                  </span>
-                  <b>{p.score}</b>
-                </div>
-              ))}
+                    <b>{p.score}</b>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : timedOut ? (
+          <div className="reveal-card timeout">
+            <span className="reveal-mark" aria-hidden="true">⏱</span>
+            <div className="reveal-body">
+              <h1>Время вышло!</h1>
+              <p>Голос не засчитан — время на вопрос истекло</p>
             </div>
           </div>
         ) : (
           <div className="reveal-card ok">
-            <h1><PollIcon className="h1-icon" /> Голос учтён</h1>
-            <p>Смотрите результаты на экране ведущего</p>
+            <span className="reveal-mark" aria-hidden="true">✓</span>
+            <div className="reveal-body">
+              <h1>Голос учтён</h1>
+              <p>Смотрите результаты на экране ведущего</p>
+            </div>
           </div>
         )}
         <p className="muted">
