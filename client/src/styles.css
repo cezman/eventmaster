@@ -101,7 +101,7 @@ h1, h2 {
   font-weight: 800;
   letter-spacing: -0.01em;
 }
-.logo, .pin, .notfound-code {
+.logo, .pin, .notfound-code, .pin-input {
   font-family: "Unbounded", "Manrope", system-ui, sans-serif;
 }
 /* крупный текст вопросов — без декоративного шрифта */
@@ -319,7 +319,7 @@ input:focus {
 }
 .subtitle {
   color: var(--muted-on-bg);
-  font-size: 18px;
+  font-size: clamp(16px, 2vw, 18px);
   max-width: 640px;
   margin: 0 auto 30px;
 }
@@ -332,10 +332,10 @@ input:focus {
 }
 .pin-input {
   width: 220px;
-  font-size: 20px;
+  font-size: 18px;
   text-align: center;
-  letter-spacing: 6px;
   /* letter-spacing даёт хвост после последней цифры — компенсируем, чтобы текст визуально центрировался */
+  letter-spacing: 6px;
   padding-left: 6px;
   font-weight: 700;
 }
@@ -1785,11 +1785,17 @@ body.presenter-mode .hide-in-presenter {
 }
 
 /* ---------- Адаптив ---------- */
-@media (max-width: 760px) {
+/* планшет/узкий ноутбук (EM-44, спека §6.8): брейкпоинт 1024 */
+@media (max-width: 1024px) {
   .features {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .host-lobby {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 760px) {
+  .features {
     grid-template-columns: 1fr;
   }
   .answers-grid {
