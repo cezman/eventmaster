@@ -31,6 +31,7 @@ export default function QuizEditor() {
   const [busy, setBusy] = useState(false); // идёт запрос сохранения
   const [leaveTarget, setLeaveTarget] = useState(null); // путь, с которого спросили подтверждение
   const [showErrors, setShowErrors] = useState(false); // подсветка проблем включается первой попыткой запуска
+  const [deleteTarget, setDeleteTarget] = useState(null); // индекс вопроса в диалоге удаления (EM-29)
 
   // ref-копии для сохранения без устаревших замыканий (автосейв, beforeunload)
   const quizRef = useRef(null);
@@ -215,6 +216,31 @@ export default function QuizEditor() {
     setQuiz((cur) => ({ ...cur, questions: cur.questions.filter((_, i) => i !== qi) }));
   };
 
+  // EM-29: перестановка вопроса и дублирование — работают с массивом questions
+  const moveQuestion = (qi, dir) => {
+    const to = qi + dir;
+    if (to < 0 || to >= quiz.questions.length) return;
+    markDirty();
+    setQuiz((cur) => {
+      const questions = [...cur.questions];
+      [questions[qi], questions[to]] = [questions[to], questions[qi]];
+      return { ...cur, questions };
+    });
+  };
+
+  const duplicateQuestion = (qi) => {
+    markDirty();
+    setQuiz((cur) => {
+      const copy = {
+        ...cur.questions[qi],
+        answers: cur.questions[qi].answers.map((a) => ({ ...a })),
+      };
+      const questions = [...cur.questions];
+      questions.splice(qi + 1, 0, copy);
+      return { ...cur, questions };
+    });
+  };
+
   const patchAnswer = (qi, ai, patch) => {
     patchQuestion(qi, {
       answers: quiz.questions[qi].answers.map((a, i) => (i === ai ? { ...a, ...patch } : a)),
@@ -361,9 +387,37 @@ export default function QuizEditor() {
                     onChange={(e) => patchQuestion(qi, { points: Math.round(Number(e.target.value)) || 1 })}
                   />
                 </label>
-                <button className="btn btn-danger btn-sm" onClick={() => removeQuestion(qi)}>
-                  Удалить вопрос
-                </button>
+                <div className="q-tools">
+                  <button
+                    className="btn btn-outline btn-sm icon-btn" type="button"
+                    onClick={() => moveQuestion(qi, -1)}
+                    disabled={qi === 0}
+                    aria-label="Переместить вопрос выше"
+                    title="Выше"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    className="btn btn-outline btn-sm icon-btn" type="button"
+                    onClick={() => moveQuestion(qi, 1)}
+                    disabled={qi === quiz.questions.length - 1}
+                    aria-label="Переместить вопрос ниже"
+                    title="Ниже"
+                  >
+                    ↓
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    onClick={() => duplicateQuestion(qi)}
+                    aria-label="Дублировать вопрос"
+                  >
+                    Дублировать
+                  </button>
+                  <button type="button" className="btn btn-danger btn-sm" onClick={() => setDeleteTarget(qi)}>
+                    Удалить
+                  </button>
+                </div>
               </div>
             </div>
             <input
@@ -475,6 +529,20 @@ export default function QuizEditor() {
           danger={false}
           onConfirm={confirmLeave}
           onCancel={() => setLeaveTarget(null)}
+        />
+      )}
+
+      {deleteTarget != null && quiz && (
+        <ConfirmDialog
+          title="Удалить вопрос?"
+          text={`«${quiz.questions[deleteTarget]?.text?.trim() || "Без названия"}» будет удалён из редактора. Изменение применится при сохранении.`}
+          confirmLabel="Удалить"
+          danger
+          onConfirm={() => {
+            removeQuestion(deleteTarget);
+            setDeleteTarget(null);
+          }}
+          onCancel={() => setDeleteTarget(null)}
         />
       )}
     </div>
