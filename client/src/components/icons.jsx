@@ -162,3 +162,14 @@ export const LogoutIcon = (p) => (
     <path d="M21 12H9" />
   </Base>
 );
+
+// выход «через дверь» — экран кикнутого игрока (EM-30)
+export const DoorIcon = (p) => (
+  <Base {...p}>
+    <path d="M13 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" />
+    <path d="M4 12h9" />
+    <path d="m9 8 4 4-4 4" />
+    <path d="M4 20v-3" />
+    <path d="M4 7V4" />
+  </Base>
+);

@@ -8,6 +8,7 @@ import PlayerAvatar from "../components/PlayerAvatar";
 import Logo from "../components/Logo";
 import { ClockIcon, TrophyIcon, ExpandIcon, MinimizeIcon } from "../components/icons";
 import ConfirmDialog from "../components/ConfirmDialog";
+import { useToast } from "../components/Toast";
 import confetti from "canvas-confetti";
 
 const ANSWER_LABELS = ["A", "B", "C", "D"];
@@ -20,11 +21,103 @@ function PlayerName({ p }) {
   );
 }
 
+// чип игрока с кик-аффордансом (дизайн-спека EM-30): на десктопе × по hover,
+// на таче long-press 500 мс → меню; онлайн-игроку — мини-confirm, оффлайн — сразу
+function PlayerChip({ p, onKick }) {
+  const [menuOpen, setMenuOpen] = useState(false); // меню long-press (тач)
+  const [confirmOpen, setConfirmOpen] = useState(false); // мини-confirm для онлайн-игрока
+  const ref = useRef(null);
+  const pressTimer = useRef(null);
+  const offline = p.online === false;
+
+  const clearPress = () => {
+    if (pressTimer.current) {
+      clearTimeout(pressTimer.current);
+      pressTimer.current = null;
+    }
+  };
+  useEffect(() => clearPress, []);
+
+  useEffect(() => {
+    if (!menuOpen && !confirmOpen) return undefined;
+    const close = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) {
+        setMenuOpen(false);
+        setConfirmOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("touchstart", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("touchstart", close);
+    };
+  }, [menuOpen, confirmOpen]);
+
+  const startKick = () => {
+    setMenuOpen(false);
+    if (offline) onKick(p);
+    else setConfirmOpen(true);
+  };
+  const onPointerDown = (e) => {
+    if (e.pointerType !== "touch") return;
+    clearPress();
+    pressTimer.current = setTimeout(() => setMenuOpen(true), 500);
+  };
+
+  return (
+    <div
+      ref={ref}
+      className={`player-chip kickable${offline ? " offline" : ""}`}
+      data-kickable="true"
+      onPointerDown={onPointerDown}
+      onPointerUp={clearPress}
+      onPointerMove={clearPress}
+      onPointerLeave={clearPress}
+      onPointerCancel={clearPress}
+    >
+      <PlayerName p={p} />
+      {offline && <span className="chip-offline">нет связи</span>}
+      <button type="button" className="chip-kick" aria-label={`Кикнуть ${p.name}`} onClick={startKick}>
+        ×
+      </button>
+      {menuOpen && (
+        <div className="chip-popover" role="menu">
+          <button type="button" className="chip-popover-item" onClick={startKick}>
+            Кик
+          </button>
+        </div>
+      )}
+      {confirmOpen && (
+        <div className="chip-popover">
+          <span className="chip-confirm-text">Кикнуть {p.name}?</span>
+          <div className="chip-confirm-actions">
+            <button
+              type="button"
+              className="btn btn-danger btn-sm"
+              onClick={() => {
+                setConfirmOpen(false);
+                onKick(p);
+              }}
+            >
+              Кик
+            </button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setConfirmOpen(false)}>
+              Отмена
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function HostGame() {
   const { quizId } = useParams();
   const { token } = useAuth();
   const navigate = useNavigate();
   const socket = getSocket();
+  const showToast = useToast();
 
   const [game, setGame] = useState(null); // {pin,title,type,state,qIndex,total,players}
   const [question, setQuestion] = useState(null);
@@ -189,6 +282,12 @@ export default function HostGame() {
 
   const hostAction = (event) => () => socket.emit(event);
 
+  // кик из лобби: сервер удаляет игрока и шлёт ему kicked; тост информирующий (undo — P1)
+  const kickPlayer = (p) => {
+    socket.emit("kick-player", { playerId: p.id });
+    showToast(`${p.name} исключён(а)`, "info");
+  };
+
   const endGame = () => {
     socket.emit("host:end");
     sessionStorage.removeItem(pinKey);
@@ -252,10 +351,7 @@ export default function HostGame() {
             </h2>
             <div className="players-grid">
               {game.players.map((p) => (
-                <div className={`player-chip${p.online === false ? " offline" : ""}`} key={p.name}>
-                  <PlayerName p={p} />
-                  {p.online === false && <span className="chip-offline">нет связи</span>}
-                </div>
+                <PlayerChip p={p} key={p.name} onKick={kickPlayer} />
               ))}
             </div>
             <p className="muted lobby-hint">
