@@ -42,7 +42,8 @@ function recordResult(game) {
 }
 
 function playersList(game) {
-  return [...game.players.values()].map((p) => ({
+  return [...game.players.entries()].map(([id, p]) => ({
+    id,
     name: p.name,
     score: p.score,
     avatar: p.avatar,
@@ -246,6 +247,7 @@ export function registerGameHandlers(io) {
         questionStart: 0,
         quiz: { title: quiz.title, showLiveResults: loaded.showLiveResults, questions: fullQuestions },
         players: new Map(),
+        kickedTokens: new Set(), // кик: повторный вход по токену блокируется до конца партии
         closeTimer: null,
         recorded: false,
       };
@@ -258,6 +260,14 @@ export function registerGameHandlers(io) {
     socket.on("player:join", ({ pin, name, avatar, color, token } = {}, ack = () => {}) => {
       const game = games.get(String(pin || "").trim());
       if (!game) return ack({ error: "Игра с таким PIN не найдена" });
+
+      // кикнутый игрок: повторный вход по сохранённому токену отклоняется
+      if (token && game.kickedTokens.has(token)) {
+        return ack({
+          error: "Вы были исключены из этой игры. Введите другой PIN или вернитесь позже.",
+          kicked: true,
+        });
+      }
 
       // повторный вход после обрыва связи: токен возвращает игрока с его счётом и именем
       if (token) {
@@ -454,6 +464,27 @@ export function registerGameHandlers(io) {
       // игра шла хотя бы один вопрос и был хотя бы один игрок — сохраняем в историю
       if (game.qIndex >= 0 && game.players.size > 0) recordResult(game);
       deleteGame(io, game);
+    });
+
+    // кик игрока из лобби: только хост и только до старта вопросов;
+    // id игрока — ключ в Map (у offline-игрока остаётся старый socket.id)
+    socket.on("kick-player", ({ playerId } = {}, ack = () => {}) => {
+      const game = hostGame(socket);
+      if (!game || game.state !== "lobby") return ack({ error: "Только из лобби" });
+      const key = String(playerId || "");
+      const p = game.players.get(key);
+      if (!p) return ack({ error: "Игрок не найден" });
+      game.kickedTokens.add(p.token);
+      game.players.delete(key);
+      const target = io.sockets.sockets.get(key);
+      if (target) {
+        target.emit("kicked");
+        // без выхода из комнаты кикнутый продолжал бы получать question/reveal/finished
+        target.leave(`game:${game.pin}`);
+        delete target.data.gamePin;
+      }
+      broadcastPlayers(io, game);
+      ack({ ok: true });
     });
 
     socket.on("disconnect", () => {

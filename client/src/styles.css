@@ -747,6 +747,101 @@ body.presenter-mode .hide-in-presenter {
   padding: 1px 8px;
   margin-left: 8px;
 }
+/* кик игрока (EM-30): на десктопе × по hover, на таче long-press → popover;
+   оффлайн-игрок кикается без confirm, поэтому подтверждение живёт в компоненте */
+.player-chip.kickable {
+  position: relative; /* якорь для .chip-popover */
+}
+.chip-kick {
+  display: none;
+  width: 24px;
+  height: 24px;
+  margin-left: 8px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  color: var(--bad);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  background: rgba(229, 72, 77, 0.14);
+  background: color-mix(in srgb, var(--bad) 16%, transparent);
+}
+/* hover-× только на устройствах с настоящим hover: на таче залипает и мешает long-press;
+   :focus-within оставляет кик доступным с клавиатуры */
+@media (hover: hover) {
+  .player-chip.kickable:hover .chip-kick,
+  .player-chip.kickable:focus-within .chip-kick {
+    display: inline-flex;
+  }
+}
+.chip-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--card);
+  border: 1px solid var(--card-border, #e3e8f2);
+  border-radius: 12px;
+  box-shadow: var(--card-shadow, 0 10px 30px rgba(10, 16, 32, 0.25));
+  padding: 12px 14px;
+  width: max-content;
+  max-width: 220px;
+}
+.chip-popover-item {
+  border: none;
+  background: none;
+  color: var(--bad);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 2px;
+  text-align: left;
+}
+.chip-confirm-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.chip-confirm-actions {
+  display: flex;
+  gap: 8px;
+}
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+/* экран кикнутого игрока: нейтральный факт, без деструктивных акцентов */
+.kicked-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+.kicked-icon {
+  width: 48px;
+  height: 48px;
+  color: var(--muted-on-bg);
+  opacity: 0.7;
+}
+.kicked-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 14px;
+  width: min(320px, 100%);
+}
 
 .host-question {
   text-align: center;

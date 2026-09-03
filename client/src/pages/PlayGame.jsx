@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { getSocket } from "../socket";
 import PlayerAvatar, { parseAvatar } from "../components/PlayerAvatar";
 import Dropdown from "../components/Dropdown";
-import { ClockIcon, PollIcon } from "../components/icons";
+import { ClockIcon, PollIcon, DoorIcon } from "../components/icons";
 import confetti from "canvas-confetti";
 import {
   NAME_COLORS,
@@ -49,6 +49,8 @@ export default function PlayGame() {
   const [error, setError] = useState("");
   const [closed, setClosed] = useState(false);
   const [gameOver, setGameOver] = useState(false); // вход в уже завершённую игру
+  const [kicked, setKicked] = useState(false); // хост удалил игрока из партии
+  const [kickedPin, setKickedPin] = useState(sessionStorage.getItem("kickedPin") || "");
   const [customizeOpen, setCustomizeOpen] = useState(false); // конструктор аватара в лобби свёрнут
   const [players, setPlayers] = useState([]);
   const [question, setQuestion] = useState(null);
@@ -57,6 +59,22 @@ export default function PlayGame() {
   const [final, setFinal] = useState(null);
   const [secondsLeft, setSecondsLeft] = useState(null);
   const nameRef = useRef(null);
+
+  // кик: чистим сессию игрока и запоминаем PIN — форма больше не пустит в эту партию
+  const handleKicked = (pinSaved) => {
+    const saved = String(pinSaved || sessionStorage.getItem("playerPin") || pinParam || "");
+    sessionStorage.setItem("kickedPin", saved);
+    sessionStorage.removeItem("playerToken");
+    sessionStorage.removeItem("playerPin");
+    setJoined(false); // иначе после экрана кика останемся в «лобби» игры, из которой выгнаны
+    setQuestion(null); // стейт партии мог доехать до кика — сбрасываем, чтобы не «вернулся» после экрана
+    setReveal(null);
+    setFinal(null);
+    setSubmitted(null);
+    setSecondsLeft(null);
+    setKickedPin(saved);
+    setKicked(true);
+  };
 
   useEffect(() => {
     const onPlayers = (d) => setPlayers(d.players);
@@ -87,6 +105,7 @@ export default function PlayGame() {
       setGameOver(false); // хост нажал «Играть снова» — экран «Игра завершена» больше не нужен
     };
     const onClosed = () => setClosed(true);
+    const onKicked = () => handleKicked();
 
     socket.on("players", onPlayers);
     socket.on("question", onQuestion);
@@ -94,6 +113,7 @@ export default function PlayGame() {
     socket.on("finished", onFinished);
     socket.on("game:lobby", onLobby);
     socket.on("game:closed", onClosed);
+    socket.on("kicked", onKicked);
     return () => {
       socket.off("players", onPlayers);
       socket.off("question", onQuestion);
@@ -101,6 +121,7 @@ export default function PlayGame() {
       socket.off("finished", onFinished);
       socket.off("game:lobby", onLobby);
       socket.off("game:closed", onClosed);
+      socket.off("kicked", onKicked);
     };
   }, [socket]);
 
@@ -157,6 +178,7 @@ export default function PlayGame() {
           token,
         },
         (res) => {
+          if (res?.kicked) return handleKicked(pinParam); // сервер помнит кик по токену
           if (res?.finished) return setGameOver(true); // завершённая игра — экран «Игра завершена»
           if (!res || res.error) return; // тихо остаёмся на форме входа
           setHostName(res.hostName || "");
@@ -179,6 +201,10 @@ export default function PlayGame() {
     const cleanName = name.trim().slice(0, 20);
     if (cleanPin.length !== 6) return setError("PIN состоит из 6 цифр");
     if (!cleanName) return setError("Введите имя");
+    // кикнутый с этого устройства не входит в ту же партию повторно
+    if (kickedPin && cleanPin === kickedPin) {
+      return setError("Вы были исключены из этой игры. Введите другой PIN или вернитесь позже.");
+    }
     // токен шлём только под своим сохранённым именем: иначе на общем устройстве
     // новый игрок молча «присвоил» бы сессию предыдущего
     const savedName = (sessionStorage.getItem("playerName") || "").trim();
@@ -187,6 +213,10 @@ export default function PlayGame() {
       "player:join",
       { pin: cleanPin, name: cleanName, avatar: JSON.stringify(avatar), color, token },
       (res) => {
+        if (res?.kicked) {
+          handleKicked(cleanPin);
+          return setError(res.error);
+        }
         if (res?.finished) return setGameOver(true);
         if (res?.error) return setError(res.error);
         sessionStorage.setItem("playerName", cleanName);
@@ -206,6 +236,31 @@ export default function PlayGame() {
     setSubmitted(i);
     socket.emit("player:answer", { choice: i });
   };
+
+  if (kicked) {
+    return (
+      <div className="play-screen kicked-screen">
+        <DoorIcon className="kicked-icon" />
+        <h1>Вас исключили из этой игры</h1>
+        <p className="muted">Ведущий удалил вас из этой сессии.</p>
+        <div className="kicked-actions">
+          <button
+            type="button"
+            className="btn btn-outline btn-lg"
+            onClick={() => {
+              setKicked(false); // роутер не перемонтирует /play — сбрасываем экран вручную
+              navigate("/play");
+            }}
+          >
+            Ввести другой PIN
+          </button>
+          <button type="button" className="btn btn-ghost btn-lg" onClick={() => navigate("/")}>
+            На главную
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (closed || gameOver) {
     return (
@@ -238,6 +293,11 @@ export default function PlayGame() {
               required
             />
           </label>
+          {kickedPin && kickedPin === pin.replace(/\D/g, "") && (
+            <div className="error" role="alert">
+              Вы были исключены из этой игры. Введите другой PIN или вернитесь позже.
+            </div>
+          )}
           <label className="field-label">
             Ваше имя
             <input
@@ -259,7 +319,9 @@ export default function PlayGame() {
           </button>
           <span className="muted small">Тапните по аватару, чтобы сменить</span>
           {error && <div className="error">{error}</div>}
-          <button className="btn btn-primary btn-lg">Войти в игру</button>
+          <button className="btn btn-primary btn-lg" disabled={kickedPin !== "" && kickedPin === pin.replace(/\D/g, "")}>
+            Войти в игру
+          </button>
         </form>
       </div>
     );
