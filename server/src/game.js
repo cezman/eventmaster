@@ -207,7 +207,11 @@ export function registerGameHandlers(io) {
           socket.emit("host:game", snapshotForHost(game));
           broadcastPlayers(io, game);
           if (game.state === "question") socket.emit("question", questionForRoom(game));
-          if (game.state === "reveal") reveal(io, game);
+          // хосту в reveal тоже нужен вопрос (экран reveal показывает его текст)
+          if (game.state === "reveal") {
+            socket.emit("question", questionForRoom(game));
+            reveal(io, game);
+          }
           return ack({ ok: true, pin: game.pin });
         }
       }
@@ -278,7 +282,12 @@ export function registerGameHandlers(io) {
           });
           broadcastPlayers(io, game);
           if (game.state === "question") socket.emit("question", questionForRoom(game));
-          if (game.state === "reveal") reveal(io, game);
+          // в reveal игроку нужен и вопрос, и результат: без question квиз-карточка
+          // («Верно!/Мимо») не рендерится — вернулся бы экран опроса
+          if (game.state === "reveal") {
+            socket.emit("question", questionForRoom(game));
+            reveal(io, game);
+          }
           // вернулся после финала (закрыл вкладку, открыл заново) — досылаем итоговый экран
           if (game.state === "finished")
             socket.emit("finished", { leaderboard: leaderboard(game), players: playersList(game) });
@@ -321,7 +330,12 @@ export function registerGameHandlers(io) {
       });
       broadcastPlayers(io, game);
       if (game.state === "question") socket.emit("question", questionForRoom(game));
-      if (game.state === "reveal") reveal(io, game);
+      // в reveal игроку нужен и вопрос, и результат: без question квиз-карточка
+      // («Верно!/Мимо») не рендерится — вернулся бы экран опроса
+      if (game.state === "reveal") {
+        socket.emit("question", questionForRoom(game));
+        reveal(io, game);
+      }
     });
 
     socket.on("player:answer", ({ choice } = {}) => {
