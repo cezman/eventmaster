@@ -82,7 +82,7 @@ quizRoutes.get("/", (req, res) => {
   const rows = db
     .prepare(
       `SELECT q.*, (SELECT COUNT(*) FROM questions WHERE quiz_id = q.id) AS question_count
-       FROM quizzes q WHERE q.host_id = ? ORDER BY q.created_at DESC`
+       FROM quizzes q WHERE q.host_id = ? AND q.cloned_from_quiz_id IS NULL ORDER BY q.created_at DESC`
     )
     .all(req.userId);
   res.json({ quizzes: rows });

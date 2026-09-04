@@ -127,17 +127,43 @@ db.exec(`
   );
 `);
 
+// кросс-блочные очки мероприятия (EM-55, Гэп 3): player_id — join-токен игрока
+// (стабилен при reconnect), block_id — ссылка на блок сценария;
+// UNIQUE = один рекорд на игрока на блок, по нему работает UPSERT-накопление
+db.exec(`
+  CREATE TABLE IF NOT EXISTS event_scores (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    player_id TEXT NOT NULL,
+    player_name TEXT NOT NULL,
+    player_avatar TEXT NOT NULL DEFAULT '',
+    block_id INTEGER REFERENCES scenario_blocks(id) ON DELETE CASCADE,
+    points INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (event_id, player_id, block_id)
+  );
+`);
+
+// snapshot-копии квизов (EM-55, патч L1): quiz/poll-блок ссылается на копию,
+// созданную при вставке из библиотеки; NULL — оригинал (и простое мероприятие-обёртка)
+try {
+  db.exec("ALTER TABLE quizzes ADD COLUMN cloned_from_quiz_id INTEGER");
+} catch {
+  // колонка уже есть
+}
+
 // обёртка квизов в «простое мероприятие» (§1.2): идемпотентно при каждом старте —
 // добирает только квизы, на которые ещё не ссылается ни один quiz/poll-блок;
 // json_valid — чтобы внешне испорченный content не валил старт сервера
 const orphanQuizzes = db
   .prepare(
     `SELECT q.id, q.host_id, q.title, q.type FROM quizzes q
-     WHERE NOT EXISTS (
-       SELECT 1 FROM scenario_blocks b
-       WHERE b.type IN ('quiz', 'poll') AND json_valid(b.content)
-         AND json_extract(b.content, '$.quizId') = q.id
-     )`
+     WHERE q.cloned_from_quiz_id IS NULL
+       AND NOT EXISTS (
+         SELECT 1 FROM scenario_blocks b
+         WHERE b.type IN ('quiz', 'poll') AND json_valid(b.content)
+           AND json_extract(b.content, '$.quizId') = q.id
+       )`
   )
   .all();
 for (const quiz of orphanQuizzes) {

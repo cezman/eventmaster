@@ -299,13 +299,19 @@ export default function EventPage() {
   };
 
   const run = () => {
-    const block = blocks.find((b) => (b.type === "quiz" || b.type === "poll") && Number.isInteger(b.content.quizId));
-    if (!block) {
-      showToast("В сценарии нет квизов для запуска", "error");
+    // запуск с EM-55: партия идёт по всему сценарию (движок блоков), а не по первому квизу
+    if (!blocks.length) {
+      showToast("Добавьте блоки в сценарий", "error");
       return;
     }
-    // до EM-55 запускаем первый квиз напрямую; /host/<eventId> появится с движком сценария
-    navigate(`/host/${block.content.quizId}`);
+    const broken = blocks.some(
+      (b) => (b.type === "quiz" || b.type === "poll") && !Number.isInteger(b.content.quizId)
+    );
+    if (broken) {
+      showToast("Заполните квизы во всех блоках сценария", "error");
+      return;
+    }
+    navigate(`/host/event/${id}`);
   };
 
   // target: null — пикер «добавить блок», blockId — заменить квиз в конкретном блоке

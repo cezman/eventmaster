@@ -23,6 +23,8 @@ export default function ScreenGame() {
   const [secondsLeft, setSecondsLeft] = useState(null);
   const [reactions, setReactions] = useState([]);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  // EM-55: текущий неигровой блок сценария (переход/текст/пауза/…)
+  const [block, setBlock] = useState(null);
 
   useEffect(() => {
     const join = () => {
@@ -77,29 +79,44 @@ export default function ScreenGame() {
       setQuestion(null);
       setReveal(null);
       setFinal(null);
+      setBlock(null);
       setSecondsLeft(null);
       if (d?.title) setGame((g) => (g ? { ...g, state: "lobby", title: d.title } : g));
     };
     const onClosed = () => setStatus("closed");
+    // EM-55: неигровые блоки — зал показывает карточку блока (макеты §4.6 — EM-56)
+    const onBlock = (payload) => {
+      setBlock(payload);
+      setQuestion(null);
+      setReveal(null);
+      setFinal(null);
+      setSecondsLeft(null);
+    };
 
     socket.on("players", onPlayers);
     socket.on("question", onQuestion);
     socket.on("reveal", onReveal);
     socket.on("finished", onFinished);
+    socket.on("event:finished", onFinished);
     socket.on("answer-count", onCount);
     socket.on("reaction", onReaction);
     socket.on("game:lobby", onLobby);
     socket.on("game:closed", onClosed);
+    for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:transition"])
+      socket.on(ev, onBlock);
     return () => {
       socket.off("connect", join);
       socket.off("players", onPlayers);
       socket.off("question", onQuestion);
       socket.off("reveal", onReveal);
       socket.off("finished", onFinished);
+      socket.off("event:finished", onFinished);
       socket.off("answer-count", onCount);
       socket.off("reaction", onReaction);
       socket.off("game:lobby", onLobby);
       socket.off("game:closed", onClosed);
+      for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:transition"])
+        socket.off(ev, onBlock);
     };
   }, [socket, pinParam]);
 
@@ -163,6 +180,63 @@ export default function ScreenGame() {
   }
 
   const joinUrl = `${window.location.origin}/play/${game.pin}`;
+
+  // EM-55: карточка неигрового блока на проекторе — переход, текст, пауза и др.
+  if (block && !question && !reveal && !final) {
+    return (
+      <div className="screen-page">
+        <header className="screen-header">
+          <Logo>{game.title}</Logo>
+          <div className="screen-header-actions">
+            {isFullscreen && <span className="screen-fullscreen-hint">Esc — выйти из полноэкрана</span>}
+            {!isFullscreen && (
+              <button className="btn btn-ghost" onClick={toggleFullscreen} aria-label="Во весь экран">
+                <ExpandIcon className="inline-icon" />
+                Во весь экран
+              </button>
+            )}
+          </div>
+        </header>
+        <div className="screen-stage">
+          {block.to ? (
+            <div className="screen-block">
+              <p className="screen-block-label">Дальше в программе</p>
+              <h1>{block.to.title}</h1>
+            </div>
+          ) : block.blockType === "text" ? (
+            <div className="screen-block">
+              <h1>{block.heading}</h1>
+              {block.body && <p className="screen-block-body">{block.body}</p>}
+              {block.imageUrl && <img className="screen-block-image" src={block.imageUrl} alt="" />}
+            </div>
+          ) : block.blockType === "break" ? (
+            <div className="screen-block">
+              <div className="screen-block-emoji" aria-hidden="true">☕</div>
+              <h1>{block.label || "Перерыв"}</h1>
+              <p className="screen-block-body">
+                {block.duration > 0 ? `Вернёмся через ${block.duration} мин` : "Скоро продолжим"}
+              </p>
+            </div>
+          ) : block.blockType === "image" ? (
+            <div className="screen-block">
+              {block.url && <img className="screen-block-image" src={block.url} alt={block.caption || ""} />}
+              {block.caption && <p className="screen-block-body">{block.caption}</p>}
+            </div>
+          ) : block.blockType === "audio" ? (
+            <div className="screen-block">
+              <div className="screen-block-emoji" aria-hidden="true">🎵</div>
+              <h1>{block.title || "Сейчас играет"}</h1>
+            </div>
+          ) : (
+            <div className="screen-block">
+              <h1>{block.title || "Активность"}</h1>
+              {block.description && <p className="screen-block-body">{block.description}</p>}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="screen-page">

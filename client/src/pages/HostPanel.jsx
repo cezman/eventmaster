@@ -13,8 +13,23 @@ import { useToast } from "../components/Toast";
 // EM-36: пульт ведущего — управление идущей игрой. Зал (/screen/<pin>) показывает,
 // пульт управляет. Работает на ноуте и телефоне (главное действие — sticky bottom).
 
+// подписи типов блоков сценария (EM-55)
+const BLOCK_LABELS = {
+  quiz: "Квиз",
+  poll: "Опрос",
+  text: "Текст",
+  break: "Перерыв",
+  image: "Изображение",
+  audio: "Музыка",
+  activity: "Активность",
+};
+
 export default function HostPanel() {
-  const { quizId } = useParams();
+  // EM-55: один пульт на две сущности — /host/<quizId> (легаси-квиз) и
+  // /host/event/<eventId> (мероприятие, движок сценария)
+  const { quizId, eventId } = useParams();
+  const isEvent = Boolean(eventId);
+  const id = eventId || quizId;
   const { token } = useAuth();
   const navigate = useNavigate();
   const socket = getSocket();
@@ -24,7 +39,7 @@ export default function HostPanel() {
   // error — запуститься не удалось (например, квиз не найден)
   const [status, setStatus] = useState("connecting");
   const [attachError, setAttachError] = useState("");
-  const [game, setGame] = useState(null); // {pin,title,type,state,qIndex,total,players,screenOpen}
+  const [game, setGame] = useState(null); // {pin,title,type,state,qIndex,total,players,screenOpen,...}
   const [question, setQuestion] = useState(null);
   const [reveal, setReveal] = useState(null);
   const [final, setFinal] = useState(null);
@@ -33,19 +48,25 @@ export default function HostPanel() {
   // EM-48: открыт ли экран зала (screen:presence) — им управляет сервер
   const [screenOpen, setScreenOpen] = useState(false);
   const [confirmEnd, setConfirmEnd] = useState(false);
+  // EM-55: текущий неигровой блок (block:text/break/transition/…) и прогресс сценария
+  const [block, setBlock] = useState(null);
+  const [progress, setProgress] = useState(null);
 
   // EM-46: сервер сам подключает пульт к живой партии своего квиза, а при её
   // отсутствии создаёт новую — запуск в один клик, вторая партия не плодится.
   // На уровне компонента: кнопка «Попробовать снова» на экране ошибки зовёт её же.
   const claim = useCallback(() => {
     setOnline(true);
-    socket.emit("host:create-game", { token, quizId }, (res) => {
+    const payload = { token };
+    if (isEvent) payload.eventId = id;
+    else payload.quizId = id;
+    socket.emit("host:create-game", payload, (res) => {
       if (res.error) {
         setAttachError(res.error);
         setStatus("error");
       }
     });
-  }, [socket, token, quizId]);
+  }, [socket, token, id, isEvent]);
 
   useEffect(() => {
     if (socket.connected) claim();
@@ -58,6 +79,9 @@ export default function HostPanel() {
       setAttachError("");
       setScreenOpen(!!snap.screenOpen);
       setGame(snap);
+      setProgress(snap.blockTotal != null ? { index: snap.blockIndex, total: snap.blockTotal } : null);
+      // в состоянии block сервер следом досылает текущий блок — не гасим его здесь
+      if (snap.state !== "block") setBlock(null);
       if (snap.state === "lobby") {
         setQuestion(null);
         setReveal(null);
@@ -70,6 +94,8 @@ export default function HostPanel() {
       setReveal(null);
       setFinal(null);
       setAnswered(0);
+      setBlock(null);
+      if (q.blockTotal != null) setProgress({ index: q.blockIndex, total: q.blockTotal });
     };
     const onReveal = (r) => {
       setReveal(r);
@@ -78,6 +104,13 @@ export default function HostPanel() {
       setFinal(f);
       setQuestion(null);
       setReveal(null);
+      setBlock(null);
+    };    // EM-55: неигровые блоки сценария; transition кладём в block до executeBlock
+    const onBlock = (payload) => {
+      setBlock(payload);
+      setQuestion(null);
+      setReveal(null);
+      if (payload.blockTotal != null) setProgress({ index: payload.blockIndex, total: payload.blockTotal });
     };
     const onCount = (d) => setAnswered(d.answered);
     const onClosed = () => navigate("/dashboard");
@@ -89,7 +122,12 @@ export default function HostPanel() {
     socket.on("players", onPlayers);
     socket.on("question", onQuestion);
     socket.on("reveal", onReveal);
+    // event:finished и finished приходят вместе на финале мероприятия — обработчик
+    // срабатывает дважды, это идемпотентно; вешаем оба ради совместимости поверхностей
     socket.on("finished", onFinished);
+    socket.on("event:finished", onFinished);
+    for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:transition"])
+      socket.on(ev, onBlock);
     socket.on("answer-count", onCount);
     socket.on("game:closed", onClosed);
     return () => {
@@ -101,12 +139,23 @@ export default function HostPanel() {
       socket.off("question", onQuestion);
       socket.off("reveal", onReveal);
       socket.off("finished", onFinished);
+      socket.off("event:finished", onFinished);
+      for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:transition"])
+        socket.off(ev, onBlock);
       socket.off("answer-count", onCount);
       socket.off("game:closed", onClosed);
     };
-  }, [socket, token, quizId, navigate, claim]);
+  }, [socket, token, quizId, eventId, navigate, claim]);
 
-  const phase = final ? "finished" : question ? (reveal ? "reveal" : "question") : game?.state;
+  const phase = final
+    ? "finished"
+    : question
+      ? reveal
+        ? "reveal"
+        : "question"
+      : block
+        ? "block"
+        : game?.state;
   // EM-45: оверлей переподключения — только пока пульт подключён к партии
   const reconnect = useReconnectStatus(socket, status === "connected");
   const reconnectOverlay = (
@@ -135,16 +184,17 @@ export default function HostPanel() {
   const openScreen = () => window.open(`${window.location.origin}/screen/${game.pin}`, "_blank");
 
   // EM-50: QR пульта в лобби — телефон сканирует с экрана десктопа и открывает
-  // /host/<quizId>; при живой сессии на телефоне пульт сразу цепляется к этой партии.
+  // текущий адрес пульта (квиз или мероприятие, EM-55); при живой сессии пульт
+  // сразу цепляется к этой партии.
   // Ref-callback: перерисовка при каждом монтировании canvas (возврат в лобби и т.п.)
   const qrRef = useCallback(
     (canvas) => {
       if (!canvas) return;
-      QRCode.toCanvas(canvas, `${window.location.origin}/host/${quizId}`, { width: 160, margin: 1 }, (e) => {
+      QRCode.toCanvas(canvas, `${window.location.origin}${window.location.pathname}`, { width: 160, margin: 1 }, (e) => {
         if (e) console.warn("QR пульта не сгенерировался:", e);
       });
     },
-    [quizId]
+    []
   );
 
   const onlinePlayers = game ? game.players.filter((p) => p.online !== false).length : 0;
@@ -215,7 +265,12 @@ export default function HostPanel() {
       {confirmEnd && (
         <ConfirmDialog
           title="Завершить игру?"
-          text="Игра закончится для всех игроков, результаты сохранятся в истории."
+          // в мероприятии история партий не пишется — не обещаем лишнего
+          text={
+            game?.eventId
+              ? "Партия завершится для всех игроков. Мероприятие можно будет запустить снова."
+              : "Игра закончится для всех игроков, результаты сохранятся в истории."
+          }
           confirmLabel="Завершить"
           onConfirm={() => {
             setConfirmEnd(false);
@@ -276,9 +331,80 @@ export default function HostPanel() {
         </div>
       )}
 
+      {/* EM-55: неигровые блоки сценария — переход, текст, пауза и др.
+          (минимальные поверхности; макеты §4.5 — EM-56) */}
+      {phase === "block" && block && (
+        <div className="panel-body">
+          {progress && (
+            <div className="q-meta">
+              Блок {progress.index + 1} / {progress.total}
+              {!block.to && ` · ${BLOCK_LABELS[block.blockType] || ""}`}
+            </div>
+          )}
+          {block.to ? (
+            <>
+              <h2 className="panel-counter">Дальше: {block.to.title}</h2>
+              <p className="muted">Автопереход…</p>
+            </>
+          ) : block.blockType === "break" ? (
+            <>
+              <h2 className="panel-counter">{block.label || "Перерыв"}</h2>
+              <p className="muted">
+                {block.duration > 0
+                  ? `Пауза ${block.duration} мин — следующий блок включится автоматически`
+                  : "Пауза без таймера"}
+              </p>
+              <div className="panel-main-action">
+                <button className="btn btn-primary btn-xl btn-block" onClick={hostAction("host:skip-block")}>
+                  Пропустить паузу
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              {block.blockType === "text" && (
+                <>
+                  <h2 className="panel-counter">{block.heading}</h2>
+                  {block.body && <p className="muted">{block.body}</p>}
+                </>
+              )}
+              {block.blockType === "image" && (
+                <>
+                  {block.url && <img className="panel-block-image" src={block.url} alt={block.caption || ""} />}
+                  {block.caption && <p className="muted">{block.caption}</p>}
+                </>
+              )}
+              {block.blockType === "audio" && (
+                <>
+                  <h2 className="panel-counter">{block.title || "Музыка"}</h2>
+                  {block.url && <p className="muted small">{block.url}</p>}
+                </>
+              )}
+              {block.blockType === "activity" && (
+                <>
+                  <h2 className="panel-counter">{block.title}</h2>
+                  {block.description && <p className="muted">{block.description}</p>}
+                </>
+              )}
+              <div className="panel-main-action">
+                <button className="btn btn-primary btn-xl btn-block" onClick={hostAction("host:next-block")}>
+                  Далее →
+                </button>
+              </div>
+              <div className="panel-secondary-action">
+                <button className="btn btn-outline btn-block" onClick={hostAction("host:skip-block")}>
+                  Пропустить блок
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {phase === "question" && question && (
         <div className="panel-body">
           <div className="q-meta">
+            {game?.eventId && progress && `Блок ${progress.index + 1} / ${progress.total} · `}
             Вопрос {question.index + 1} / {question.total}
           </div>
           <h2 className={`panel-counter ${allAnswered ? "brand" : ""}`}>
@@ -312,7 +438,11 @@ export default function HostPanel() {
           </div>
           <div className="panel-main-action">
             <button className="btn btn-primary btn-xl btn-block" onClick={hostAction("host:next")}>
-              {question && question.index + 1 < question.total ? "Следующий →" : "Финальные результаты"}
+              {question && question.index + 1 < question.total
+                ? "Следующий →"
+                : game?.eventId
+                  ? "Дальше →"
+                  : "Финальные результаты"}
             </button>
           </div>
         </div>
@@ -320,7 +450,7 @@ export default function HostPanel() {
 
       {phase === "finished" && final && (
         <div className="panel-body">
-          <h2 className="panel-counter">Игра завершена!</h2>
+          <h2 className="panel-counter">{game?.eventId ? "Мероприятие завершено!" : "Игра завершена!"}</h2>
           <div className="board mini">
             {final.leaderboard.slice(0, 3).map((p, i) => (
               <div className="board-row" key={p.name}>

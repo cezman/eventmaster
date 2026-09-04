@@ -93,6 +93,8 @@ function questionForRoom(game) {
     mode: q.mode || "choice",
     showLiveResults: !!game.quiz.showLiveResults,
     answers: q.answers.map((a) => ({ text: a.text })),
+    // EM-55: контекст блока для пульта (аддитивно, только в мероприятии)
+    ...(game.eventId ? { blockIndex: game.blockIndex, blockTotal: game.scenario.length } : {}),
   };
 }
 
@@ -118,9 +120,20 @@ function broadcastPlayers(io, game) {
 
 function deleteGame(io, game) {
   stopRevealTimer(game);
+  stopBlockTimers(game);
+  flushBlockScores(game);
   if (game.closeTimer) {
     clearTimeout(game.closeTimer);
     game.closeTimer = null;
+  }
+  // партия умерла (все пульты отвалились или хост завершил) — недоигранное
+  // мероприятие не должно зависать в live; доигранное остаётся completed
+  if (game.eventId && !game.eventFinished) {
+    try {
+      db.prepare("UPDATE events SET status = 'ready', updated_at = datetime('now') WHERE id = ?").run(game.eventId);
+    } catch (e) {
+      console.error("Не удалось вернуть статус мероприятия:", e.message);
+    }
   }
   io.to(`game:${game.pin}`).emit("game:closed");
   io.socketsLeave(`game:${game.pin}`);
@@ -164,9 +177,21 @@ function reveal(io, game) {
           p.awarded = q.points || 1;
           p.score += p.awarded;
           p.lastCorrect = true;
+          // кросс-блочный зачёт мероприятия: те же плоские очки (Гэп 3.2)
+          addBlockScore(game, p.token, p.name, p.avatar, p.awarded);
         } else {
           p.awarded = 0;
           p.lastCorrect = false;
+        }
+      }
+    } else if (game.eventId && game.type === "poll") {
+      // опрос в мероприятии: плоское очко за участие (спека Гэп 3.2, v1 без бонусов);
+      // в одиночной партии опрос очков не даёт — поведение не меняется
+      for (const p of game.players.values()) {
+        if (p.answer != null) {
+          p.awarded = 1;
+          p.score += 1;
+          addBlockScore(game, p.token, p.name, p.avatar, 1);
         }
       }
     }
@@ -199,11 +224,323 @@ function finishGame(io, game) {
   });
 }
 
+// === EM-55: движок сценария (спека design-new-features-spec §4.3–4.4, Гэп 3) ===
+
+function parseObj(raw) {
+  try {
+    const v = JSON.parse(raw || "{}");
+    return v && typeof v === "object" && !Array.isArray(v) ? v : {};
+  } catch {
+    return {};
+  }
+}
+
+// сценарий снимается в память на момент запуска: живая партия не зависит от
+// правок редактора и от того, что хост параллельно меняет сценарий в кабинете
+function loadScenario(eventId, hostId) {
+  const event = db
+    .prepare("SELECT id, title FROM events WHERE id = ? AND host_id = ?")
+    .get(eventId, hostId);
+  if (!event) return null;
+  const rows = db
+    .prepare("SELECT id, type, content, settings FROM scenario_blocks WHERE event_id = ? ORDER BY position")
+    .all(event.id);
+  const quizTitle = db.prepare("SELECT title FROM quizzes WHERE id = ?");
+  const scenario = rows.map((b) => {
+    const block = { id: b.id, type: b.type, content: parseObj(b.content), settings: parseObj(b.settings) };
+    if ((block.type === "quiz" || block.type === "poll") && Number.isInteger(block.content.quizId))
+      block.quizTitle = quizTitle.get(block.content.quizId)?.title || null;
+    return block;
+  });
+  return { event, scenario };
+}
+
+// человекочитаемое имя блока — для transition-карточки и BlockProgress пульта
+function blockTitle(block) {
+  if (!block) return "";
+  switch (block.type) {
+    case "quiz":
+    case "poll":
+      return block.quizTitle || "Раунд";
+    case "text":
+      return String(block.content.heading || "").trim() || "Текст";
+    case "break":
+      return String(block.content.label || "").trim() || "Перерыв";
+    case "image":
+      return String(block.content.caption || "").trim() || "Изображение";
+    case "audio":
+      return String(block.content.title || "").trim() || "Музыка";
+    default:
+      return String(block.content.title || "").trim() || "Блок";
+  }
+}
+
+function stopBlockTimers(game) {
+  if (game.blockTimer) {
+    clearTimeout(game.blockTimer);
+    game.blockTimer = null;
+  }
+  if (game.transitionTimer) {
+    clearTimeout(game.transitionTimer);
+    game.transitionTimer = null;
+  }
+}
+
+// очки блока копятся в памяти; в SQLite пишутся батчем на стыке блоков (Гэп 3):
+// crash сервера теряет только очки текущего блока — компромисс MVP «игры в памяти»
+function addBlockScore(game, token, name, avatar, delta) {
+  if (!game.eventId || !token || !delta) return;
+  const cur = game.blockScores.get(token) || { name, avatar, points: 0 };
+  cur.name = name;
+  cur.avatar = avatar;
+  cur.points += delta;
+  game.blockScores.set(token, cur);
+}
+
+function flushBlockScores(game) {
+  // currentBlockId == null не встречается (очки копятся только внутри блока),
+  // но без guard-а UPSERT по NULL вставлял бы дубли вместо накопления
+  if (!game.eventId || game.currentBlockId == null || game.blockScores.size === 0) return;
+  // UPSERT по UNIQUE(event_id, player_id, block_id): повторная запись блока
+  // (skip/дочёт хвоста) добавляет дельту, а не дублирует рекорд
+  const stmt = db.prepare(
+    `INSERT INTO event_scores (event_id, player_id, player_name, player_avatar, block_id, points)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT (event_id, player_id, block_id)
+     DO UPDATE SET points = points + excluded.points,
+       player_name = excluded.player_name, player_avatar = excluded.player_avatar`
+  );
+  db.exec("BEGIN");
+  try {
+    for (const [token, s] of game.blockScores)
+      stmt.run(game.eventId, token, s.name, s.avatar || "", game.currentBlockId, s.points);
+    db.exec("COMMIT");
+  } catch (e) {
+    db.exec("ROLLBACK");
+    console.error("Не удалось записать очки мероприятия:", e.message);
+  }
+  game.blockScores.clear();
+}
+
+// единый контекст блока в пейлоадах block:* — пульт и зал рисуют прогресс (§4.5)
+function blockPayload(game, block, extra) {
+  return {
+    blockIndex: game.blockIndex,
+    blockTotal: game.scenario.length,
+    blockType: block.type,
+    ...extra,
+  };
+}
+
+function executeBlock(io, game, index) {
+  if (games.get(game.pin) !== game) return;
+  const block = game.scenario[index];
+  game.blockIndex = index;
+  game.currentBlockId = block.id ?? null;
+  const str = (v, cap) => String(v ?? "").slice(0, cap);
+
+  if (block.type === "quiz" || block.type === "poll") return startQuizBlock(io, game, block);
+
+  let event = "block:text";
+  let extra;
+  switch (block.type) {
+    case "break": {
+      event = "block:break";
+      const duration = Math.min(600, Math.max(0, Number(block.content.duration) || 0));
+      extra = { label: str(block.content.label, 200), duration };
+      break;
+    }
+    case "image":
+      event = "block:image";
+      extra = { url: str(block.content.url, 500), caption: str(block.content.caption, 300), fullscreen: !!block.content.fullscreen };
+      break;
+    case "audio":
+      event = "block:audio";
+      extra = { url: str(block.content.url, 500), title: str(block.content.title, 200) };
+      break;
+    case "activity":
+      event = "block:activity";
+      extra = { type: str(block.content.type, 50), title: str(block.content.title, 200), description: str(block.content.description, 2000) };
+      break;
+    default:
+      event = "block:text";
+      extra = {
+        heading: str(block.content.heading, 200),
+        body: str(block.content.body, 2000),
+        layout: str(block.content.layout, 20) || "center",
+        imageUrl: str(block.content.imageUrl, 500),
+      };
+  }
+
+  game.state = "block";
+  const payload = blockPayload(game, block, extra);
+  game.currentBlock = { event, payload };
+  io.to(`game:${game.pin}`).emit(event, payload);
+  // пауза с таймером переходит сама; duration 0/нет — ждём ведущего
+  if (block.type === "break" && extra.duration > 0) {
+    game.blockTimer = setTimeout(() => {
+      game.blockTimer = null;
+      if (games.get(game.pin) === game) advanceBlock(io, game);
+    }, extra.duration * 60 * 1000);
+  }
+}
+
+// квиз/опрос как блок сценария: тот же вопросный флоу, что у одиночной партии,
+// но без отдельного лобби — игроков приводит transition-карточка (§4.1)
+function startQuizBlock(io, game, block) {
+  const loaded = loadQuiz(block.content.quizId);
+  if (!loaded) {
+    // ссылка протухла мимо всех чисток — пропускаем блок, не роняя партию
+    console.error(`Блок ${block.id}: квиз недоступен, пропускаю`);
+    advanceBlock(io, game);
+    return;
+  }
+  // настройки блока перекрывают квиз: таймер вопроса и live-распределение опроса
+  const s = block.settings;
+  if (Number.isInteger(s.timeLimit) && s.timeLimit > 0 && s.timeLimit <= 300)
+    loaded.questions = loaded.questions.map((q) => ({ ...q, time_limit: s.timeLimit }));
+  if (typeof s.showLiveResults === "boolean") loaded.showLiveResults = s.showLiveResults;
+  game.quiz = loaded;
+  game.type = loaded.type;
+  game.title = block.quizTitle || loaded.title;
+  game.qIndex = -1;
+  game.scoredQIndex = -1;
+  startQuestion(io, game);
+}
+
+function advanceBlock(io, game) {
+  if (games.get(game.pin) !== game) return;
+  flushBlockScores(game);
+  stopBlockTimers(game);
+  const next = game.blockIndex + 1;
+  if (next >= game.scenario.length) return finishEvent(io, game);
+  game.blockIndex = next;
+  const from = blockTitle(game.scenario[next - 1]);
+  const to = blockTitle(game.scenario[next]);
+  const payload = blockPayload(game, game.scenario[next], {
+    from: { type: game.scenario[next - 1].type, title: from },
+    to: { type: game.scenario[next].type, title: to },
+    index: next,
+    total: game.scenario.length,
+  });
+  game.state = "block";
+  game.currentBlock = { event: "block:transition", payload };
+  io.to(`game:${game.pin}`).emit("block:transition", payload);
+  game.transitionTimer = setTimeout(() => {
+    game.transitionTimer = null;
+    executeBlock(io, game, next);
+  }, 2000);
+}
+
+// финал мероприятия: общий подиум, статус completed в БД; очки — батчем до сигнала
+function finishEvent(io, game) {
+  flushBlockScores(game);
+  stopBlockTimers(game);
+  game.state = "finished";
+  game.eventFinished = true;
+  try {
+    db.prepare("UPDATE events SET status = 'completed', updated_at = datetime('now') WHERE id = ?").run(game.eventId);
+  } catch (e) {
+    console.error("Не удалось пометить мероприятие completed:", e.message);
+  }
+  const payload = { title: game.eventTitle, leaderboard: leaderboard(game), players: playersList(game) };
+  io.to(`game:${game.pin}`).emit("event:finished", payload);
+  // прежний finished с той же формой: текущие зал/пульт/телефон показывают общий
+  // подиум без правок — финал мероприятия переиспользует финал партии
+  io.to(`game:${game.pin}`).emit("finished", { leaderboard: payload.leaderboard, players: payload.players });
+}
+
+function startEvent(io, game) {
+  executeBlock(io, game, 0);
+}
+
+// переподключившемуся посреди неигрового блока досылаем текущий блок
+function replayBlock(socket, game) {
+  if (game.state === "block" && game.currentBlock)
+    socket.emit(game.currentBlock.event, game.currentBlock.payload);
+}
+
+// фабрика партий: одиночный квиз (EM-46) и мероприятие (EM-55) отличаются только
+// сценарием; поля мероприятия заведены сразу, чтобы движок не проверял undefined
+function newGame({ pin, hostId, host, title, type, quizId, quiz }) {
+  return {
+    pin,
+    quizId,
+    eventId: null,
+    eventTitle: null,
+    scenario: null,
+    blockIndex: -1,
+    blockScores: new Map(),
+    blockTimer: null,
+    transitionTimer: null,
+    eventFinished: false,
+    currentBlockId: null,
+    currentBlock: null,
+    title,
+    type,
+    hostId,
+    // EM-48: пультов может быть несколько (hostSocketIds), залы — screenSocketIds
+    hostSocketIds: new Set(),
+    screenSocketIds: new Set(),
+    hostName: [host?.name, host?.surname].filter(Boolean).join(" "),
+    hostAvatar: typeof host?.avatar === "string" ? host.avatar.slice(0, 500) : "",
+    state: "lobby",
+    qIndex: -1,
+    scoredQIndex: -1,
+    questionStart: 0,
+    quiz,
+    players: new Map(),
+    kickedTokens: new Set(), // кик: повторный вход по токену блокируется до конца партии
+    closeTimer: null,
+    recorded: false,
+  };
+}
+
 export function registerGameHandlers(io) {
   io.on("connection", (socket) => {
-    socket.on("host:create-game", ({ token, quizId } = {}, ack = () => {}) => {
+    socket.on("host:create-game", ({ token, quizId, eventId } = {}, ack = () => {}) => {
       const hostId = verifyToken(token);
       if (!hostId) return ack({ error: "Не авторизован" });
+      releaseOtherHostGames(io, socket);
+
+      // EM-55: запуск мероприятия — движок сценария, партия идёт блок за блоком.
+      // Пульт при переподключении цепляется к живой партии своего мероприятия.
+      if (eventId !== undefined && eventId !== null && eventId !== "") {
+        const id = Number(eventId);
+        const live = [...games.values()].find((g) => g.hostId === hostId && g.eventId === id);
+        if (live) {
+          attachHost(io, socket, live);
+          return ack({ ok: true, pin: live.pin });
+        }
+        const data = loadScenario(id, hostId);
+        if (!data) return ack({ error: "Мероприятие не найдено" });
+        if (data.scenario.length === 0) return ack({ error: "Сценарий пуст — добавьте блоки" });
+        // пустой или незаполненный квиз-блок иначе молча пропускался бы в партии —
+        // честнее не начинать и показать, какой блок чинить
+        for (let i = 0; i < data.scenario.length; i++) {
+          const b = data.scenario[i];
+          if (b.type !== "quiz" && b.type !== "poll") continue;
+          if (!Number.isInteger(b.content.quizId))
+            return ack({ error: `Блок ${i + 1} не заполнен квизом` });
+          const n = db.prepare("SELECT COUNT(*) AS n FROM questions WHERE quiz_id = ?").get(b.content.quizId).n;
+          if (n === 0) return ack({ error: `Блок ${i + 1} «${b.quizTitle || "Раунд"}» без вопросов — заполните квиз` });
+        }
+        const host = db.prepare("SELECT name, surname, avatar FROM users WHERE id = ?").get(hostId);
+        const game = newGame({ pin: makePin(), hostId, host, title: data.event.title, type: "quiz", quizId: null, quiz: null });
+        game.eventId = data.event.id;
+        game.eventTitle = data.event.title;
+        game.scenario = data.scenario;
+        games.set(game.pin, game);
+        game.hostSocketIds.add(socket.id);
+        socket.join(`game:${game.pin}`);
+        try {
+          db.prepare("UPDATE events SET status = 'live', updated_at = datetime('now') WHERE id = ?").run(game.eventId);
+        } catch (e) {
+          console.error("Не удалось пометить мероприятие live:", e.message);
+        }
+        socket.emit("host:game", snapshotForHost(game));
+        return ack({ ok: true, pin: game.pin });
+      }
 
       // EM-46: пульт при открытии подключается к живой партии своего квиза (обновление
       // страницы, второе устройство) и только при её отсутствии создаёт новую —
@@ -224,29 +561,17 @@ export function registerGameHandlers(io) {
 
       const host = db.prepare("SELECT name, surname, avatar FROM users WHERE id = ?").get(hostId);
       // имя/аватар хоста фиксируются на момент создания партии
-      const game = {
+      const game = newGame({
         pin: makePin(),
-        quizId: quiz.id,
+        hostId,
+        host,
         title: quiz.title,
         type: quiz.type,
-        hostId,
-        // EM-48: пультов может быть несколько, все равноправны (никакого перехвата роли)
-        hostSocketIds: new Set([socket.id]),
-        // EM-48: подключённые экраны зала — по ним пульт видит, что «зал открыт»
-        screenSocketIds: new Set(),
-        hostName: [host?.name, host?.surname].filter(Boolean).join(" "),
-        hostAvatar: typeof host?.avatar === "string" ? host.avatar.slice(0, 500) : "",
-        state: "lobby",
-        qIndex: -1,
-        scoredQIndex: -1,
-        questionStart: 0,
+        quizId: quiz.id,
         quiz: { title: quiz.title, showLiveResults: loaded.showLiveResults, questions: fullQuestions },
-        players: new Map(),
-        kickedTokens: new Set(), // кик: повторный вход по токену блокируется до конца партии
-        closeTimer: null,
-        recorded: false,
-      };
+      });
       games.set(game.pin, game);
+      game.hostSocketIds.add(socket.id);
       socket.join(`game:${game.pin}`);
       socket.emit("host:game", snapshotForHost(game));
       ack({ ok: true, pin: game.pin });
@@ -283,6 +608,7 @@ export function registerGameHandlers(io) {
       }
       if (game.state === "finished")
         socket.emit("finished", { leaderboard: leaderboard(game), players: playersList(game) });
+      replayBlock(socket, game);
     });
 
     // EM-36: пульт ведущего подключается к ИДУЩЕЙ игре по PIN (второе устройство).
@@ -292,6 +618,7 @@ export function registerGameHandlers(io) {
       if (!hostId) return ack({ error: "Не авторизован" });
       const game = games.get(String(pin || "").trim());
       if (!game || game.hostId !== hostId) return ack({ error: "Игра не найдена" });
+      releaseOtherHostGames(io, socket);
       attachHost(io, socket, game);
       ack({ ok: true, pin: game.pin });
     });
@@ -340,6 +667,7 @@ export function registerGameHandlers(io) {
           // вернулся после финала (закрыл вкладку, открыл заново) — досылаем итоговый экран
           if (game.state === "finished")
             socket.emit("finished", { leaderboard: leaderboard(game), players: playersList(game) });
+          replayBlock(socket, game);
           return;
         }
       }
@@ -385,6 +713,7 @@ export function registerGameHandlers(io) {
         socket.emit("question", questionForRoom(game));
         reveal(io, game);
       }
+      replayBlock(socket, game);
     });
 
     socket.on("player:answer", ({ choice } = {}) => {
@@ -439,7 +768,17 @@ export function registerGameHandlers(io) {
       const game = hostGame(socket);
       // EM-48: пустую партию не начинаем — disabled-кнопка на пульте не единственный барьер
       if (!game || game.state !== "lobby" || game.players.size === 0) return;
+      // EM-55: в мероприятии «Начать игру» запускает первый блок сценария
+      if (game.eventId) return startEvent(io, game);
       startQuestion(io, game);
+    });
+
+    // каноническое событие спеки §4.3; host:start остаётся алиасом — им работает
+    // существующая кнопка лобби пульта
+    socket.on("host:start-event", () => {
+      const game = hostGame(socket);
+      if (!game || !game.eventId || game.state !== "lobby" || game.players.size === 0) return;
+      startEvent(io, game);
     });
 
     socket.on("host:reveal", () => {
@@ -453,6 +792,9 @@ export function registerGameHandlers(io) {
       if (!game || game.state !== "reveal") return;
       if (game.qIndex + 1 < game.quiz.questions.length) {
         startQuestion(io, game);
+      } else if (game.eventId) {
+        // квиз-блок кончился — это не финал партии, а следующий блок сценария
+        advanceBlock(io, game);
       } else {
         finishGame(io, game);
       }
@@ -464,15 +806,68 @@ export function registerGameHandlers(io) {
       if (!game || game.state !== "question") return;
       if (game.qIndex + 1 < game.quiz.questions.length) {
         startQuestion(io, game);
+      } else if (game.eventId) {
+        advanceBlock(io, game);
       } else {
         finishGame(io, game);
       }
+    });
+
+    // EM-55: следующий блок после неигрового (text/image/audio/activity);
+    // во время 2с-перехода управление заблокировано — переход уходит сам
+    socket.on("host:next-block", () => {
+      const game = hostGame(socket);
+      if (!game || !game.eventId || game.state !== "block" || game.transitionTimer) return;
+      advanceBlock(io, game);
+    });
+
+    // пропустить блок целиком: неигровой блок или недоигранный квиз-блок
+    // (набранные к этому моменту очки блока сохраняются)
+    socket.on("host:skip-block", () => {
+      const game = hostGame(socket);
+      if (!game || !game.eventId || game.transitionTimer) return;
+      if (game.blockIndex < 0 || !["block", "question", "reveal"].includes(game.state)) return;
+      stopRevealTimer(game);
+      advanceBlock(io, game);
     });
 
     socket.on("host:play-again", () => {
       const game = hostGame(socket);
       if (!game || game.state !== "finished") return;
       stopRevealTimer(game);
+      if (game.eventId) {
+        // новая партия мероприятия: очки прошлого прогона стираются целиком
+        // (иначе повторный прогон блоков удвоил бы рекорды в event_scores)
+        stopBlockTimers(game);
+        flushBlockScores(game);
+        try {
+          db.prepare("DELETE FROM event_scores WHERE event_id = ?").run(game.eventId);
+          db.prepare("UPDATE events SET status = 'live', updated_at = datetime('now') WHERE id = ?").run(game.eventId);
+        } catch (e) {
+          console.error("Не удалось перезапустить мероприятие:", e.message);
+        }
+        game.blockIndex = -1;
+        game.currentBlockId = null;
+        game.currentBlock = null;
+        game.eventFinished = false;
+        game.quiz = null;
+        game.title = game.eventTitle;
+        game.state = "lobby";
+        game.qIndex = -1;
+        game.scoredQIndex = -1;
+        for (const p of game.players.values()) {
+          p.score = 0;
+          p.answer = null;
+          p.awarded = 0;
+          p.lastCorrect = false;
+        }
+        game.blockScores.clear();
+        io.to(`game:${game.pin}`).emit("game:lobby", { title: game.eventTitle });
+        broadcastPlayers(io, game);
+        for (const sid of game.hostSocketIds)
+          io.sockets.sockets.get(sid)?.emit("host:game", snapshotForHost(game));
+        return;
+      }
       // перечитываем квиз из БД: правки между партиями применяются к новой игре;
       // если квиз удалён — тихо играем по последнему снапшоту, это graceful fallback
       const loaded = loadQuiz(game.quizId);
@@ -503,6 +898,20 @@ export function registerGameHandlers(io) {
     socket.on("host:end", () => {
       const game = hostGame(socket);
       if (!game) return;
+      if (game.eventId) {
+        flushBlockScores(game);
+        // недоигранное мероприятие возвращаем в ready (можно запустить снова);
+        // доигранное до финала уже помечено completed в finishEvent
+        if (!game.eventFinished) {
+          try {
+            db.prepare("UPDATE events SET status = 'ready', updated_at = datetime('now') WHERE id = ?").run(game.eventId);
+          } catch (e) {
+            console.error("Не удалось обновить статус мероприятия:", e.message);
+          }
+        }
+        deleteGame(io, game);
+        return;
+      }
       // игра шла хотя бы один вопрос и был хотя бы один игрок — сохраняем в историю
       if (game.qIndex >= 0 && game.players.size > 0) recordResult(game);
       deleteGame(io, game);
@@ -571,6 +980,21 @@ function hostGame(socket) {
   return null;
 }
 
+// сокет пульта ведёт ровно одну партию: при подключении к новой выходим из прежних,
+// иначе hostGame нашёл бы старую игру и кнопки управляли бы не той партией
+// (переход «кабинет → Перейти к пульту» другого мероприятия без перезагрузки страницы)
+function releaseOtherHostGames(io, socket) {
+  for (const game of games.values()) {
+    if (!game.hostSocketIds.delete(socket.id)) continue;
+    socket.leave(`game:${game.pin}`);
+    if (game.hostSocketIds.size === 0 && !game.closeTimer) {
+      game.closeTimer = setTimeout(() => {
+        if (game.hostSocketIds.size === 0) deleteGame(io, game);
+      }, 2 * 60 * 1000);
+    }
+  }
+}
+
 // EM-46: подключение пульта к живой партии с досылом полного состояния фазы.
 // Общий для host:attach и повторного host:create-game того же квиза.
 // EM-48: пульты равноправны — новый сокет добавляется к hostSocketIds,
@@ -596,6 +1020,7 @@ function attachHost(io, socket, game) {
   }
   if (game.state === "finished")
     socket.emit("finished", { leaderboard: leaderboard(game), players: playersList(game) });
+  replayBlock(socket, game);
 }
 
 function snapshotForHost(game) {
@@ -605,9 +1030,18 @@ function snapshotForHost(game) {
     type: game.type,
     state: game.state,
     qIndex: game.qIndex,
-    total: game.quiz.questions.length,
+    total: game.quiz ? game.quiz.questions.length : 0,
     players: playersList(game),
     // EM-48: пульт сразу знает, открыт ли зал (важно после переподключения)
     screenOpen: game.screenSocketIds.size > 0,
+    // EM-55: контекст мероприятия для пульта (аддитивно — старые клиенты игнорируют)
+    eventId: game.eventId,
+    eventTitle: game.eventTitle,
+    blockIndex: game.eventId ? game.blockIndex : null,
+    blockTotal: game.eventId ? game.scenario.length : null,
+    block:
+      game.eventId && game.blockIndex >= 0
+        ? { type: game.scenario[game.blockIndex].type, title: blockTitle(game.scenario[game.blockIndex]) }
+        : null,
   };
 }
