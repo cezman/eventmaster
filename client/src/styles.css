@@ -1616,6 +1616,64 @@ input:focus {
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
+/* EM-50: QR пульта в лобби — только на десктопе (сканируют с экрана ноутбука);
+   на телефоне он бессмыслен, там остаётся обычный мобильный пульт.
+   Базово обёртка прозрачна для раскладки (contents), чтобы не добавлять лишний
+   gap в .panel-body, когда лаунчпад скрыт */
+.panel-lobby-top {
+  display: contents;
+}
+.panel-qr {
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  text-align: center;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+}
+.panel-qr canvas {
+  width: 160px;
+  height: 160px;
+  background: #fff; /* QR тёмными модулями по белому — иначе не сканируется с тёмной темы */
+  border-radius: 8px;
+}
+.panel-qr-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.panel-qr-hint {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+@media (min-width: 761px) {
+  /* EM-50: пульт с десктопа — обычная широкая страница без мобильной колонки
+     и прилипающей кнопки (просьба владельца «как раньше») */
+  .host-panel {
+    max-width: 760px;
+    border-left: none;
+    border-right: none;
+    padding: 20px 32px 32px;
+  }
+  .panel-lobby-top {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 14px;
+  }
+  .panel-lobby-top .panel-launch {
+    flex: 1;
+  }
+  .panel-qr {
+    display: flex;
+    width: 210px;
+    flex-shrink: 0;
+    justify-content: center;
+  }
+}
 .panel-pin b {
   color: var(--primary);
   font-family: "Unbounded", "Manrope", system-ui, sans-serif;
@@ -1647,6 +1705,20 @@ input:focus {
 }
 .panel-secondary-action {
   padding-bottom: 4px;
+}
+/* EM-50: десктоп-оверрайды .panel-main-action стоят ПОСЛЕ базового правила —
+   при одинаковой специфичности побеждает порядок в файле (ошибка ревью EM-50) */
+@media (min-width: 761px) {
+  .panel-main-action {
+    position: static;
+    margin-top: 4px;
+    padding: 8px 0 0;
+    background: none;
+  }
+  .panel-main-action .btn {
+    width: auto;
+    min-width: 320px;
+  }
 }
 .btn-block {
   display: block;
