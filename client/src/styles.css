@@ -636,41 +636,59 @@ input:focus {
 .answer-edit.c1 .answer-dot { color: var(--c1); }
 .answer-edit.c2 .answer-dot { color: var(--c2); }
 .answer-edit.c3 .answer-dot { color: var(--c3); }
+/* верный ответ: зелёный tint поверх обычной раскраски строки (EM-49, уровень B спеки) */
+.answer-edit.correct {
+  background: rgba(47, 179, 68, 0.14); /* fallback до color-mix */
+  background: color-mix(in srgb, var(--ok) 14%, var(--surface-alt));
+  border-color: var(--ok);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ok) 18%, transparent);
+}
 .answers-hint {
   font-size: 12.5px;
   color: var(--text-muted);
   margin: -2px 0 2px;
 }
-.correct-toggle {
+/* кружок верного ответа (EM-49, спека дизайнера correct-answer-spec): пустой = неверный,
+   зелёный с галочкой = верный; ::after расширяет тач-таргет до ~44px без утолщения круга */
+.correct-dot {
   position: relative;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2.5px solid var(--border-strong);
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  cursor: pointer;
-  font-weight: 700;
-  font-size: 13px;
-  white-space: nowrap;
-  user-select: none;
-  color: var(--ok);
-  border: 1.5px solid rgba(47, 179, 68, 0.45); /* fallback до color-mix */
-  border: 1.5px solid color-mix(in srgb, var(--ok) 45%, transparent);
-  border-radius: 999px;
-  padding: 3px 10px;
-  transition: background 0.15s, border-color 0.15s;
+  justify-content: center;
+  padding: 0;
+  transition: background 0.2s, border-color 0.2s;
 }
-.correct-toggle input {
+.correct-dot::after {
+  content: "";
   position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
+  inset: -8px;
 }
-.correct-toggle.on {
-  background: rgba(47, 179, 68, 0.16); /* fallback до color-mix */
-  background: color-mix(in srgb, var(--ok) 16%, transparent);
+.correct-dot svg {
+  width: 16px;
+  height: 16px;
+}
+.correct-dot:hover {
+  border-color: var(--text-muted);
+}
+.correct-dot.on {
+  background: var(--ok);
   border-color: var(--ok);
 }
-.correct-toggle:focus-within {
+.correct-dot.on:hover {
+  border-color: color-mix(in srgb, var(--ok) 75%, black);
+}
+.correct-dot.err {
+  border-color: var(--bad);
+}
+.correct-dot:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
