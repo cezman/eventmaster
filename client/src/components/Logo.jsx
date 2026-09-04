@@ -10,7 +10,8 @@ export default function Logo({ children = "EventMaster" }) {
         <rect width="64" height="64" rx="14" fill="url(#logo-bg)" />
         <path d="M35 7 L15 36 h11 L27 57 L49 26 H36 Z" fill="#fff" />
       </svg>
-      {children}
+      {/* текст в отдельном span — чтобы шапка пульта могла зажать название в 2 строки */}
+      <span className="logo-text">{children}</span>
     </span>
   );
 }

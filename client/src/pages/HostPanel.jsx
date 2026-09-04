@@ -20,15 +20,17 @@ export default function HostPanel() {
   const showToast = useToast();
 
   // connecting — стучимся на сервер; connected — пульт управляет партией;
-  // error — запуститься не удалось (квиз не найден) или роль перехватил другой пульт
+  // error — запуститься не удалось (например, квиз не найден)
   const [status, setStatus] = useState("connecting");
   const [attachError, setAttachError] = useState("");
-  const [game, setGame] = useState(null); // {pin,title,type,state,qIndex,total,players}
+  const [game, setGame] = useState(null); // {pin,title,type,state,qIndex,total,players,screenOpen}
   const [question, setQuestion] = useState(null);
   const [reveal, setReveal] = useState(null);
   const [final, setFinal] = useState(null);
   const [answered, setAnswered] = useState(0);
   const [online, setOnline] = useState(socket.connected);
+  // EM-48: открыт ли экран зала (screen:presence) — им управляет сервер
+  const [screenOpen, setScreenOpen] = useState(false);
   const [confirmEnd, setConfirmEnd] = useState(false);
 
   // EM-46: сервер сам подключает пульт к живой партии своего квиза, а при её
@@ -49,16 +51,11 @@ export default function HostPanel() {
     socket.on("connect", claim);
     const onDisconnect = () => setOnline(false);
     socket.on("disconnect", onDisconnect);
-    // роль хоста перехватил другой пульт (второе устройство)
-    const onDetached = () => {
-      setAttachError("Управление этой партией перехвачено другим пультом.");
-      setStatus("error");
-    };
-    socket.on("host:detached", onDetached);
 
     const onSnapshot = (snap) => {
       setStatus("connected");
       setAttachError("");
+      setScreenOpen(!!snap.screenOpen);
       setGame(snap);
       if (snap.state === "lobby") {
         setQuestion(null);
@@ -83,8 +80,11 @@ export default function HostPanel() {
     };
     const onCount = (d) => setAnswered(d.answered);
     const onClosed = () => navigate("/dashboard");
+    // зал открыли в новой вкладке или закрыли — лаунчпад лобби переключается (EM-48)
+    const onScreenPresence = (d) => setScreenOpen(!!d.open);
 
     socket.on("host:game", onSnapshot);
+    socket.on("screen:presence", onScreenPresence);
     socket.on("players", onPlayers);
     socket.on("question", onQuestion);
     socket.on("reveal", onReveal);
@@ -94,8 +94,8 @@ export default function HostPanel() {
     return () => {
       socket.off("connect", claim);
       socket.off("disconnect", onDisconnect);
-      socket.off("host:detached", onDetached);
       socket.off("host:game", onSnapshot);
+      socket.off("screen:presence", onScreenPresence);
       socket.off("players", onPlayers);
       socket.off("question", onQuestion);
       socket.off("reveal", onReveal);
@@ -211,35 +211,42 @@ export default function HostPanel() {
 
       {phase === "lobby" && (
         <div className="panel-body">
-          <div className="panel-launch">
-            <div className="panel-launch-label">Экран зала для проектора:</div>
-            <button className="btn btn-primary btn-block" onClick={openScreen}>
-              Открыть экран зала ↗
-            </button>
-            <div className="panel-launch-url">…/screen/{game.pin}</div>
-          </div>
+          {/* EM-48: лаунчпад виден только пока зал не открыт; после — ghost «Зал ↗» в шапке */}
+          {!screenOpen && (
+            <div className="panel-launch">
+              <div className="panel-launch-label">Экран зала для проектора:</div>
+              <button className="btn btn-primary btn-block" onClick={openScreen}>
+                Открыть экран зала ↗
+              </button>
+              <div className="panel-launch-url">…/screen/{game.pin}</div>
+            </div>
+          )}
           <div className="panel-pin">
             PIN игроков: <b>{game.pin}</b>
           </div>
           <h2 className="panel-counter">Игроков: {game.players.length}</h2>
-          {game.players.length === 0 ? (
+          {game.players.length === 0 && (
             <p className="muted small">
-              Игроки сканируют QR на экране зала. Как только кто-то зайдёт — здесь появится кнопка старта.
+              Нужен хотя бы 1 игрок: пусть отсканирует QR на экране зала или введёт PIN на главной.
             </p>
-          ) : (
+          )}
+          {game.players.length > 0 && (
             <div className="players-grid">
               {game.players.map((p) => (
                 <PlayerChip p={p} key={p.id} onKick={kickPlayer} />
               ))}
             </div>
           )}
-          {game.players.length > 0 && (
-            <div className="panel-main-action">
-              <button className="btn btn-primary btn-xl btn-block" onClick={hostAction("host:start")}>
-                Начать игру
-              </button>
-            </div>
-          )}
+          <div className="panel-main-action">
+            {/* EM-48: пустую игру начать нельзя — кнопка видима, но заблокирована */}
+            <button
+              className="btn btn-primary btn-xl btn-block"
+              disabled={game.players.length === 0}
+              onClick={hostAction("host:start")}
+            >
+              Начать игру
+            </button>
+          </div>
         </div>
       )}
 

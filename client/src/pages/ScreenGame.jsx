@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { getSocket } from "../socket";
 import AudienceView from "../components/AudienceView";
 import Logo from "../components/Logo";
@@ -170,9 +170,6 @@ export default function ScreenGame() {
         <Logo>{game.title}</Logo>
         <div className="screen-header-actions">
           {isFullscreen && <span className="screen-fullscreen-hint">Esc — выйти из полноэкрана</span>}
-          <Link className="btn btn-ghost" to={`/host/${game.quizId}`}>
-            Пульт
-          </Link>
           {!isFullscreen && (
             <button className="btn btn-ghost" onClick={toggleFullscreen} aria-label="Во весь экран">
               <ExpandIcon className="inline-icon" />

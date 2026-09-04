@@ -118,6 +118,10 @@ function broadcastPlayers(io, game) {
 
 function deleteGame(io, game) {
   stopRevealTimer(game);
+  if (game.closeTimer) {
+    clearTimeout(game.closeTimer);
+    game.closeTimer = null;
+  }
   io.to(`game:${game.pin}`).emit("game:closed");
   io.socketsLeave(`game:${game.pin}`);
   games.delete(game.pin);
@@ -219,14 +223,17 @@ export function registerGameHandlers(io) {
       const fullQuestions = loaded.questions;
 
       const host = db.prepare("SELECT name, surname, avatar FROM users WHERE id = ?").get(hostId);
-      // имя/аватар хоста фиксируются на момент создания игры (reclaim использует старый снапшот)
+      // имя/аватар хоста фиксируются на момент создания партии
       const game = {
         pin: makePin(),
         quizId: quiz.id,
         title: quiz.title,
         type: quiz.type,
         hostId,
-        hostSocketId: socket.id,
+        // EM-48: пультов может быть несколько, все равноправны (никакого перехвата роли)
+        hostSocketIds: new Set([socket.id]),
+        // EM-48: подключённые экраны зала — по ним пульт видит, что «зал открыт»
+        screenSocketIds: new Set(),
         hostName: [host?.name, host?.surname].filter(Boolean).join(" "),
         hostAvatar: typeof host?.avatar === "string" ? host.avatar.slice(0, 500) : "",
         state: "lobby",
@@ -246,12 +253,27 @@ export function registerGameHandlers(io) {
     });
 
     // EM-36: экран зала — просмотр комнаты по PIN без каких-либо прав.
-    // Сокет не попадает в players и никогда не становится hostSocketId, поэтому
+    // Сокет не попадает в players и никогда не получает роль хоста, поэтому
     // disconnect экрана не помечает игроков и не запускает close-таймер хоста.
     socket.on("screen:join", ({ pin } = {}, ack = () => {}) => {
       const game = games.get(String(pin || "").trim());
       if (!game) return ack({ error: "Игра с таким PIN не найдена" });
       socket.join(`game:${game.pin}`);
+      // защитно: сокет уже смотрел другой зал — вычищаем из прежней партии,
+      // иначе её пульт видел бы «зал открыт» до самого дисконнекта сокета
+      const prevPin = socket.data.screenPin;
+      if (prevPin && prevPin !== game.pin && games.has(prevPin)) {
+        const prev = games.get(prevPin);
+        prev.screenSocketIds.delete(socket.id);
+        if (prev.screenSocketIds.size === 0)
+          io.to(`game:${prevPin}`).emit("screen:presence", { open: false });
+      }
+      // EM-48: комната узнаёт, что зал открыт (screen:presence), — пульт
+      // переключает лаунчпад лобби на ghost «Зал ↗»
+      socket.data.screenPin = game.pin;
+      game.screenSocketIds.add(socket.id);
+      if (game.screenSocketIds.size === 1)
+        io.to(`game:${game.pin}`).emit("screen:presence", { open: true });
       ack({ ok: true, pin: game.pin, title: game.title, type: game.type, state: game.state, quizId: game.quizId });
       socket.emit("players", { players: playersList(game) });
       if (game.state === "question") socket.emit("question", questionForRoom(game));
@@ -264,7 +286,7 @@ export function registerGameHandlers(io) {
     });
 
     // EM-36: пульт ведущего подключается к ИДУЩЕЙ игре по PIN (второе устройство).
-    // Перехватывает роль хоста: старый пульт теряет управление (host:detached).
+    // EM-48: второй пульт не перехватывает роль — пульты равноправны.
     socket.on("host:attach", ({ token, pin } = {}, ack = () => {}) => {
       const hostId = verifyToken(token);
       if (!hostId) return ack({ error: "Не авторизован" });
@@ -415,7 +437,8 @@ export function registerGameHandlers(io) {
 
     socket.on("host:start", () => {
       const game = hostGame(socket);
-      if (!game || game.state !== "lobby") return;
+      // EM-48: пустую партию не начинаем — disabled-кнопка на пульте не единственный барьер
+      if (!game || game.state !== "lobby" || game.players.size === 0) return;
       startQuestion(io, game);
     });
 
@@ -472,7 +495,9 @@ export function registerGameHandlers(io) {
       // title — экран зала обновляет заголовок после перечитывания квиза
       io.to(`game:${game.pin}`).emit("game:lobby", { title: game.title });
       broadcastPlayers(io, game);
-      socket.emit("host:game", snapshotForHost(game));
+      // снапшот — всем пультам: остальные тоже возвращаются в лобби (EM-48)
+      for (const sid of game.hostSocketIds)
+        io.sockets.sockets.get(sid)?.emit("host:game", snapshotForHost(game));
     });
 
     socket.on("host:end", () => {
@@ -515,12 +540,24 @@ export function registerGameHandlers(io) {
           broadcastPlayers(io, game);
         }
       }
+      // экран зала отвалился: когда вкладок зала не осталось — «зал не открыт» (EM-48)
+      const screenPin = socket.data.screenPin;
+      if (screenPin && games.has(screenPin)) {
+        const screenGame = games.get(screenPin);
+        screenGame.screenSocketIds.delete(socket.id);
+        if (screenGame.screenSocketIds.size === 0)
+          io.to(`game:${screenPin}`).emit("screen:presence", { open: false });
+      }
       for (const game of games.values()) {
-        if (game.hostSocketId === socket.id && !game.closeTimer) {
-          // даём хосту 2 минуты на переподключение (обновление страницы)
-          game.closeTimer = setTimeout(() => {
-            if (game.hostSocketId === socket.id) deleteGame(io, game);
-          }, 2 * 60 * 1000);
+        if (game.hostSocketIds.has(socket.id)) {
+          game.hostSocketIds.delete(socket.id);
+          // close-таймер — только когда не осталось ни одного пульта; даём 2 минуты
+          // на переподключение (обновление страницы)
+          if (game.hostSocketIds.size === 0 && !game.closeTimer) {
+            game.closeTimer = setTimeout(() => {
+              if (game.hostSocketIds.size === 0) deleteGame(io, game);
+            }, 2 * 60 * 1000);
+          }
         }
       }
     });
@@ -529,19 +566,19 @@ export function registerGameHandlers(io) {
 
 function hostGame(socket) {
   for (const game of games.values()) {
-    if (game.hostSocketId === socket.id) return game;
+    if (game.hostSocketIds.has(socket.id)) return game;
   }
   return null;
 }
 
-// EM-46: подключение пульта к живой партии — перехват роли у прежнего пульта
-// (host:detached) и досыл полного состояния фазы. Общий для host:attach и
-// повторного host:create-game того же квиза.
+// EM-46: подключение пульта к живой партии с досылом полного состояния фазы.
+// Общий для host:attach и повторного host:create-game того же квиза.
+// EM-48: пульты равноправны — новый сокет добавляется к hostSocketIds,
+// прежний пульт продолжает управлять (host:detached упразднён).
 function attachHost(io, socket, game) {
   clearTimeout(game.closeTimer);
   game.closeTimer = null;
-  io.sockets.sockets.get(game.hostSocketId)?.emit("host:detached");
-  game.hostSocketId = socket.id;
+  game.hostSocketIds.add(socket.id);
   socket.join(`game:${game.pin}`);
   socket.emit("host:game", snapshotForHost(game));
   broadcastPlayers(io, game);
@@ -570,5 +607,7 @@ function snapshotForHost(game) {
     qIndex: game.qIndex,
     total: game.quiz.questions.length,
     players: playersList(game),
+    // EM-48: пульт сразу знает, открыт ли зал (важно после переподключения)
+    screenOpen: game.screenSocketIds.size > 0,
   };
 }
