@@ -24,9 +24,9 @@ const FILTERS = [
 ];
 
 const CREATE_KINDS = {
-  quiz: { icon: "❓", title: "Квиз", sub: "Быстрый: 1 блок type=quiz" },
-  poll: { icon: "📊", title: "Опрос", sub: "Быстрый: 1 блок type=poll" },
-  scenario: { icon: "🎪", title: "Сценарий", sub: "Пустой сценарий, добавляй блоки вручную" },
+  quiz: { icon: "❓", title: "Квиз", sub: "Вопросы с вариантами ответов и очками" },
+  poll: { icon: "📊", title: "Опрос", sub: "Голосование зала без правильных ответов" },
+  scenario: { icon: "🎪", title: "Сценарий", sub: "Пустое мероприятие из нескольких блоков" },
 };
 
 // иконка типа: одноцелевое мероприятие (один quiz/poll-блок) показывает его тип
@@ -197,9 +197,10 @@ export default function EventsSection() {
               className="btn btn-primary"
               aria-haspopup="menu"
               aria-expanded={createOpen}
+              aria-label="Создать мероприятие"
               onClick={() => setCreateOpen((v) => !v)}
             >
-              + Создать ▾
+              Создать
             </button>
             {createOpen && (
               <>

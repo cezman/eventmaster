@@ -90,7 +90,7 @@ export default function GamesSection() {
       <div className="dashboard-head">
         <h1>Библиотека квизов</h1>
         <button className="btn btn-primary" onClick={() => setShowForm((v) => !v)}>
-          {showForm ? "Отмена" : "+ Создать квиз"}
+          {showForm ? "Отмена" : "Создать квиз"}
         </button>
       </div>
 
@@ -133,7 +133,7 @@ export default function GamesSection() {
           <p>Создайте первую викторину или голосование — это пара минут. Гости подключатся по QR-коду или PIN.</p>
           {!showForm && (
             <button className="btn btn-primary btn-lg" onClick={() => setShowForm(true)}>
-              + Создать квиз
+              Создать квиз
             </button>
           )}
         </div>
