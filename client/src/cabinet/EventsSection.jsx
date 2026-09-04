@@ -56,6 +56,11 @@ function EventListSkeleton() {
 // кеш только для полного списка (фильтр «Все»), привязан к userId — как в GamesSection
 let eventsCache = null; // { userId, data }
 
+// EventPage правит блоки/название — карточки в кабинете могли бы показать устаревшее
+export function resetEventsCache() {
+  eventsCache = null;
+}
+
 export default function EventsSection() {
   const { user } = useAuth();
   const navigate = useNavigate();
