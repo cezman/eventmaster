@@ -5,6 +5,7 @@ import { TIME_OPTIONS } from "../customize";
 import Dropdown from "../components/Dropdown";
 import AppHeader from "../components/AppHeader";
 import ConfirmDialog from "../components/ConfirmDialog";
+import QuestionPreviewModal from "../components/QuestionPreviewModal";
 import { useToast } from "../components/Toast";
 import { QuizIcon, PollIcon, ClockIcon, TrophyIcon } from "../components/icons";
 
@@ -32,6 +33,7 @@ export default function QuizEditor() {
   const [leaveTarget, setLeaveTarget] = useState(null); // путь, с которого спросили подтверждение
   const [showErrors, setShowErrors] = useState(false); // подсветка проблем включается первой попыткой запуска
   const [deleteTarget, setDeleteTarget] = useState(null); // индекс вопроса в диалоге удаления (EM-29)
+  const [previewIdx, setPreviewIdx] = useState(null); // индекс вопроса в модалке предпросмотра (EM-31)
 
   // ref-копии для сохранения без устаревших замыканий (автосейв, beforeunload)
   const quizRef = useRef(null);
@@ -389,6 +391,14 @@ export default function QuizEditor() {
                 </label>
                 <div className="q-tools">
                   <button
+                    className="btn btn-outline btn-sm" type="button"
+                    onClick={() => setPreviewIdx(qi)}
+                    aria-label={`Предпросмотр вопроса ${qi + 1}`}
+                    title="Предпросмотр на телефоне"
+                  >
+                    👁 Превью
+                  </button>
+                  <button
                     className="btn btn-outline btn-sm icon-btn" type="button"
                     onClick={() => moveQuestion(qi, -1)}
                     disabled={qi === 0}
@@ -529,6 +539,15 @@ export default function QuizEditor() {
           </button>
         )}
       </div>
+
+      {previewIdx != null && quiz.questions[previewIdx] && (
+        <QuestionPreviewModal
+          question={quiz.questions[previewIdx]}
+          index={previewIdx}
+          total={quiz.questions.length}
+          onClose={() => setPreviewIdx(null)}
+        />
+      )}
 
       {leaveTarget && (
         <ConfirmDialog

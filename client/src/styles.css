@@ -1738,6 +1738,98 @@ input:focus {
   to { transform: rotate(360deg); }
 }
 
+/* ---------- Предпросмотр вопроса (EM-31, addendum §2.7) ---------- */
+.preview-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  background: var(--overlay);
+  backdrop-filter: blur(8px);
+  animation: overlayIn 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.preview-shell {
+  position: relative;
+  /* auto-маргины: центрирование без data-loss при переполнении (классический
+     flex+overflow кейс — иначе × закрывается за верхним краем экрана) */
+  margin: auto;
+  background: var(--surface-alt);
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: var(--card-shadow);
+  animation: cardIn 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.preview-close {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  z-index: 1;
+  font-size: 22px;
+  line-height: 1;
+}
+.preview-phone {
+  position: relative;
+  width: 390px;
+  height: 844px;
+  border-radius: 40px 40px 36px 36px;
+  border: 4px solid var(--border-strong);
+  overflow: hidden;
+}
+/* «notch» — декоративный вырез динамика */
+.preview-notch {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120px;
+  height: 28px;
+  background: var(--border-strong);
+  border-radius: 0 0 16px 16px;
+  z-index: 1;
+}
+.preview-viewport {
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 40px 24px 24px;
+  text-align: center;
+  color: var(--on-bg);
+  background: radial-gradient(circle at 20% 10%, var(--bg-a), var(--bg-b) 60%);
+}
+.preview-timer {
+  font-size: 30px;
+}
+.preview-answers {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  width: 100%;
+  max-width: 342px;
+}
+/* инертные тайлы не должны притворяться кнопками */
+.preview-answers .answer-btn {
+  cursor: default;
+}
+/* на невысоких экранах рамка телефона вписывается масштабом */
+@media (max-height: 940px) {
+  .preview-phone {
+    transform: scale(0.8);
+    transform-origin: center;
+  }
+}
+@media (max-height: 760px) {
+  .preview-phone {
+    transform: scale(0.68);
+  }
+}
+
 /* ---------- Reconnect-overlay (EM-45, addendum §2.6) ---------- */
 .reconnect-overlay {
   position: fixed;
