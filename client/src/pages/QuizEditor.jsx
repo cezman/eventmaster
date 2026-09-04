@@ -7,7 +7,7 @@ import AppHeader from "../components/AppHeader";
 import ConfirmDialog from "../components/ConfirmDialog";
 import QuestionPreviewModal from "../components/QuestionPreviewModal";
 import { useToast } from "../components/Toast";
-import { QuizIcon, PollIcon, ClockIcon, TrophyIcon } from "../components/icons";
+import { QuizIcon, PollIcon, ClockIcon, TrophyIcon, CheckIcon } from "../components/icons";
 
 const ANSWER_COLORS = ["🔴", "🔵", "🟡", "🟢"];
 
@@ -88,12 +88,26 @@ export default function QuizEditor() {
       const filled = q.answers.filter((a) => a.text && a.text.trim());
       if (filled.length < 2) return problems.push({ qi, reason: "нужно минимум 2 варианта ответа" });
       if (qz.type === "quiz" && q.mode !== "tf" && !filled.some((a) => a.is_correct)) {
-        problems.push({ qi, reason: "отметьте верный ответ" });
+        problems.push({ qi, reason: "отметьте верный ответ", kind: "correct" });
       }
     });
     return problems;
   };
   const problems = showErrors && quiz ? validateQuiz(quiz) : [];
+  // вопросы без отмеченного верного: кружки красные после неудачного сохранения (EM-49)
+  const noCorrect = new Set(
+    problems.filter((p) => p.kind === "correct").map((p) => p.qi)
+  );
+
+  // ↑/↓ переносит фокус между кружками верного ответа (спека пикера, §6.1)
+  const onAnswersKeyDown = (e) => {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    const dots = [...e.currentTarget.querySelectorAll(".correct-dot")];
+    const i = dots.indexOf(document.activeElement);
+    if (i === -1) return;
+    e.preventDefault();
+    dots[(i + (e.key === "ArrowDown" ? 1 : dots.length - 1)) % dots.length].focus();
+  };
 
   // скролл к первой битой карточке — после ре-рендера, когда класс уже в DOM;
   // без behavior:"smooth" — при prefers-reduced-motion анимация скролла подавляется
@@ -437,56 +451,58 @@ export default function QuizEditor() {
               onChange={(e) => patchQuestion(qi, { text: e.target.value })}
             />
             {quiz.type === "quiz" && (
-              <div className="answers-hint">Отметьте один верный ответ</div>
+              <div className="answers-hint">Нажмите кружок, чтобы отметить верный ответ</div>
             )}
             {q.mode === "tf" ? (
-              <div className="answers-grid">
+              <div className="answers-grid" role="radiogroup" aria-label="Варианты ответа" onKeyDown={onAnswersKeyDown}>
                 {["Правда", "Ложь"].map((label, ai) => (
-                  <div className={`answer-edit c${ai}`} key={label}>
-                    <input value={label} readOnly aria-label={label} />
+                  <div
+                    className={`answer-edit c${ai}${quiz.type === "quiz" && q.answers[ai]?.is_correct ? " correct" : ""}`}
+                    key={label}
+                  >
                     {quiz.type === "quiz" && (
-                      <label
-                        className={`correct-toggle${q.answers[ai]?.is_correct ? " on" : ""}`}
-                        title="Правильный ответ"
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={!!q.answers[ai]?.is_correct}
+                        className={`correct-dot${q.answers[ai]?.is_correct ? " on" : ""}${noCorrect.has(qi) ? " err" : ""}`}
+                        title={q.answers[ai]?.is_correct ? "Верный ответ" : "Отметить верным"}
+                        aria-label={`${label} — отметить верным`}
+                        onClick={() => setCorrect(qi, ai)}
                       >
-                        <input
-                          type="radio"
-                          name={`correct-${qi}`}
-                          checked={!!q.answers[ai]?.is_correct}
-                          onChange={() => setCorrect(qi, ai)}
-                          aria-label={`${label} — отметить правильным`}
-                        />
-                        ✓ Верный
-                      </label>
+                        {q.answers[ai]?.is_correct && <CheckIcon />}
+                      </button>
                     )}
+                    <input value={label} readOnly aria-label={label} />
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="answers-grid">
+              <div className="answers-grid" role="radiogroup" aria-label="Варианты ответа" onKeyDown={onAnswersKeyDown}>
                 {q.answers.map((a, ai) => (
-                  <div className={`answer-edit c${ai}`} key={ai}>
-                    <span className="answer-dot">{ANSWER_COLORS[ai]}</span>
+                  <div
+                    className={`answer-edit c${ai}${quiz.type === "quiz" && a.is_correct ? " correct" : ""}`}
+                    key={ai}
+                  >
+                    {quiz.type === "quiz" && (
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={!!a.is_correct}
+                        className={`correct-dot${a.is_correct ? " on" : ""}${noCorrect.has(qi) ? " err" : ""}`}
+                        title={a.is_correct ? "Верный ответ" : "Отметить верным"}
+                        aria-label={a.text ? `${a.text} — отметить верным` : `Вариант ${ai + 1} — отметить верным`}
+                        onClick={() => setCorrect(qi, ai)}
+                      >
+                        {a.is_correct && <CheckIcon />}
+                      </button>
+                    )}
                     <input
                       placeholder={`Вариант ${ai + 1}`}
                       value={a.text}
                       onChange={(e) => patchAnswer(qi, ai, { text: e.target.value })}
                     />
-                    {quiz.type === "quiz" && (
-                      <label
-                        className={`correct-toggle${a.is_correct ? " on" : ""}`}
-                        title="Правильный ответ"
-                      >
-                        <input
-                          type="radio"
-                          name={`correct-${qi}`}
-                          checked={!!a.is_correct}
-                          onChange={() => setCorrect(qi, ai)}
-                          aria-label={`Вариант ${ai + 1} — отметить правильным`}
-                        />
-                        ✓ Верный
-                      </label>
-                    )}
+                    <span className="answer-dot">{ANSWER_COLORS[ai]}</span>
                     {q.answers.length > 2 && (
                       <button
                         className="answer-remove"

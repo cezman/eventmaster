@@ -173,3 +173,9 @@ export const DoorIcon = (p) => (
     <path d="M4 7V4" />
   </Base>
 );
+
+export const CheckIcon = (p) => (
+  <Base {...p}>
+    <polyline points="20 6 9 17 4 12" />
+  </Base>
+);
