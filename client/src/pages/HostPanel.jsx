@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import QRCode from "qrcode";
 import { getSocket } from "../socket";
 import { useAuth } from "../auth";
 import { NAME_COLORS } from "../customize";
@@ -133,6 +134,19 @@ export default function HostPanel() {
 
   const openScreen = () => window.open(`${window.location.origin}/screen/${game.pin}`, "_blank");
 
+  // EM-50: QR пульта в лобби — телефон сканирует с экрана десктопа и открывает
+  // /host/<quizId>; при живой сессии на телефоне пульт сразу цепляется к этой партии.
+  // Ref-callback: перерисовка при каждом монтировании canvas (возврат в лобби и т.п.)
+  const qrRef = useCallback(
+    (canvas) => {
+      if (!canvas) return;
+      QRCode.toCanvas(canvas, `${window.location.origin}/host/${quizId}`, { width: 160, margin: 1 }, (e) => {
+        if (e) console.warn("QR пульта не сгенерировался:", e);
+      });
+    },
+    [quizId]
+  );
+
   const onlinePlayers = game ? game.players.filter((p) => p.online !== false).length : 0;
   const allAnswered = question && answered >= onlinePlayers && onlinePlayers > 0;
 
@@ -211,16 +225,26 @@ export default function HostPanel() {
 
       {phase === "lobby" && (
         <div className="panel-body">
-          {/* EM-48: лаунчпад виден только пока зал не открыт; после — ghost «Зал ↗» в шапке */}
-          {!screenOpen && (
-            <div className="panel-launch">
-              <div className="panel-launch-label">Экран зала для проектора:</div>
-              <button className="btn btn-primary btn-block" onClick={openScreen}>
-                Открыть экран зала ↗
-              </button>
-              <div className="panel-launch-url">…/screen/{game.pin}</div>
+          <div className="panel-lobby-top">
+            {/* EM-48: лаунчпад виден только пока зал не открыт; после — ghost «Зал ↗» в шапке */}
+            {!screenOpen && (
+              <div className="panel-launch">
+                <div className="panel-launch-label">Экран зала для проектора:</div>
+                <button className="btn btn-primary btn-block" onClick={openScreen}>
+                  Открыть экран зала ↗
+                </button>
+                <div className="panel-launch-url">…/screen/{game.pin}</div>
+              </div>
+            )}
+            {/* EM-50: QR — на приватном пульте, не на зале (зал остаётся без элементов ведущего) */}
+            <div className="panel-qr">
+              <div className="panel-qr-label">Пульт на телефоне</div>
+              <canvas ref={qrRef} role="img" aria-label="QR-код: открыть пульт на телефоне" />
+              <div className="panel-qr-hint">
+                Отсканируйте камерой. На телефоне нужно один раз войти в тот же аккаунт ведущего.
+              </div>
             </div>
-          )}
+          </div>
           <div className="panel-pin">
             PIN игроков: <b>{game.pin}</b>
           </div>

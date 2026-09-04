@@ -80,7 +80,8 @@ export default function AuthPage({ mode }) {
         </button>
         <p className="muted">
           {isRegister ? "Уже есть аккаунт? " : "Нет аккаунта? "}
-          <Link to={isRegister ? "/login" : "/register"}>
+          {/* state прокидывает «откуда пришли» — после регистрации вернёмся к цели (напр. пульт по QR) */}
+          <Link to={isRegister ? "/login" : "/register"} state={location.state}>
             {isRegister ? "Войти" : "Зарегистрироваться"}
           </Link>
         </p>
