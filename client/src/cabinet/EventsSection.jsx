@@ -228,7 +228,7 @@ export default function EventsSection() {
         filter === "all" ? (
           <div className="empty-state">
             <span className="empty-state-emoji">🎪</span>
-            <h3>У вас пока нет мероприятий</h3>
+            <h2>У вас пока нет мероприятий</h2>
             <p>Создайте квиз или соберите сценарий из нескольких раундов</p>
             <div className="quick-start">
               {Object.entries(CREATE_KINDS).map(([kind, k]) => (
@@ -241,7 +241,7 @@ export default function EventsSection() {
           </div>
         ) : (
           <div className="empty-state">
-            <h3>Пусто</h3>
+            <h2>Пусто</h2>
             <p>В этом фильтре мероприятий нет</p>
           </div>
         )
@@ -256,7 +256,7 @@ export default function EventsSection() {
               <div className="card event-card" key={ev.id}>
                 <div className="event-card-icon" aria-hidden="true">{eventIcon(ev)}</div>
                 <div className="event-card-body">
-                  <h3 className="event-card-title">{ev.title}</h3>
+                  <h2 className="event-card-title">{ev.title}</h2>
                   <p className="event-card-meta">
                     {ev.block_count > 0
                       ? `${ev.block_count} ${plural(ev.block_count, ["раунд", "раунда", "раундов"])} · ${ev.question_count} ${plural(ev.question_count, ["вопрос", "вопроса", "вопросов"])}`
@@ -325,7 +325,7 @@ export default function EventsSection() {
       {createKind && (
         <div className="dialog-overlay" onClick={() => busyKind === null && setCreateKind(null)}>
           <div className="card dialog" role="dialog" aria-modal="true" aria-label="Новое мероприятие" onClick={(e) => e.stopPropagation()}>
-            <h3>Новое мероприятие</h3>
+            <h2>Новое мероприятие</h2>
             <label className="create-title-label">
               Название
               <input

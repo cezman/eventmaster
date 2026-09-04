@@ -66,37 +66,37 @@ export default function Landing() {
         <div className="features">
           <div className="feature-card">
             <div className="feature-icon"><QuizIcon /></div>
-            <h3>Викторины</h3>
+            <h2>Викторины</h2>
             <p>Создавайте вопросы с вариантами ответов, отмечайте правильные и следите за таблицей лидеров.</p>
             <span className="badge">Готово в MVP</span>
           </div>
           <div className="feature-card">
             <div className="feature-icon"><PollIcon /></div>
-            <h3>Живые голосования</h3>
+            <h2>Живые голосования</h2>
             <p>Задайте вопрос залу — результаты появятся на экране в реальном времени.</p>
             <span className="badge">Готово в MVP</span>
           </div>
           <div className="feature-card">
             <div className="feature-icon"><QrPhoneIcon /></div>
-            <h3>Подключение по QR</h3>
+            <h2>Подключение по QR</h2>
             <p>Никаких установок: гости сканируют QR-код и сразу попадают в игру.</p>
             <span className="badge">Готово в MVP</span>
           </div>
           <div className="feature-card placeholder">
             <div className="feature-icon"><GamepadIcon /></div>
-            <h3>Больше игр</h3>
+            <h2>Больше игр</h2>
             <p>Гонки на реакцию, «Правда или ложь», блиц-опросы и другие форматы.</p>
             <span className="badge badge-muted">Скоро</span>
           </div>
           <div className="feature-card placeholder">
             <div className="feature-icon"><ImageIcon /></div>
-            <h3>Картинки и видео</h3>
+            <h2>Картинки и видео</h2>
             <p>Вопросы с изображениями и медиафайлами для более ярких викторин.</p>
             <span className="badge badge-muted">Скоро</span>
           </div>
           <div className="feature-card placeholder">
             <div className="feature-icon"><ChartIcon /></div>
-            <h3>Статистика мероприятий</h3>
+            <h2>Статистика мероприятий</h2>
             <p>История игр, отчёты по вовлечённости и экспорт результатов.</p>
             <span className="badge badge-muted">Скоро</span>
           </div>

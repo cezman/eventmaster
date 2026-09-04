@@ -438,28 +438,28 @@ export default function PlayGame() {
             <div className="reveal-body">
               {reveal.myCorrect ? (
                 <>
-                  <h1>Верно!</h1>
+                  <h2>Верно!</h2>
                   <p className="points-big">
                     +{reveal.myAwarded} {plural(reveal.myAwarded, ["очко", "очка", "очков"])}
                   </p>
                 </>
               ) : timedOut ? (
                 <>
-                  <h1>Время вышло!</h1>
+                  <h2>Время вышло!</h2>
                   <p>
                     Правильный ответ: <b>{question.answers[reveal.correctIndex]?.text}</b>
                   </p>
                 </>
               ) : (
                 <>
-                  <h1>Мимо</h1>
+                  <h2>Мимо</h2>
                   <p>
                     Правильный ответ: <b>{question.answers[reveal.correctIndex]?.text}</b>
                   </p>
                 </>
               )}
               <div className="board mini">
-                <h3>Промежуточные результаты</h3>
+                <h2>Промежуточные результаты</h2>
                 {reveal.leaderboard.slice(0, 5).map((p, i) => (
                   <div className="board-row" key={p.name}>
                     <span className="board-player">
@@ -478,7 +478,7 @@ export default function PlayGame() {
           <div className="reveal-card timeout">
             <span className="reveal-mark" aria-hidden="true">⏱</span>
             <div className="reveal-body">
-              <h1>Время вышло!</h1>
+              <h2>Время вышло!</h2>
               <p>Голос не засчитан — время на вопрос истекло</p>
             </div>
           </div>
@@ -486,7 +486,7 @@ export default function PlayGame() {
           <div className="reveal-card ok">
             <span className="reveal-mark" aria-hidden="true">✓</span>
             <div className="reveal-body">
-              <h1>Голос учтён</h1>
+              <h2>Голос учтён</h2>
               <p>Смотрите результаты на экране ведущего</p>
             </div>
           </div>

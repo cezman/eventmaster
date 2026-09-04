@@ -11,7 +11,7 @@ export default function ConfirmDialog({ title, text, confirmLabel = "Удали�
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3>{title}</h3>
+        <h2>{title}</h2>
         {text && <p className="muted">{text}</p>}
         <div className="notfound-actions">
           <button className={`btn ${danger ? "btn-danger" : "btn-primary"}`} onClick={onConfirm}>

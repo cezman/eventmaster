@@ -300,7 +300,7 @@ export default function HostPanel() {
       {phase === "reveal" && reveal && (
         <div className="panel-body">
           <div className="board mini">
-            <h3>{game.type === "quiz" ? "Лидеры" : "Промежуточные результаты"}</h3>
+            <h2>{game.type === "quiz" ? "Лидеры" : "Промежуточные результаты"}</h2>
             {reveal.leaderboard.slice(0, 3).map((p, i) => (
               <div className="board-row" key={p.name}>
                 <span className="board-player">

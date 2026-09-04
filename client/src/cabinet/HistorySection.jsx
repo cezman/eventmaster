@@ -94,7 +94,7 @@ export default function HistorySection() {
           {results.map((r) => (
             <div className="card quiz-card" key={r.id}>
               <div>
-                <h3>{r.quiz_title}</h3>
+                <h2>{r.quiz_title}</h2>
                 <p className="muted">
                   {r.quiz_type === "quiz" ? <QuizIcon className="inline-icon" /> : <PollIcon className="inline-icon" />}{" "}
                   {r.quiz_type === "quiz" ? "Викторина" : "Голосование"} · {r.players_count}{" "}

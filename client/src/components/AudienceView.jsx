@@ -290,7 +290,7 @@ export default function AudienceView({ game, question, reveal, final, answered, 
           />
           {game.type === "quiz" && (
             <div className="board">
-              <h3>Промежуточные результаты</h3>
+              <h2>Промежуточные результаты</h2>
               {reveal.leaderboard.map((p, i) => (
                 <div className="board-row" key={p.name}>
                   <PlayerName p={p} />

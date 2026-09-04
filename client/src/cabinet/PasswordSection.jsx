@@ -33,7 +33,7 @@ export default function PasswordSection() {
   return (
     <>
       <div className="dashboard-head">
-        <h1>Смена пароля</h1>
+        <h2>Смена пароля</h2>
       </div>
       <form className="card auth-card cabinet-card" onSubmit={savePassword}>
         <label>
