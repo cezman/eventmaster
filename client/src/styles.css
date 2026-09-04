@@ -698,24 +698,7 @@ input:focus {
   align-self: center;
 }
 
-/* ---------- Экран ведущего ---------- */
-.host-screen {
-  min-height: 100vh;
-  color: var(--on-bg);
-  padding: 0 4vw 50px;
-  background: radial-gradient(circle at 80% 0%, var(--bg-a), var(--bg-b) 55%);
-}
-.host-header {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 18px 0;
-}
-/* presenter mode (fullscreen на проекторе): опасные кнопки скрыты,
-   выход — Esc или кнопка fullscreen, оставшаяся в шапке */
-body.presenter-mode .hide-in-presenter {
-  display: none;
-}
+/* ---------- Экран зала (презентационные фазы) ---------- */
 .host-lobby {
   display: grid;
   grid-template-columns: minmax(280px, 420px) 1fr;
@@ -885,12 +868,6 @@ body.presenter-mode .hide-in-presenter {
 
 .host-question {
   text-align: center;
-}
-.host-question-actions {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-  flex-wrap: wrap;
 }
 .q-meta {
   color: var(--muted-on-bg);
@@ -1486,6 +1463,138 @@ body.presenter-mode .hide-in-presenter {
 .dd-check {
   /* галка живёт на белом меню — фиксированный тёмно-синий, не темозависимый акцент */
   color: #2d55b8;
+}
+
+/* ---------- Экран зала и пульт (EM-36, addendum §2.1–2.3) ---------- */
+/* зал: шапка фиксирована сверху, контент фаз переиспользует host-* стили */
+.screen-page {
+  min-height: 100vh;
+}
+.screen-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  z-index: 10;
+}
+.screen-fullscreen-hint {
+  color: var(--muted-on-bg);
+  font-size: 13px;
+}
+/* контент фаз по центру, с отступом под фиксированную шапку */
+.screen-stage {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  color: var(--on-bg);
+  padding: 84px clamp(16px, 4vw, 48px) 24px;
+  text-align: center;
+}
+
+/* пульт: поверхность на всю страницу (десктоп — колонка по центру) */
+.host-panel {
+  min-height: 100vh;
+  max-width: 520px;
+  margin: 0 auto;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  padding: 16px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  color: var(--text);
+}
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.panel-header-actions {
+  display: flex;
+  gap: 8px;
+}
+.panel-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 10px 0;
+}
+.panel-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.panel-status-dot.on {
+  background: var(--ok);
+}
+.panel-status-dot.off {
+  background: var(--bad);
+}
+.panel-title {
+  font-size: 26px;
+  margin: 12px 0;
+}
+.panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: 1;
+}
+.panel-pin {
+  font-size: 20px;
+  color: var(--text-muted);
+}
+.panel-pin b {
+  color: var(--primary);
+  font-family: "Unbounded", "Manrope", system-ui, sans-serif;
+  letter-spacing: 2px;
+}
+.panel-counter {
+  font-size: 22px;
+  margin: 0;
+}
+.panel-counter.brand {
+  color: var(--primary);
+}
+.panel-pin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: stretch;
+}
+.panel-pin-form .pin-input {
+  width: 100%;
+}
+.panel-main-action {
+  /* главное действие — в зоне большого пальца (прилипает к низу на телефоне) */
+  position: sticky;
+  bottom: 0;
+  margin-top: auto;
+  padding: 16px 0 4px;
+  background: linear-gradient(transparent, var(--surface) 35%);
+}
+.panel-secondary-action {
+  padding-bottom: 4px;
+}
+.btn-block {
+  display: block;
+  width: 100%;
+}
+.host-panel .players-grid {
+  justify-content: flex-start;
 }
 
 /* ---------- Экран игрока ---------- */

@@ -5,7 +5,8 @@ import Landing from "./pages/Landing";
 import AuthPage from "./pages/AuthPage";
 import Dashboard from "./pages/CabinetPage";
 import QuizEditor from "./pages/QuizEditor";
-import HostGame from "./pages/HostGame";
+import HostPanel from "./pages/HostPanel";
+import ScreenGame from "./pages/ScreenGame";
 import PlayGame from "./pages/PlayGame";
 import NotFound from "./pages/NotFound";
 import AdminPage from "./pages/AdminPage";
@@ -67,10 +68,11 @@ export default function App() {
         path="/host/:quizId"
         element={
           <RequireAuth>
-            <HostGame />
+            <HostPanel />
           </RequireAuth>
         }
       />
+      <Route path="/screen/:pin" element={<ScreenGame />} />
       <Route path="/play" element={<PlayGame />} />
       <Route path="/play/:pin" element={<PlayGame />} />
       <Route path="*" element={<NotFound />} />
