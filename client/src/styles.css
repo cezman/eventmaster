@@ -2720,29 +2720,388 @@ input:focus {
 .blocks-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-}
-.block-row {
-  display: grid;
-  grid-template-columns: 22px 42px minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: center;
-  padding: 14px 16px;
-  color: var(--text);
+  gap: 0; /* ритм между блоками ведёт пунктирный разделитель .tl-sep */
 }
 .block-num {
   color: var(--text-muted);
   font-weight: 700;
   text-align: center;
 }
-.block-row-body {
+
+/* ---------- EM-54: редактор сценария (таймлайн, AddBlockMenu, BlockEditor, предпросмотр) ---------- */
+/* шапка мероприятия прилипает — «+ Блок» остаётся под рукой при длинном сценарии (патч U3) */
+.event-head {
+  position: sticky;
+  top: 12px;
+  z-index: 40;
+}
+.event-head-actions {
+  flex-wrap: wrap;
+}
+/* строка таймлайна (спека §3.3): grid [drag 20px][номер 28px][контент 1fr][действия auto] */
+.tl-row {
+  display: grid;
+  grid-template-columns: 20px 28px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 16px;
+  color: var(--text);
+}
+.tl-row--drag {
+  position: relative;
+  z-index: 60;
+  box-shadow: var(--card-shadow);
+  border-color: var(--primary);
+}
+.tl-drag {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  opacity: 0.35;
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px;
+  cursor: grab;
+  touch-action: none; /* жест перетаскивания не скроллит страницу */
+  transition: opacity 0.15s;
+}
+.tl-drag:hover,
+.tl-drag:focus-visible {
+  opacity: 0.75;
+}
+.tl-drag:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.tl-body {
+  display: flex;
+  gap: 12px;
+  align-items: center;
   min-width: 0;
 }
-.block-row-body b {
+.tl-text {
+  min-width: 0;
+}
+.tl-title {
   display: block;
+  overflow-wrap: anywhere;
+}
+.tl-meta {
+  margin-top: 2px;
+}
+.tl-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+/* кнопки «Выбрать/Создать» у блоков без квиза — на всю ширину строки */
+.tl-extra {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+/* пунктирный разделитель между блоками (спека §3.3) */
+.tl-sep {
+  border-top: 1px dashed var(--border);
+  margin: 8px 0;
+}
+/* триггер AddBlockMenu (спека §3.4): на всю ширину, пунктир */
+.tl-add-wrap {
+  margin-top: 16px;
+}
+.tl-add {
+  width: 100%;
+  padding: 14px 16px;
+  font: inherit;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: transparent;
+  border: 2px dashed var(--border-strong);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.tl-add:hover {
+  border-color: var(--primary);
+  color: var(--primary-text);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+.abm-soon {
+  margin-left: 8px;
+}
+/* нижний триггер у края страницы — меню раскрывается вверх;
+   только десктоп: на мобиле .create-pop — fixed bottom sheet, и правило ниже его сломало бы */
+@media (min-width: 761px) {
+  .create-pop--up {
+    top: auto;
+    bottom: calc(100% + 6px);
+  }
+}
+/* тосты поверх полноэкранного предпросмотра сценария (z 9998) */
+.toast-stack {
+  z-index: 10001;
+}
+.create-pop-name {
+  font-weight: 700;
+  min-width: 0;
+}
+
+/* inline-редактор блока (спека §3.5): вложенная поверхность */
+.be {
+  margin: 8px 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text);
+}
+.be-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+/* инпуты редактора — всегда белые (инвариант Deep Stage) */
+.be-field input,
+.be-field textarea {
+  font: inherit;
+  font-weight: 400;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.be-field textarea {
+  resize: vertical;
+  min-height: 84px;
+}
+.be-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 130px;
+  gap: 12px;
+}
+.be-seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  width: fit-content;
+  max-width: 100%;
+}
+.be-seg button {
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.be-seg button + button {
+  border-left: 1px solid var(--border-strong);
+}
+.be-seg button[aria-pressed="true"] {
+  background: var(--primary-cta);
+  color: #fff;
+  font-weight: 700;
+}
+.be-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.be-actions--start {
+  justify-content: flex-start;
+}
+.be-hint {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+/* полноэкранный предпросмотр сценария (спека §3.6) */
+.sp-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(circle at 20% 10%, var(--bg-a), var(--bg-b) 60%);
+  animation: overlayIn 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.sp-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  color: var(--on-bg);
+}
+.sp-counter {
+  font-weight: 800;
+}
+.sp-close {
+  font-size: 22px;
+  line-height: 1;
+}
+.sp-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  padding: 8px 20px;
+}
+/* рамка проектора 16:9 для text/break/image */
+.sp-screen {
+  width: min(880px, 92vw);
+  aspect-ratio: 16 / 9;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+  padding: 24px;
+  overflow: auto;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  color: var(--text);
+}
+.sp-screen h2 {
+  margin: 0;
+  font-size: clamp(22px, 4vw, 40px);
+}
+.sp-screen p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: clamp(14px, 2vw, 20px);
+  white-space: pre-line;
+  max-width: 60ch;
+  overflow-wrap: anywhere;
+}
+.sp-screen--left {
+  align-items: flex-start;
+  text-align: left;
+}
+.sp-screen--split {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  text-align: left;
+  padding: 0;
+  overflow: hidden;
+}
+.sp-screen--split .sp-text {
+  padding: 24px;
+  align-self: center;
+}
+.sp-img {
+  max-width: 90%;
+  max-height: 70%;
+  object-fit: contain;
+  border-radius: 12px;
+}
+.sp-screen--split .sp-img {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  object-fit: cover;
+  border-radius: 0;
+}
+.sp-emoji {
+  font-size: clamp(40px, 8vw, 72px);
+  line-height: 1;
+}
+/* телефон игрока внутри предпросмотра — тот же QuestionPreview, масштаб под вписывание */
+.sp-phone-box {
+  --sp-zoom: 0.72;
+  width: calc(390px * var(--sp-zoom));
+  height: calc(844px * var(--sp-zoom));
+  flex-shrink: 0;
+}
+.sp-phone-box .preview-phone {
+  transform: scale(var(--sp-zoom));
+  transform-origin: top left;
+}
+.sp-phone-note {
+  color: var(--muted-on-bg);
+}
+@media (max-height: 820px) {
+  .sp-phone-box {
+    --sp-zoom: 0.58;
+  }
+}
+.sp-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px calc(14px + env(safe-area-inset-bottom));
+}
+.sp-blockname {
+  min-width: 0;
+  text-align: center;
+  color: var(--muted-on-bg);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+/* мобайл: шапка не прилипает (съедала бы экран), строка перестраивается */
+@media (max-width: 760px) {
+  .event-head {
+    position: static;
+  }
+  .tl-row {
+    grid-template-columns: 44px 1fr auto;
+  }
+  .block-num {
+    display: none;
+  }
+  .tl-drag {
+    justify-self: center;
+    width: 44px;
+    height: 44px;
+    padding: 13px 0;
+  }
+  /* тач-таргеты ≥44: ⋮ и 👁 в строках сценария (и карточках кабинета) */
+  .event-menu-btn,
+  .tl-actions .icon-btn {
+    width: 44px;
+    height: 44px;
+  }
+  .tl-extra .btn {
+    flex: 1 1 auto;
+  }
+  .be-grid {
+    grid-template-columns: 1fr;
+  }
+  .sp-screen {
+    width: 94vw;
+    padding: 16px;
+  }
+  .sp-screen--split {
+    grid-template-columns: 1fr;
+  }
+  .sp-phone-box {
+    --sp-zoom: 0.42;
+  }
+  .sp-nav {
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  }
+  .sp-nav .btn {
+    padding: 10px 12px;
+  }
 }
 
 /* пикер квизов из библиотеки — белый диалог (как ConfirmDialog) */
@@ -2810,15 +3169,6 @@ input:focus {
   .event-card-actions {
     justify-content: flex-start;
     flex: none;
-  }
-  .block-row {
-    grid-template-columns: 42px minmax(0, 1fr);
-  }
-  .block-num {
-    display: none;
-  }
-  .block-row .quiz-card-actions {
-    grid-column: 1 / -1;
   }
 }
 @media (max-width: 760px) {
