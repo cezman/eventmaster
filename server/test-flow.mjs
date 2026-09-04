@@ -325,9 +325,16 @@ if (screenRevealed) throw new Error("em36: старый хост управля�
 h36panel.emit("host:reveal"); // новый пульт управляет
 await new Promise((resolve) => screen36.once("reveal", resolve));
 log("EM-36: host:attach перехватывает роль, reveal от нового пульта ✓");
-h36panel.emit("host:end");
-h36.close(); h36alien.close(); h36panel.close(); screen36.close();
 
+// EM-46: повторный host:create-game того же квиза подключается к живой партии, а не создаёт вторую
+const h36c = io(URL);
+const reAck = await new Promise((resolve) => h36c.emit("host:create-game", { token: TOKEN, quizId: em36quiz.quiz.id }, resolve));
+if (reAck.error || reAck.pin !== pin36) {
+  throw new Error("em36/46: create-game не вернул живую партию: " + JSON.stringify(reAck));
+}
+log("EM-46: повторный create-game подключает пульт к живой партии ✓");
+h36c.emit("host:end"); // роль теперь у h36c — заканчивает он
+h36.close(); h36alien.close(); h36panel.close(); h36c.close(); screen36.close();
 
 log("✅ Все этапы пройдены: создание, лобби, 3 вопроса, reconnect по токену, offline-счётчик, skip, финал, EM-27");
 host.close();

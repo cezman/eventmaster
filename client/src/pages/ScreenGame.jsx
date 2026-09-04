@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { getSocket } from "../socket";
 import AudienceView from "../components/AudienceView";
 import Logo from "../components/Logo";
@@ -30,7 +30,14 @@ export default function ScreenGame() {
       socket.emit("screen:join", { pin: pinParam }, (res) => {
         if (res?.error) return setStatus("not-found");
         setStatus("live");
-        setGame((g) => ({ pin: res.pin, title: res.title, type: res.type, state: res.state, players: g?.players || [] }));
+        setGame((g) => ({
+          pin: res.pin,
+          title: res.title,
+          type: res.type,
+          quizId: res.quizId,
+          state: res.state,
+          players: g?.players || [],
+        }));
       });
     };
     if (socket.connected) join();
@@ -161,13 +168,18 @@ export default function ScreenGame() {
     <div className="screen-page">
       <header className="screen-header">
         <Logo>{game.title}</Logo>
-        {!isFullscreen && (
-          <button className="btn btn-ghost" onClick={toggleFullscreen} aria-label="Во весь экран">
-            <ExpandIcon className="inline-icon" />
-            Во весь экран
-          </button>
-        )}
-        {isFullscreen && <span className="screen-fullscreen-hint">Esc — выйти из полноэкрана</span>}
+        <div className="screen-header-actions">
+          {isFullscreen && <span className="screen-fullscreen-hint">Esc — выйти из полноэкрана</span>}
+          <Link className="btn btn-ghost" to={`/host/${game.quizId}`}>
+            Пульт
+          </Link>
+          {!isFullscreen && (
+            <button className="btn btn-ghost" onClick={toggleFullscreen} aria-label="Во весь экран">
+              <ExpandIcon className="inline-icon" />
+              Во весь экран
+            </button>
+          )}
+        </div>
       </header>
       <div className="screen-stage">
         <AudienceView

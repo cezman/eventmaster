@@ -1485,6 +1485,11 @@ input:focus {
   color: var(--muted-on-bg);
   font-size: 13px;
 }
+.screen-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 /* контент фаз по центру, с отступом под фиксированную шапку */
 .screen-stage {
   min-height: 100vh;
@@ -1556,6 +1561,26 @@ input:focus {
 .panel-pin {
   font-size: 20px;
   color: var(--text-muted);
+}
+/* лаунчпад лобби: переход на экран зала — главный следующий шаг ведущего */
+.panel-launch {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.panel-launch-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.panel-launch-url {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
 }
 .panel-pin b {
   color: var(--primary);

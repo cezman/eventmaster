@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { getSocket } from "../socket";
 import { useAuth } from "../auth";
@@ -19,11 +19,10 @@ export default function HostPanel() {
   const socket = getSocket();
   const showToast = useToast();
 
-  // connecting — стучимся к сохранённой партии; connected; pin-entry — пульт без партии
-  // (нет сохранённого PIN или игра не нашлась): ввод PIN идущей игры
+  // connecting — стучимся на сервер; connected — пульт управляет партией;
+  // error — запуститься не удалось (квиз не найден) или роль перехватил другой пульт
   const [status, setStatus] = useState("connecting");
   const [attachError, setAttachError] = useState("");
-  const [pinInput, setPinInput] = useState("");
   const [game, setGame] = useState(null); // {pin,title,type,state,qIndex,total,players}
   const [question, setQuestion] = useState(null);
   const [reveal, setReveal] = useState(null);
@@ -31,38 +30,29 @@ export default function HostPanel() {
   const [answered, setAnswered] = useState(0);
   const [online, setOnline] = useState(socket.connected);
   const [confirmEnd, setConfirmEnd] = useState(false);
-  const pinKey = `hostpin-${quizId}`;
+
+  // EM-46: сервер сам подключает пульт к живой партии своего квиза, а при её
+  // отсутствии создаёт новую — запуск в один клик, вторая партия не плодится.
+  // На уровне компонента: кнопка «Попробовать снова» на экране ошибки зовёт её же.
+  const claim = useCallback(() => {
+    setOnline(true);
+    socket.emit("host:create-game", { token, quizId }, (res) => {
+      if (res.error) {
+        setAttachError(res.error);
+        setStatus("error");
+      }
+    });
+  }, [socket, token, quizId]);
 
   useEffect(() => {
-    // Подключение к сохранённой партии (reclaim-семантика сервера). Партию без
-    // сохранённого PIN НЕ создаём молча: иначе второе устройство ведущего заводит
-    // вторую игру. Явное создание — кнопка «Создать новую партию» (решение владельца
-    // про host:attach, EM-36). На «connect» повторяем: hostSocketId протухает.
-    const claim = () => {
-      setOnline(true);
-      const savedPin = sessionStorage.getItem(pinKey);
-      if (!savedPin) {
-        setStatus((st) => (st === "connected" ? st : "pin-entry"));
-        return;
-      }
-      socket.emit("host:attach", { token, pin: savedPin }, (res) => {
-        if (res.error) {
-          // партия не дожилась — PIN больше не валиден, предлагаем ввод вручную
-          sessionStorage.removeItem(pinKey);
-          setAttachError(res.error);
-          setStatus("pin-entry");
-        }
-      });
-    };
     if (socket.connected) claim();
     socket.on("connect", claim);
     const onDisconnect = () => setOnline(false);
     socket.on("disconnect", onDisconnect);
-    // роль хоста перехватил другой пульт (второе устройство) — возвращаемся в ввод PIN
+    // роль хоста перехватил другой пульт (второе устройство)
     const onDetached = () => {
-      sessionStorage.removeItem(pinKey);
       setAttachError("Управление этой партией перехвачено другим пультом.");
-      setStatus("pin-entry");
+      setStatus("error");
     };
     socket.on("host:detached", onDetached);
 
@@ -92,10 +82,7 @@ export default function HostPanel() {
       setReveal(null);
     };
     const onCount = (d) => setAnswered(d.answered);
-    const onClosed = () => {
-      sessionStorage.removeItem(pinKey);
-      navigate("/dashboard");
-    };
+    const onClosed = () => navigate("/dashboard");
 
     socket.on("host:game", onSnapshot);
     socket.on("players", onPlayers);
@@ -116,7 +103,7 @@ export default function HostPanel() {
       socket.off("answer-count", onCount);
       socket.off("game:closed", onClosed);
     };
-  }, [socket, token, quizId, pinKey, navigate]);
+  }, [socket, token, quizId, navigate, claim]);
 
   const phase = final ? "finished" : question ? (reveal ? "reveal" : "question") : game?.state;
   // EM-45: оверлей переподключения — только пока пульт подключён к партии
@@ -141,46 +128,29 @@ export default function HostPanel() {
 
   const endGame = () => {
     socket.emit("host:end");
-    sessionStorage.removeItem(pinKey);
     navigate("/dashboard");
   };
 
-  const attachByPin = (e) => {
-    e.preventDefault();
-    setAttachError("");
-    const pin = pinInput.replace(/\D/g, "");
-    if (pin.length !== 6) return setAttachError("PIN состоит из 6 цифр");
-    socket.emit("host:attach", { token, pin }, (res) => {
-      if (res.error) return setAttachError(res.error);
-      sessionStorage.setItem(pinKey, res.pin);
-      // снапшот прилетит событием host:game
-    });
-  };
-
-  // явное создание новой партии — только по кнопке, чтобы второе устройство
-  // ведущего случайно не завело вторую игру
-  const createGame = () => {
-    setAttachError("");
-    socket.emit("host:create-game", { token, quizId }, (res) => {
-      if (res.error) return setAttachError(res.error);
-      sessionStorage.setItem(pinKey, res.pin);
-      // снапшот прилетит событием host:game
-    });
-  };
+  const openScreen = () => window.open(`${window.location.origin}/screen/${game.pin}`, "_blank");
 
   const onlinePlayers = game ? game.players.filter((p) => p.online !== false).length : 0;
   const allAnswered = question && answered >= onlinePlayers && onlinePlayers > 0;
 
   const header = (
     <div className="panel-header">
-      <Logo />
-      {status === "connected" && (
-        <div className="panel-header-actions">
+      <Logo>{game ? game.title : undefined}</Logo>
+      <div className="panel-header-actions">
+        {status === "connected" && game && (
+          <button className="btn btn-ghost btn-sm" onClick={openScreen}>
+            Зал ↗
+          </button>
+        )}
+        {status === "connected" && (
           <button className="btn btn-danger btn-sm" onClick={() => setConfirmEnd(true)}>
             Завершить
           </button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 
@@ -191,46 +161,27 @@ export default function HostPanel() {
     </div>
   );
 
-  if (status === "pin-entry" || status === "connecting") {
+  if (status === "error") {
     return (
       <div className="host-panel">
         {header}
         {connectionStatus}
         <div className="panel-body">
-          <h1 className="panel-title">
-            {status === "connecting" ? "Подключение к игре…" : "Подключение к игре"}
-          </h1>
-          {status === "pin-entry" && (
-            <form className="panel-pin-form" onSubmit={attachByPin}>
-              {attachError && (
-                <div className="error" role="alert">
-                  {attachError}
-                </div>
-              )}
-              <input
-                className="pin-input"
-                placeholder="000000"
-                inputMode="numeric"
-                maxLength={6}
-                value={pinInput}
-                onChange={(e) => setPinInput(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                aria-label="PIN игры"
-              />
-              <button className="btn btn-primary btn-lg">Подключиться</button>
-              <p className="muted small">Введите PIN партии, открытой на экране зала, или откройте новую.</p>
-              <button type="button" className="btn btn-outline" onClick={createGame}>
-                Создать новую партию
-              </button>
-              <Link to="/dashboard" className="btn btn-ghost">
-                ← В кабинет
-              </Link>
-            </form>
-          )}
+          <h1 className="panel-title">Пульт не подключён</h1>
+          <div className="error" role="alert">
+            {attachError}
+          </div>
+          <button className="btn btn-primary" onClick={claim}>
+            Попробовать снова
+          </button>
+          <Link to="/dashboard" className="btn btn-outline">
+            ← В кабинет
+          </Link>
         </div>
       </div>
     );
   }
-  if (!game)
+  if (status !== "connected" || !game) {
     return (
       <div className="host-panel">
         {header}
@@ -238,6 +189,7 @@ export default function HostPanel() {
         <p className="muted">Подключение…</p>
       </div>
     );
+  }
 
   return (
     <div className="host-panel">
@@ -259,15 +211,28 @@ export default function HostPanel() {
 
       {phase === "lobby" && (
         <div className="panel-body">
-          <div className="panel-pin">PIN: <b>{game.pin}</b></div>
-          <h2 className="panel-counter">
-            Игроков: {game.players.length}
-          </h2>
-          <div className="players-grid">
-            {game.players.map((p) => (
-              <PlayerChip p={p} key={p.id} onKick={kickPlayer} />
-            ))}
+          <div className="panel-launch">
+            <div className="panel-launch-label">Экран зала для проектора:</div>
+            <button className="btn btn-primary btn-block" onClick={openScreen}>
+              Открыть экран зала ↗
+            </button>
+            <div className="panel-launch-url">…/screen/{game.pin}</div>
           </div>
+          <div className="panel-pin">
+            PIN игроков: <b>{game.pin}</b>
+          </div>
+          <h2 className="panel-counter">Игроков: {game.players.length}</h2>
+          {game.players.length === 0 ? (
+            <p className="muted small">
+              Игроки сканируют QR на экране зала. Как только кто-то зайдёт — здесь появится кнопка старта.
+            </p>
+          ) : (
+            <div className="players-grid">
+              {game.players.map((p) => (
+                <PlayerChip p={p} key={p.id} onKick={kickPlayer} />
+              ))}
+            </div>
+          )}
           {game.players.length > 0 && (
             <div className="panel-main-action">
               <button className="btn btn-primary btn-xl btn-block" onClick={hostAction("host:start")}>
