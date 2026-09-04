@@ -1519,13 +1519,19 @@ input:focus {
   padding-bottom: 12px;
   border-bottom: 1px solid var(--border);
 }
-/* длинное название квиза не должно ломать шапку: обрезаем, кнопки не переносятся */
+/* длинное название квиза не должно ломать шапку: до 2 строк с ellipsis на второй
+   (EM-48, по flow-брифу), кнопки не переносятся */
 .panel-header .logo {
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+}
+.panel-header .logo-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: break-word;
 }
 .panel-header-actions,
 .screen-header-actions {
