@@ -1485,11 +1485,6 @@ input:focus {
   color: var(--muted-on-bg);
   font-size: 13px;
 }
-.screen-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
 /* контент фаз по центру, с отступом под фиксированную шапку */
 .screen-stage {
   min-height: 100vh;
@@ -1524,9 +1519,24 @@ input:focus {
   padding-bottom: 12px;
   border-bottom: 1px solid var(--border);
 }
-.panel-header-actions {
+/* длинное название квиза не должно ломать шапку: обрезаем, кнопки не переносятся */
+.panel-header .logo {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.panel-header-actions,
+.screen-header-actions {
   display: flex;
+  align-items: center;
   gap: 8px;
+  flex-shrink: 0;
+}
+.panel-header-actions .btn,
+.screen-header-actions .btn {
+  white-space: nowrap;
 }
 .panel-status {
   display: flex;
