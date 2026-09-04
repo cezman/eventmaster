@@ -2,29 +2,34 @@ import React from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth";
 import AppHeader from "../components/AppHeader";
-import { UserIcon, LockIcon, HistoryIcon, ShieldIcon, GamepadIcon, LogoutIcon } from "../components/icons";
+import { UserIcon, HistoryIcon, ShieldIcon, GamepadIcon, QuizIcon, LogoutIcon } from "../components/icons";
+import EventsSection from "../cabinet/EventsSection";
 import GamesSection from "../cabinet/GamesSection";
 import ProfileSection from "../cabinet/ProfileSection";
 import PasswordSection from "../cabinet/PasswordSection";
 import HistorySection from "../cabinet/HistorySection";
 
+// EM-53 (спека §2.1–2.2): Мероприятия / Библиотека / История / Настройки
 const TABS = [
-  { id: "games", label: "Мероприятия", icon: GamepadIcon },
-  { id: "profile", label: "Личные данные", icon: UserIcon },
-  { id: "password", label: "Смена пароля", icon: LockIcon },
-  { id: "history", label: "История игр", icon: HistoryIcon },
+  { id: "events", label: "Мероприятия", icon: GamepadIcon },
+  { id: "library", label: "Библиотека", icon: QuizIcon },
+  { id: "history", label: "История", icon: HistoryIcon },
+  { id: "settings", label: "Настройки", icon: UserIcon },
 ];
+// старые ссылки вида ?tab=games|profile|password ведут в новые разделы
+const TAB_ALIASES = { games: "library", profile: "settings", password: "settings" };
 
 // Кабинет ведущего: сайдбар с разделами + контент выбранной вкладки (?tab=, по умолчанию «Мероприятия»).
 // Новые разделы добавляются в TABS и рендер-переключатель ниже.
 export default function CabinetPage() {
   const { user, signOut } = useAuth();
   const [params, setParams] = useSearchParams();
-  const tab = TABS.some((t) => t.id === params.get("tab")) ? params.get("tab") : "games";
+  const raw = params.get("tab");
+  const tab = TABS.some((t) => t.id === raw) ? raw : TAB_ALIASES[raw] || "events";
 
   const select = (id) => {
     if (id === tab) return; // без повторного пуша в историю
-    setParams(id === "games" ? {} : { tab: id });
+    setParams(id === "events" ? {} : { tab: id });
   };
 
   return (
@@ -56,10 +61,16 @@ export default function CabinetPage() {
         </nav>
 
         <section className="cabinet-content">
-          {tab === "games" && <GamesSection />}
-          {tab === "profile" && <ProfileSection />}
-          {tab === "password" && <PasswordSection />}
+          {tab === "events" && <EventsSection />}
+          {tab === "library" && <GamesSection />}
           {tab === "history" && <HistorySection />}
+          {tab === "settings" && (
+            <>
+              {/* у секций свои заголовки «Личные данные»/«Смена пароля» — дубли не нужны */}
+              <ProfileSection />
+              <PasswordSection />
+            </>
+          )}
         </section>
       </div>
     </div>

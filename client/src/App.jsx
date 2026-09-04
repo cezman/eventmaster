@@ -5,6 +5,7 @@ import Landing from "./pages/Landing";
 import AuthPage from "./pages/AuthPage";
 import Dashboard from "./pages/CabinetPage";
 import QuizEditor from "./pages/QuizEditor";
+import EventPage from "./pages/EventPage";
 import HostPanel from "./pages/HostPanel";
 import ScreenGame from "./pages/ScreenGame";
 import PlayGame from "./pages/PlayGame";
@@ -49,6 +50,14 @@ export default function App() {
         }
       />
       <Route
+        path="/event/:id"
+        element={
+          <RequireAuth>
+            <EventPage />
+          </RequireAuth>
+        }
+      />
+      <Route
         path="/history"
         element={
           <RequireAuth>
@@ -60,7 +69,7 @@ export default function App() {
         path="/profile"
         element={
           <RequireAuth>
-            <Navigate to="/dashboard?tab=profile" replace />
+            <Navigate to="/dashboard?tab=settings" replace />
           </RequireAuth>
         }
       />

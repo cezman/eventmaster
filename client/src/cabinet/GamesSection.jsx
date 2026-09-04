@@ -28,7 +28,7 @@ function QuizListSkeleton() {
 // повторный заход показывает список сразу, свежие данные тихо догружаются в фоне
 let quizzesCache = null; // { userId, data }
 
-// Раздел «Мероприятия»: список квизов/опросов + создание
+// Раздел «Библиотека»: список квизов/опросов + создание (квизы вставляются в сценарии мероприятий)
 export default function GamesSection() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -88,9 +88,9 @@ export default function GamesSection() {
   return (
     <>
       <div className="dashboard-head">
-        <h1>Мои мероприятия</h1>
+        <h1>Библиотека квизов</h1>
         <button className="btn btn-primary" onClick={() => setShowForm((v) => !v)}>
-          {showForm ? "Отмена" : "+ Создать"}
+          {showForm ? "Отмена" : "+ Создать квиз"}
         </button>
       </div>
 
@@ -133,7 +133,7 @@ export default function GamesSection() {
           <p>Создайте первую викторину или голосование — это пара минут. Гости подключатся по QR-коду или PIN.</p>
           {!showForm && (
             <button className="btn btn-primary btn-lg" onClick={() => setShowForm(true)}>
-              + Создать игру
+              + Создать квиз
             </button>
           )}
         </div>
