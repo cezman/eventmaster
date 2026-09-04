@@ -5,6 +5,17 @@ import AudienceView from "../components/AudienceView";
 import Logo from "../components/Logo";
 import { ExpandIcon } from "../components/icons";
 import confetti from "canvas-confetti";
+import { BLOCK_TYPES, mmss } from "../blocks";
+import useBreakCountdown from "../useBreakCountdown";
+
+const RING_CIRC = 2 * Math.PI * 34; // длина окружности ring-таймера (r=34, как в AudienceView)
+
+// эмодзи паузы по подписи блока (спека §4.6: ☕/🎵/🧘)
+function breakEmoji(label = "") {
+  if (/муз|песн|танц/i.test(label)) return "🎵";
+  if (/йог|спорт|разминк|зарядк/i.test(label)) return "🧘";
+  return "☕";
+}
 
 // EM-36: зал — полноэкранный показ игры на проекторе, ноль управляющих элементов
 // (кроме «Во весь экран»). Управляет пульт на /host/<quizId>.
@@ -25,6 +36,8 @@ export default function ScreenGame() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   // EM-55: текущий неигровой блок сценария (переход/текст/пауза/…)
   const [block, setBlock] = useState(null);
+  // EM-56: отсчёт паузы на BreakScreen
+  const breakTimer = useBreakCountdown(block);
 
   useEffect(() => {
     const join = () => {
@@ -199,36 +212,67 @@ export default function ScreenGame() {
         </header>
         <div className="screen-stage">
           {block.to ? (
-            <div className="screen-block">
-              <p className="screen-block-label">Дальше в программе</p>
+            // TransitionScreen (§4.6): эмодзи + название + тип следующего блока
+            <div className="screen-block" key={`t${block.blockIndex}`}>
+              <div className="screen-block-emoji screen-block-emoji--transition" aria-hidden="true">
+                {BLOCK_TYPES[block.to.type]?.icon}
+              </div>
               <h1>{block.to.title}</h1>
+              <p className="screen-block-type">{BLOCK_TYPES[block.to.type]?.label}</p>
             </div>
           ) : block.blockType === "text" ? (
-            <div className="screen-block">
+            // TextScreen (§4.6): display-заголовок + body xl + опциональная картинка
+            <div className="screen-block" key={`b${block.blockIndex}`}>
               <h1>{block.heading}</h1>
               {block.body && <p className="screen-block-body">{block.body}</p>}
               {block.imageUrl && <img className="screen-block-image" src={block.imageUrl} alt="" />}
             </div>
           ) : block.blockType === "break" ? (
-            <div className="screen-block">
-              <div className="screen-block-emoji" aria-hidden="true">☕</div>
+            // BreakScreen (§4.6): иконка по подписи, ring-отсчёт 120×120
+            <div className="screen-block" key={`b${block.blockIndex}`}>
+              <div className="screen-block-emoji" aria-hidden="true">{breakEmoji(block.label)}</div>
               <h1>{block.label || "Перерыв"}</h1>
+              {breakTimer.left != null && (
+                <div className="timer-wrap screen-break-ring">
+                  <svg className="timer-ring" viewBox="0 0 80 80" aria-hidden="true">
+                    <circle className="timer-ring-track" cx="40" cy="40" r="34" />
+                    <circle
+                      className="timer-ring-fill"
+                      cx="40"
+                      cy="40"
+                      r="34"
+                      strokeDasharray={RING_CIRC}
+                      strokeDashoffset={
+                        RING_CIRC * (1 - Math.max(0, Math.min(1, breakTimer.left / breakTimer.total)))
+                      }
+                    />
+                  </svg>
+                  <span className="timer-digit screen-break-digit">{mmss(breakTimer.left)}</span>
+                </div>
+              )}
               <p className="screen-block-body">
                 {block.duration > 0 ? `Вернёмся через ${block.duration} мин` : "Скоро продолжим"}
               </p>
             </div>
           ) : block.blockType === "image" ? (
-            <div className="screen-block">
+            <div
+              className={`screen-block${block.fullscreen ? " screen-block--imagefull" : ""}`}
+              key={`b${block.blockIndex}`}
+            >
               {block.url && <img className="screen-block-image" src={block.url} alt={block.caption || ""} />}
               {block.caption && <p className="screen-block-body">{block.caption}</p>}
             </div>
           ) : block.blockType === "audio" ? (
-            <div className="screen-block">
+            // «Сейчас играет: [title]» + визуальный мини-плеер; сам звук — у ведущего (§4.2)
+            <div className="screen-block" key={`b${block.blockIndex}`}>
+              <p className="screen-block-eyebrow">Сейчас играет</p>
               <div className="screen-block-emoji" aria-hidden="true">🎵</div>
-              <h1>{block.title || "Сейчас играет"}</h1>
+              <h1>{block.title || "Музыка"}</h1>
+              <div className="audio-bars" aria-hidden="true"><i /><i /><i /><i /><i /></div>
             </div>
           ) : (
-            <div className="screen-block">
+            <div className="screen-block" key={`b${block.blockIndex}`}>
+              <div className="screen-block-emoji" aria-hidden="true">{BLOCK_TYPES.activity.icon}</div>
               <h1>{block.title || "Активность"}</h1>
               {block.description && <p className="screen-block-body">{block.description}</p>}
             </div>
