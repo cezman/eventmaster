@@ -20,6 +20,7 @@ import {
   HAIR_COLOR_OPTIONS,
 } from "../customize";
 import { plural } from "../plural";
+import { BLOCK_TYPES, blockDisplayTitle } from "../blocks";
 
 // салют с уважением к prefers-reduced-motion (канвас-анимация недоступна/не нужна)
 function canConfetti() {
@@ -389,25 +390,21 @@ export default function PlayGame() {
     );
   }
 
-  // EM-55: неигровой блок сценария — свёрнутое состояние «Сейчас: …» (спека §4.2;
-  // полноценные поверхности телефона — EM-56)
+  // EM-56: свёрнутый телефон-блок (§4.2) — карточка «Сейчас в программе» с иконкой
+  // типа; у паузы подпись с длительностью, иконка пульсирует до следующего блока
   if (block && !question && !reveal && !final) {
-    const now = block.to
-      ? block.to.title
-      : block.blockType === "break"
-        ? `Перерыв — ${block.duration || 0} мин`
-        : block.blockType === "text"
-          ? block.heading
-          : block.blockType === "image"
-            ? block.caption || "Изображение"
-            : block.blockType === "audio"
-              ? block.title || "Музыка"
-              : block.title || "Активность";
+    const type = block.to ? block.to.type : block.blockType;
+    const isBreak = type === "break";
+    const now =
+      isBreak && block.duration > 0 ? `Перерыв — ${block.duration} мин` : blockDisplayTitle(block) || "Программа";
     return (
       <div className="play-screen">
         {reconnectOverlay}
-        <p className="muted">Сейчас в программе</p>
-        <h2>{now}</h2>
+        <div className={`play-block-card${isBreak ? " play-block-card--pulse" : ""}`}>
+          <div className="play-block-icon" aria-hidden="true">{BLOCK_TYPES[type]?.icon}</div>
+          <p className="play-block-label">Сейчас в программе</p>
+          <h2>{now}</h2>
+        </div>
         <div className="spin" />
         <p className="muted small">Ждём ведущего…</p>
       </div>

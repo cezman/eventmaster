@@ -93,8 +93,11 @@ function questionForRoom(game) {
     mode: q.mode || "choice",
     showLiveResults: !!game.quiz.showLiveResults,
     answers: q.answers.map((a) => ({ text: a.text })),
-    // EM-55: контекст блока для пульта (аддитивно, только в мероприятии)
-    ...(game.eventId ? { blockIndex: game.blockIndex, blockTotal: game.scenario.length } : {}),
+    // EM-55: контекст блока для пульта (аддитивно, только в мероприятии);
+    // EM-56: + название/тип блока для BlockProgress в шапке пульта
+    ...(game.eventId
+      ? { blockIndex: game.blockIndex, blockTotal: game.scenario.length, blockTitle: game.title, blockType: game.type }
+      : {}),
   };
 }
 

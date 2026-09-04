@@ -1545,8 +1545,8 @@ input:focus {
   text-align: center;
 }
 
-/* EM-55: карточка неигрового блока сценария на зале (минимум; макеты §4.6 — EM-56):
-   заголовок display + body xl, по центру, как TextScreen спеки */
+/* EM-55: карточка неигрового блока сценария на зале — базовая раскладка
+   TextScreen из спеки §4.6; анимации/варианты блоков — в секции EM-56 ниже */
 .screen-block {
   display: flex;
   flex-direction: column;
@@ -1561,14 +1561,6 @@ input:focus {
   line-height: 1.15;
   margin: 0;
   overflow-wrap: anywhere;
-}
-.screen-block-label {
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--muted-on-bg);
-  margin: 0;
 }
 .screen-block-body {
   font-size: 20px;
@@ -1590,12 +1582,227 @@ input:focus {
   margin-top: 6px;
 }
 
-/* EM-55: картинка image-блока в превью пульта (минимальная поверхность; макеты — EM-56) */
-.panel-block-image {
-  max-width: 100%;
-  max-height: 40vh;
-  object-fit: contain;
+/* ---------- EM-56: экраны сценария (матрица §4.2, пульт §4.5, зал §4.6) ---------- */
+/* BlockProgress в шапке пульта: «Блок N / M · [иконка] [название]» + бар 3px */
+.panel-blockprogress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 0 10px;
+}
+.panel-blockprogress-meta {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.panel-blockprogress-bar {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--chip-bg);
+  overflow: hidden;
+}
+.panel-blockprogress-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--primary);
+  transition: width 0.3s ease;
+}
+/* превью text/image-блока на пульте — карточка в духе экрана зала */
+.panel-block-preview {
+  background: var(--chip-bg);
+  border: 1px solid var(--chip-border);
   border-radius: 14px;
+  padding: 20px 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+.panel-block-preview-title {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.panel-block-preview-text {
+  font-size: 15px;
+  /* muted-on-card рассчитан на белую карточку; на тёмной chip-карточке выцветает */
+  color: var(--text-muted);
+  max-width: 380px;
+  overflow-wrap: anywhere;
+  margin: 0;
+}
+.panel-block-preview-image {
+  max-width: 100%;
+  max-height: 32vh;
+  object-fit: contain;
+  border-radius: 10px;
+}
+/* общая таймер-цифра пульта: отсчёт паузы и секундомер активности */
+.panel-timer {
+  display: flex;
+  justify-content: center;
+}
+.panel-timer-digit {
+  font-family: "Unbounded", "Manrope", sans-serif;
+  font-size: 44px;
+  font-weight: 800;
+  color: var(--highlight);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+/* аудио-блок на пульте: ▶/⏸ + громкость */
+.panel-audio {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.panel-audio .btn {
+  width: 56px;
+  height: 44px;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.panel-audio-volume {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+  min-width: 0;
+}
+.panel-audio-volume input[type="range"] {
+  width: 130px;
+  /* поля вместо высоты: слайдер остаётся тонким, тап-зона — 44px */
+  padding: 12px 0;
+  accent-color: var(--primary);
+}
+/* зал: появление карточек блоков (§4.6: opacity 0→1, 300ms); key в JSX
+   перезапускает анимацию на каждом новом блоке */
+@keyframes screen-fade {
+  from { opacity: 0; }
+}
+.screen-block {
+  animation: screen-fade 0.3s ease;
+}
+/* TransitionScreen: иконка 48px + тип следующего блока */
+.screen-block-emoji--transition {
+  font-size: 48px;
+}
+.screen-block-type {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--muted-on-bg);
+  margin: 0;
+}
+/* надзаголовок-подпись блока (audio: «Сейчас играет») */
+.screen-block-eyebrow {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted-on-bg);
+  margin: 0;
+}
+/* BreakScreen: ring 120×120, цифра 28px — «mm:ss» из 5 знаков крупнее не влезает
+   в хорду кольца (та же арифметика, что 32px в кольце 80×80) */
+.screen-break-ring {
+  width: 120px;
+  height: 120px;
+}
+.screen-break-ring .timer-digit {
+  font-size: 28px;
+}
+/* аудио на зале: визуальный мини-плеер — звук играет у ведущего */
+.audio-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 36px;
+}
+.audio-bars i {
+  width: 8px;
+  border-radius: 4px;
+  background: var(--primary);
+  transform-origin: bottom; /* танец «от пола», а не от центра */
+  animation: audio-bar 1s ease-in-out infinite;
+}
+.audio-bars i:nth-child(1) { height: 40%; animation-delay: 0s; }
+.audio-bars i:nth-child(2) { height: 75%; animation-delay: 0.15s; }
+.audio-bars i:nth-child(3) { height: 100%; animation-delay: 0.3s; }
+.audio-bars i:nth-child(4) { height: 65%; animation-delay: 0.45s; }
+.audio-bars i:nth-child(5) { height: 45%; animation-delay: 0.6s; }
+@keyframes audio-bar {
+  0%, 100% { transform: scaleY(0.6); }
+  50% { transform: scaleY(1); }
+}
+/* image-блок в полноэкранном режиме: картинка на весь вьюпорт, шапка поверх,
+   подпись — пилюлей на подложке (тема-независимой, лежит на фото) */
+.screen-block--imagefull .screen-block-image {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  max-height: none;
+  object-fit: cover;
+  border-radius: 0;
+  margin: 0;
+}
+.screen-block--imagefull .screen-block-body {
+  position: relative;
+  z-index: 2;
+  background: rgba(10, 16, 34, 0.6);
+  color: #fff;
+  padding: 8px 18px;
+  border-radius: 999px;
+}
+/* полноэкранная картинка не должна порождать скролл у страницы зала
+   (шапка и так fixed z-10 поверх картинки z-0) */
+.screen-page:has(.screen-block--imagefull) {
+  height: 100vh;
+  overflow: hidden;
+}
+/* телефон: свёрнутая карточка неигрового блока (§4.2 collapsed) */
+.play-block-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 22px 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 360px;
+}
+.play-block-icon {
+  font-size: 40px;
+  line-height: 1;
+}
+.play-block-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0;
+}
+.play-block-card h2 {
+  font-size: 20px;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.play-block-card--pulse .play-block-icon {
+  animation: play-pulse 1.6s ease-in-out infinite;
+}
+@keyframes play-pulse {
+  50% { transform: scale(1.12); }
 }
 
 /* пульт: поверхность на всю страницу (десктоп — колонка по центру) */
@@ -1611,13 +1818,17 @@ input:focus {
   flex-direction: column;
   color: var(--text);
 }
+/* шапка пульта: обёртка .panel-head держит нижнюю рамку — под строкой заголовка
+   может жить BlockProgress (EM-56) */
+.panel-head {
+  border-bottom: 1px solid var(--border);
+}
 .panel-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 12px;
   padding-bottom: 12px;
-  border-bottom: 1px solid var(--border);
 }
 /* длинное название квиза не должно ломать шапку: до 2 строк с ellipsis на второй
    (EM-48, по flow-брифу), кнопки не переносятся */

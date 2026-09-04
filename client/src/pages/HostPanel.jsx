@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import QRCode from "qrcode";
 import { getSocket } from "../socket";
@@ -9,20 +9,11 @@ import { PlayerChip, PlayerName } from "../components/AudienceView";
 import ConfirmDialog from "../components/ConfirmDialog";
 import ReconnectOverlay, { useReconnectStatus } from "../components/ReconnectOverlay";
 import { useToast } from "../components/Toast";
+import { BLOCK_TYPES, blockDisplayTitle, mmss } from "../blocks";
+import useBreakCountdown from "../useBreakCountdown";
 
 // EM-36: пульт ведущего — управление идущей игрой. Зал (/screen/<pin>) показывает,
 // пульт управляет. Работает на ноуте и телефоне (главное действие — sticky bottom).
-
-// подписи типов блоков сценария (EM-55)
-const BLOCK_LABELS = {
-  quiz: "Квиз",
-  poll: "Опрос",
-  text: "Текст",
-  break: "Перерыв",
-  image: "Изображение",
-  audio: "Музыка",
-  activity: "Активность",
-};
 
 export default function HostPanel() {
   // EM-55: один пульт на две сущности — /host/<quizId> (легаси-квиз) и
@@ -51,6 +42,13 @@ export default function HostPanel() {
   // EM-55: текущий неигровой блок (block:text/break/transition/…) и прогресс сценария
   const [block, setBlock] = useState(null);
   const [progress, setProgress] = useState(null);
+  // EM-56: аудио-блок играет с устройства ведущего; у активности — свой секундомер
+  const audioRef = useRef(null);
+  const [audioPlaying, setAudioPlaying] = useState(false);
+  const [audioVolume, setAudioVolume] = useState(0.8);
+  const [activityStarted, setActivityStarted] = useState(false);
+  const [activitySec, setActivitySec] = useState(0);
+  const breakTimer = useBreakCountdown(block);
 
   // EM-46: сервер сам подключает пульт к живой партии своего квиза, а при её
   // отсутствии создаёт новую — запуск в один клик, вторая партия не плодится.
@@ -79,7 +77,12 @@ export default function HostPanel() {
       setAttachError("");
       setScreenOpen(!!snap.screenOpen);
       setGame(snap);
-      setProgress(snap.blockTotal != null ? { index: snap.blockIndex, total: snap.blockTotal } : null);
+      // EM-56: снапшот несёт block:{type,title} — BlockProgress жив сразу после attach
+      setProgress(
+        snap.blockTotal != null
+          ? { index: snap.blockIndex, total: snap.blockTotal, type: snap.block?.type, title: snap.block?.title }
+          : null
+      );
       // в состоянии block сервер следом досылает текущий блок — не гасим его здесь
       if (snap.state !== "block") setBlock(null);
       if (snap.state === "lobby") {
@@ -95,7 +98,8 @@ export default function HostPanel() {
       setFinal(null);
       setAnswered(0);
       setBlock(null);
-      if (q.blockTotal != null) setProgress({ index: q.blockIndex, total: q.blockTotal });
+      if (q.blockTotal != null)
+        setProgress({ index: q.blockIndex, total: q.blockTotal, type: q.blockType, title: q.blockTitle });
     };
     const onReveal = (r) => {
       setReveal(r);
@@ -146,6 +150,39 @@ export default function HostPanel() {
       socket.off("game:closed", onClosed);
     };
   }, [socket, token, quizId, eventId, navigate, claim]);
+
+  // смена блока — сбрасываем локальные поверхности; элемент захватываем на входе:
+  // React зануляет ref до запуска эффектов, поэтому гасить звук надо в cleanup
+  useEffect(() => {
+    const el = audioRef.current;
+    setAudioPlaying(false);
+    setActivityStarted(false);
+    setActivitySec(0);
+    return () => el?.pause();
+  }, [block]);
+
+  useEffect(() => {
+    if (!activityStarted) return undefined;
+    const iv = setInterval(() => setActivitySec((s) => s + 1), 1000);
+    return () => clearInterval(iv);
+  }, [activityStarted]);
+
+  const toggleAudio = () => {
+    const el = audioRef.current;
+    if (!el) return;
+    if (audioPlaying) {
+      el.pause();
+      setAudioPlaying(false);
+    } else {
+      el.volume = audioVolume;
+      el.play().then(() => setAudioPlaying(true)).catch(() => setAudioPlaying(false));
+    }
+  };
+
+  const changeVolume = (v) => {
+    setAudioVolume(v);
+    if (audioRef.current) audioRef.current.volume = v;
+  };
 
   const phase = final
     ? "finished"
@@ -200,23 +237,64 @@ export default function HostPanel() {
   const onlinePlayers = game ? game.players.filter((p) => p.online !== false).length : 0;
   const allAnswered = question && answered >= onlinePlayers && onlinePlayers > 0;
 
+  // EM-56: данные BlockProgress в шапке (§4.5). В вопросных фазах название/тип
+  // приходят в payload вопроса и снапшоте (blockTitle/blockType); на финале скрыт
+  const currentBlockInfo =
+    isEvent && progress && phase !== "finished"
+      ? block
+        ? { type: block.to ? block.to.type : block.blockType, title: blockDisplayTitle(block) }
+        : phase === "question" || phase === "reveal"
+          ? { type: progress.type, title: progress.title }
+          : null
+      : null;
+
   const header = (
-    <div className="panel-header">
-      <Logo>{game ? game.title : undefined}</Logo>
-      <div className="panel-header-actions">
-        {/* «Зал ↗» в шапке: когда зал открыт — переключиться; вне лобби при закрытом зале —
-            единственный способ его вернуть (в лобби вместо неё лаунчпад, EM-51) */}
-        {status === "connected" && game && (screenOpen || phase !== "lobby") && (
-          <button className="btn btn-ghost btn-sm" onClick={openScreen}>
-            Зал ↗
-          </button>
-        )}
-        {status === "connected" && (
-          <button className="btn btn-danger btn-sm" onClick={() => setConfirmEnd(true)}>
-            Завершить
-          </button>
-        )}
+    <div className="panel-head">
+      <div className="panel-header">
+        <Logo>{game ? game.title : undefined}</Logo>
+        <div className="panel-header-actions">
+          {/* «Зал ↗» в шапке: когда зал открыт — переключиться; вне лобби при закрытом зале —
+              единственный способ его вернуть (в лобби вместо неё лаунчпад, EM-51) */}
+          {status === "connected" && game && (screenOpen || phase !== "lobby") && (
+            <button className="btn btn-ghost btn-sm" onClick={openScreen}>
+              Зал ↗
+            </button>
+          )}
+          {status === "connected" && (
+            <button className="btn btn-danger btn-sm" onClick={() => setConfirmEnd(true)}>
+              Завершить
+            </button>
+          )}
+        </div>
       </div>
+      {currentBlockInfo && (
+        <div className="panel-blockprogress">
+          <div className="panel-blockprogress-meta">
+            Блок {progress.index + 1} / {progress.total}
+            {currentBlockInfo.title && (
+              <>
+                {" · "}
+                <span aria-hidden="true">{BLOCK_TYPES[currentBlockInfo.type]?.icon}</span>{" "}
+                {currentBlockInfo.title}
+              </>
+            )}
+          </div>
+          <div
+            className="panel-blockprogress-bar"
+            role="progressbar"
+            aria-label="Прогресс сценария"
+            aria-valuemin={1}
+            aria-valuemax={progress.total}
+            aria-valuenow={progress.index + 1}
+          >
+            <div
+              className="panel-blockprogress-fill"
+              /* заполнение = позиция текущего блока, как в подписи «Блок N / M» */
+              style={{ width: `${Math.round(((progress.index + 1) / progress.total) * 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -331,16 +409,9 @@ export default function HostPanel() {
         </div>
       )}
 
-      {/* EM-55: неигровые блоки сценария — переход, текст, пауза и др.
-          (минимальные поверхности; макеты §4.5 — EM-56) */}
+      {/* EM-56: неигровые блоки сценария — макеты §4.5 (превью, отсчёт, аудио, активность) */}
       {phase === "block" && block && (
         <div className="panel-body">
-          {progress && (
-            <div className="q-meta">
-              Блок {progress.index + 1} / {progress.total}
-              {!block.to && ` · ${BLOCK_LABELS[block.blockType] || ""}`}
-            </div>
-          )}
           {block.to ? (
             <>
               <h2 className="panel-counter">Дальше: {block.to.title}</h2>
@@ -349,47 +420,89 @@ export default function HostPanel() {
           ) : block.blockType === "break" ? (
             <>
               <h2 className="panel-counter">{block.label || "Перерыв"}</h2>
-              <p className="muted">
-                {block.duration > 0
-                  ? `Пауза ${block.duration} мин — следующий блок включится автоматически`
-                  : "Пауза без таймера"}
-              </p>
+              {breakTimer.left != null ? (
+                <>
+                  <div className="panel-timer" role="timer">
+                    <span className="panel-timer-digit">{mmss(breakTimer.left)}</span>
+                  </div>
+                  <p className="muted">Следующий блок включится автоматически</p>
+                </>
+              ) : (
+                <p className="muted">Пауза без таймера</p>
+              )}
               <div className="panel-main-action">
-                <button className="btn btn-primary btn-xl btn-block" onClick={hostAction("host:skip-block")}>
+                <button className="btn btn-outline btn-block" onClick={hostAction("host:skip-block")}>
                   Пропустить паузу
                 </button>
               </div>
             </>
           ) : (
             <>
-              {block.blockType === "text" && (
-                <>
-                  <h2 className="panel-counter">{block.heading}</h2>
-                  {block.body && <p className="muted">{block.body}</p>}
-                </>
-              )}
-              {block.blockType === "image" && (
-                <>
-                  {block.url && <img className="panel-block-image" src={block.url} alt={block.caption || ""} />}
-                  {block.caption && <p className="muted">{block.caption}</p>}
-                </>
+              {(block.blockType === "text" || block.blockType === "image") && (
+                <div className="panel-block-preview">
+                  {block.blockType === "text" ? (
+                    <>
+                      <div className="panel-block-preview-title">{block.heading}</div>
+                      {block.body && <p className="panel-block-preview-text">{block.body}</p>}
+                      {block.imageUrl && <img className="panel-block-preview-image" src={block.imageUrl} alt="" />}
+                    </>
+                  ) : (
+                    <>
+                      {block.url && <img className="panel-block-preview-image" src={block.url} alt={block.caption || ""} />}
+                      {block.caption && <p className="panel-block-preview-text">{block.caption}</p>}
+                    </>
+                  )}
+                </div>
               )}
               {block.blockType === "audio" && (
                 <>
                   <h2 className="panel-counter">{block.title || "Музыка"}</h2>
-                  {block.url && <p className="muted small">{block.url}</p>}
+                  <div className="panel-audio">
+                    <audio ref={audioRef} src={block.url || undefined} preload="none" onEnded={() => setAudioPlaying(false)} />
+                    <button
+                      className="btn btn-outline"
+                      onClick={toggleAudio}
+                      disabled={!block.url}
+                      aria-label={audioPlaying ? "Пауза" : "Играть"}
+                    >
+                      {audioPlaying ? "⏸" : "▶"}
+                    </button>
+                    <label className="panel-audio-volume">
+                      Громкость
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={audioVolume}
+                        onChange={(e) => changeVolume(Number(e.target.value))}
+                      />
+                    </label>
+                  </div>
                 </>
               )}
               {block.blockType === "activity" && (
                 <>
-                  <h2 className="panel-counter">{block.title}</h2>
+                  <h2 className="panel-counter">{block.title || "Активность"}</h2>
                   {block.description && <p className="muted">{block.description}</p>}
+                  {activityStarted && (
+                    <div className="panel-timer" role="timer">
+                      <span className="panel-timer-digit">{mmss(activitySec)}</span>
+                    </div>
+                  )}
                 </>
               )}
               <div className="panel-main-action">
-                <button className="btn btn-primary btn-xl btn-block" onClick={hostAction("host:next-block")}>
-                  Далее →
-                </button>
+                {/* активность: «Начать» запускает секундомер, дальше главное действие — «Далее →» */}
+                {block.blockType === "activity" && !activityStarted ? (
+                  <button className="btn btn-primary btn-xl btn-block" onClick={() => setActivityStarted(true)}>
+                    Начать
+                  </button>
+                ) : (
+                  <button className="btn btn-primary btn-xl btn-block" onClick={hostAction("host:next-block")}>
+                    Далее →
+                  </button>
+                )}
               </div>
               <div className="panel-secondary-action">
                 <button className="btn btn-outline btn-block" onClick={hostAction("host:skip-block")}>
@@ -403,10 +516,8 @@ export default function HostPanel() {
 
       {phase === "question" && question && (
         <div className="panel-body">
-          <div className="q-meta">
-            {game?.eventId && progress && `Блок ${progress.index + 1} / ${progress.total} · `}
-            Вопрос {question.index + 1} / {question.total}
-          </div>
+          {/* прогресс блока теперь в шапке (BlockProgress, EM-56) */}
+          <div className="q-meta">Вопрос {question.index + 1} / {question.total}</div>
           <h2 className={`panel-counter ${allAnswered ? "brand" : ""}`}>
             Ответили: {answered} / {onlinePlayers}
           </h2>
