@@ -84,6 +84,8 @@ eventRoutes.get("/", (req, res) => {
     .prepare(
       `SELECT e.*,
         (SELECT COUNT(*) FROM scenario_blocks b WHERE b.event_id = e.id) AS block_count,
+        (SELECT COUNT(*) FROM scenario_blocks b WHERE b.event_id = e.id AND b.type = 'quiz') AS quiz_count,
+        (SELECT COUNT(*) FROM scenario_blocks b WHERE b.event_id = e.id AND b.type = 'poll') AS poll_count,
         (SELECT COALESCE(SUM(
            (SELECT COUNT(*) FROM questions q
             WHERE q.quiz_id = json_extract(b.content, '$.quizId'))), 0)
