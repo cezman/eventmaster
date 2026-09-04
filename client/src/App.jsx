@@ -81,6 +81,16 @@ export default function App() {
           </RequireAuth>
         }
       />
+      {/* EM-55: пульт мероприятия; отдельный префикс — id квизов и событий
+          из разных последовательностей, /host/<число> остаётся квизом (легаси) */}
+      <Route
+        path="/host/event/:eventId"
+        element={
+          <RequireAuth>
+            <HostPanel />
+          </RequireAuth>
+        }
+      />
       <Route path="/screen/:pin" element={<ScreenGame />} />
       <Route path="/play" element={<PlayGame />} />
       <Route path="/play/:pin" element={<PlayGame />} />

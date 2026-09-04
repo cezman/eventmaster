@@ -59,6 +59,7 @@ export default function PlayGame() {
   const [submitted, setSubmitted] = useState(null); // индекс ответа
   const [reveal, setReveal] = useState(null);
   const [final, setFinal] = useState(null);
+  const [block, setBlock] = useState(null); // EM-55: неигровой блок сценария
   const [secondsLeft, setSecondsLeft] = useState(null);
   const nameRef = useRef(null);
 
@@ -72,6 +73,7 @@ export default function PlayGame() {
     setQuestion(null); // стейт партии мог доехать до кика — сбрасываем, чтобы не «вернулся» после экрана
     setReveal(null);
     setFinal(null);
+    setBlock(null);
     setSubmitted(null);
     setSecondsLeft(null);
     setKickedPin(saved);
@@ -102,28 +104,44 @@ export default function PlayGame() {
       setQuestion(null);
       setReveal(null);
       setFinal(null);
+      setBlock(null);
       setSubmitted(null);
       setSecondsLeft(null);
       setGameOver(false); // хост нажал «Играть снова» — экран «Игра завершена» больше не нужен
     };
     const onClosed = () => setClosed(true);
     const onKicked = () => handleKicked();
+    // EM-55: неигровые блоки — телефон в свёрнутом состоянии «Сейчас: …»
+    const onBlock = (payload) => {
+      setBlock(payload);
+      setQuestion(null);
+      setReveal(null);
+      setFinal(null);
+      setSubmitted(null);
+      setSecondsLeft(null);
+    };
 
     socket.on("players", onPlayers);
     socket.on("question", onQuestion);
     socket.on("reveal", onReveal);
     socket.on("finished", onFinished);
+    socket.on("event:finished", onFinished);
     socket.on("game:lobby", onLobby);
     socket.on("game:closed", onClosed);
     socket.on("kicked", onKicked);
+    for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:transition"])
+      socket.on(ev, onBlock);
     return () => {
       socket.off("players", onPlayers);
       socket.off("question", onQuestion);
       socket.off("reveal", onReveal);
       socket.off("finished", onFinished);
+      socket.off("event:finished", onFinished);
       socket.off("game:lobby", onLobby);
       socket.off("game:closed", onClosed);
       socket.off("kicked", onKicked);
+      for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:transition"])
+        socket.off(ev, onBlock);
     };
   }, [socket]);
 
@@ -371,6 +389,31 @@ export default function PlayGame() {
     );
   }
 
+  // EM-55: неигровой блок сценария — свёрнутое состояние «Сейчас: …» (спека §4.2;
+  // полноценные поверхности телефона — EM-56)
+  if (block && !question && !reveal && !final) {
+    const now = block.to
+      ? block.to.title
+      : block.blockType === "break"
+        ? `Перерыв — ${block.duration || 0} мин`
+        : block.blockType === "text"
+          ? block.heading
+          : block.blockType === "image"
+            ? block.caption || "Изображение"
+            : block.blockType === "audio"
+              ? block.title || "Музыка"
+              : block.title || "Активность";
+    return (
+      <div className="play-screen">
+        {reconnectOverlay}
+        <p className="muted">Сейчас в программе</p>
+        <h2>{now}</h2>
+        <div className="spin" />
+        <p className="muted small">Ждём ведущего…</p>
+      </div>
+    );
+  }
+
   if (question && !reveal) {
     return (
       <div className="play-screen">
@@ -494,7 +537,9 @@ export default function PlayGame() {
         <p className="muted">
           {question && question.index + 1 < question.total
             ? "Дальше — следующий вопрос…"
-            : "Скоро финальные результаты…"}
+            : question?.blockTotal != null
+              ? "Дальше — следующий блок программы…"
+              : "Скоро финальные результаты…"}
         </p>
       </div>
     );

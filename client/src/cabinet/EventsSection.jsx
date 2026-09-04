@@ -109,16 +109,18 @@ export default function EventsSection() {
     return () => document.removeEventListener("keydown", onKey);
   }, [createOpen, menuId, createKind, busyKind]);
 
-  // «Запустить» пока играет первый quiz/poll-блок; запуск сценария целиком — EM-55
+  // «Запустить» с EM-55: партия идёт по всему сценарию (движок блоков)
   const run = async (id) => {
     try {
       const d = await api(`/events/${id}`, { token });
-      const block = d.blocks.find((b) => (b.type === "quiz" || b.type === "poll") && Number.isInteger(b.content.quizId));
-      if (!block) {
-        showToast("В сценарии нет заполненных квизов", "error");
+      const broken = d.blocks.some(
+        (b) => (b.type === "quiz" || b.type === "poll") && !Number.isInteger(b.content.quizId)
+      );
+      if (broken) {
+        showToast("Заполните квизы во всех блоках сценария", "error");
         return;
       }
-      navigate(`/host/${block.content.quizId}`);
+      navigate(`/host/event/${id}`);
     } catch (e) {
       showToast(`Не удалось открыть мероприятие: ${e.message}`, "error");
     }
@@ -274,9 +276,9 @@ export default function EventsSection() {
                     {status.label}
                   </span>
                   <div className="event-card-actions">
-                    {/* live выставит движок сценария (EM-55); /host/<eventId> заработает тогда же */}
+                    {/* EM-55: live выставляет движок сценария, пульт — /host/event/<id> */}
                     {ev.status === "live" ? (
-                      <Link className="btn btn-danger" to={`/host/${ev.id}`}>
+                      <Link className="btn btn-danger" to={`/host/event/${ev.id}`}>
                         Перейти к пульту
                       </Link>
                     ) : (

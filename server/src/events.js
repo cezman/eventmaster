@@ -72,6 +72,50 @@ function parsePosition(raw, max) {
   return Math.min(max, Math.max(0, n));
 }
 
+// === EM-55: snapshot-семантика квиз-блоков (патч L1) ===
+// Вставка квиза из библиотеки в сценарий создаёт его копию (cloned_from_quiz_id):
+// правки и удаление библиотечного оригинала не задевают уже вставленные блоки.
+// Хелперы выполняются внутри открытой транзакции вызывающего эндпоинта.
+
+function cloneQuizForBlock(hostId, quizId) {
+  const src = db
+    .prepare("SELECT id, title, type, settings FROM quizzes WHERE id = ? AND host_id = ?")
+    .get(quizId, hostId);
+  if (!src) throw new Error("Квиз не найден");
+  const copy = db
+    .prepare("INSERT INTO quizzes (host_id, title, type, settings, cloned_from_quiz_id) VALUES (?, ?, ?, ?, ?)")
+    .run(hostId, src.title, src.type, src.settings || "{}", src.id);
+  const copyId = Number(copy.lastInsertRowid);
+  const questions = db
+    .prepare("SELECT id, text, position, time_limit, points, mode FROM questions WHERE quiz_id = ? ORDER BY position")
+    .all(src.id);
+  const insQuestion = db.prepare(
+    "INSERT INTO questions (quiz_id, text, position, time_limit, points, mode) VALUES (?, ?, ?, ?, ?, ?)"
+  );
+  const insAnswer = db.prepare("INSERT INTO answers (question_id, text, is_correct, position) VALUES (?, ?, ?, ?)");
+  const srcAnswers = db.prepare("SELECT text, is_correct, position FROM answers WHERE question_id = ? ORDER BY position");
+  for (const q of questions) {
+    const res = insQuestion.run(copyId, q.text, q.position, q.time_limit, q.points, q.mode);
+    for (const a of srcAnswers.all(q.id)) insAnswer.run(Number(res.lastInsertRowid), a.text, a.is_correct, a.position);
+  }
+  return copyId;
+}
+
+// копия живёт вместе со своим блоком: когда на неё больше не ссылается ни один
+// блок ни одного сценария (блок удалили/заменили, мероприятие удалили) — удаляем
+function deleteQuizCopyIfOrphan(quizId) {
+  if (!Number.isInteger(quizId)) return;
+  const quiz = db.prepare("SELECT id FROM quizzes WHERE id = ? AND cloned_from_quiz_id IS NOT NULL").get(quizId);
+  if (!quiz) return;
+  const refs = db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM scenario_blocks
+       WHERE type IN ('quiz', 'poll') AND json_valid(content) AND json_extract(content, '$.quizId') = ?`
+    )
+    .get(quizId).n;
+  if (refs === 0) db.prepare("DELETE FROM quizzes WHERE id = ?").run(quizId);
+}
+
 // схлопываем дыры в нумерации после удалений
 function compactPositions(eventId) {
   const rest = db
@@ -155,8 +199,29 @@ eventRoutes.put("/:id", (req, res) => {
 });
 
 eventRoutes.delete("/:id", (req, res) => {
-  db.prepare("DELETE FROM events WHERE id = ? AND host_id = ?").run(req.params.id, req.userId);
-  res.json({ ok: true });
+  const event = getEvent(req.params.id, req.userId);
+  if (!event) return res.status(404).json({ error: "Мероприятие не найдено" });
+  db.exec("BEGIN");
+  try {
+    // snapshot-копии квизов удаляются вместе с мероприятием (спека §1.3):
+    // сначала запоминаем ссылки, потом удаляем событие (блоки уйдут каскадом),
+    // затем чистим осиротевшие копии
+    const quizIds = db
+      .prepare(
+        `SELECT json_extract(content, '$.quizId') AS qid FROM scenario_blocks
+         WHERE event_id = ? AND type IN ('quiz', 'poll') AND json_valid(content)`
+      )
+      .all(event.id)
+      .map((r) => r.qid)
+      .filter(Number.isInteger);
+    db.prepare("DELETE FROM events WHERE id = ?").run(event.id);
+    quizIds.forEach((qid) => deleteQuizCopyIfOrphan(qid));
+    db.exec("COMMIT");
+    res.json({ ok: true });
+  } catch (e) {
+    db.exec("ROLLBACK");
+    res.status(400).json({ error: e.message });
+  }
 });
 
 eventRoutes.post("/:id/blocks", (req, res) => {
@@ -166,7 +231,10 @@ eventRoutes.post("/:id/blocks", (req, res) => {
   if (!BLOCK_TYPES.includes(type)) return res.status(400).json({ error: "Неверный тип блока" });
   db.exec("BEGIN");
   try {
-    const validContent = validateContent(type, content, req.userId);
+    let validContent = validateContent(type, content, req.userId);
+    // L1: блок ссылается на копию квиза, а не на библиотечный оригинал
+    if ((type === "quiz" || type === "poll") && Number.isInteger(validContent.quizId))
+      validContent = { ...validContent, quizId: cloneQuizForBlock(req.userId, validContent.quizId) };
     // MAX вместо COUNT — не ломается, если в нумерации есть дыры
     const maxPos = db
       .prepare("SELECT COALESCE(MAX(position), -1) AS m FROM scenario_blocks WHERE event_id = ?")
@@ -199,11 +267,22 @@ eventRoutes.put("/:id/blocks/:blockId", (req, res) => {
     .get(req.params.blockId, event.id);
   if (!block) return res.status(404).json({ error: "Блок не найден" });
   const { content, settings, position } = req.body || {};
+  // прежний квиз блока: если это копия и ссылок на неё не осталось — удалим в конце
+  const prevQuizId = parseJson(block.content).quizId;
+  let replacedQuizId = null;
   db.exec("BEGIN");
   try {
     if (content !== undefined) {
-      const validContent = validateContent(block.type, content, req.userId);
+      let validContent = validateContent(block.type, content, req.userId);
+      // L1: замена квиза в блоке — тоже вставка копии; тот же quizId повторно не клонируем
+      if (
+        (block.type === "quiz" || block.type === "poll") &&
+        Number.isInteger(validContent.quizId) &&
+        validContent.quizId !== prevQuizId
+      )
+        validContent = { ...validContent, quizId: cloneQuizForBlock(req.userId, validContent.quizId) };
       db.prepare("UPDATE scenario_blocks SET content = ? WHERE id = ?").run(JSON.stringify(validContent), block.id);
+      replacedQuizId = prevQuizId;
     }
     if (settings !== undefined) {
       if (!isPlainObject(settings)) throw new Error("settings должен быть объектом");
@@ -226,6 +305,8 @@ eventRoutes.put("/:id/blocks/:blockId", (req, res) => {
       );
       db.prepare("UPDATE scenario_blocks SET position = ? WHERE id = ?").run(pos, block.id);
     }
+    // чистим старую копию после всех правок блока — когда счётчик ссылок уже честный
+    if (replacedQuizId != null) deleteQuizCopyIfOrphan(replacedQuizId);
     touchEvent(event.id);
     db.exec("COMMIT");
     res.json({ blocks: loadBlocks(event.id) });
@@ -239,13 +320,15 @@ eventRoutes.delete("/:id/blocks/:blockId", (req, res) => {
   const event = getEvent(req.params.id, req.userId);
   if (!event) return res.status(404).json({ error: "Мероприятие не найдено" });
   const block = db
-    .prepare("SELECT id FROM scenario_blocks WHERE id = ? AND event_id = ?")
+    .prepare("SELECT id, type, content FROM scenario_blocks WHERE id = ? AND event_id = ?")
     .get(req.params.blockId, event.id);
   if (!block) return res.status(404).json({ error: "Блок не найден" });
   db.exec("BEGIN");
   try {
     db.prepare("DELETE FROM scenario_blocks WHERE id = ?").run(block.id);
     compactPositions(event.id);
+    if (block.type === "quiz" || block.type === "poll")
+      deleteQuizCopyIfOrphan(parseJson(block.content).quizId);
     touchEvent(event.id);
     db.exec("COMMIT");
     res.json({ blocks: loadBlocks(event.id) });
@@ -268,9 +351,23 @@ eventRoutes.post("/:id/clone", (req, res) => {
       .prepare("SELECT * FROM scenario_blocks WHERE event_id = ? ORDER BY position")
       .all(event.id);
     for (const b of blocks) {
+      let contentRaw = b.content;
+      // копии квизов не делятся между мероприятиями: у клона события — свои копии,
+      // иначе удаление одного события разорвало бы блоки другого
+      if (b.type === "quiz" || b.type === "poll") {
+        const content = parseJson(b.content);
+        const owned =
+          Number.isInteger(content.quizId) &&
+          db.prepare("SELECT id FROM quizzes WHERE id = ? AND host_id = ?").get(content.quizId, req.userId);
+        if (owned) {
+          // протухшую ссылку (квиз удалён) переносим как есть — как её отдаёт loadBlocks
+          content.quizId = cloneQuizForBlock(req.userId, content.quizId);
+          contentRaw = JSON.stringify(content);
+        }
+      }
       db.prepare(
         "INSERT INTO scenario_blocks (event_id, type, position, content, settings) VALUES (?, ?, ?, ?, ?)"
-      ).run(cloneId, b.type, b.position, b.content, b.settings);
+      ).run(cloneId, b.type, b.position, contentRaw, b.settings);
     }
     db.exec("COMMIT");
     res.json({ event: getEvent(cloneId, req.userId), blocks: loadBlocks(cloneId) });
