@@ -337,6 +337,7 @@ export default function QuizEditor() {
       </div>
 
       <div className="page-body editor">
+        <h1 className="sr-only">Редактор квиза</h1>
         <label className="title-label">
           Название
           <input
@@ -455,6 +456,7 @@ export default function QuizEditor() {
               </div>
             <input
               className="question-text"
+              aria-label={`Вопрос ${qi + 1}: текст вопроса`}
               placeholder="Текст вопроса"
               value={q.text}
               onChange={(e) => patchQuestion(qi, { text: e.target.value })}
@@ -508,6 +510,7 @@ export default function QuizEditor() {
                     )}
                     <input
                       placeholder={`Вариант ${ai + 1}`}
+                      aria-label={`Вопрос ${qi + 1}, вариант ${ai + 1}`}
                       value={a.text}
                       onChange={(e) => patchAnswer(qi, ai, { text: e.target.value })}
                     />

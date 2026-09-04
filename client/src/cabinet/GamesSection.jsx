@@ -129,7 +129,7 @@ export default function GamesSection() {
       ) : quizzes.length === 0 ? (
         <div className="empty-state">
           <QuizIcon />
-          <h3>Здесь пока пусто</h3>
+          <h2>Здесь пока пусто</h2>
           <p>Создайте первую викторину или голосование — это пара минут. Гости подключатся по QR-коду или PIN.</p>
           {!showForm && (
             <button className="btn btn-primary btn-lg" onClick={() => setShowForm(true)}>
@@ -142,7 +142,7 @@ export default function GamesSection() {
           {quizzes.map((q) => (
             <div className="card quiz-card" key={q.id}>
               <div>
-                <h3>{q.title}</h3>
+                <h2>{q.title}</h2>
                 <p className="muted">
                   {q.type === "quiz" ? <QuizIcon className="inline-icon" /> : <PollIcon className="inline-icon" />}{" "}
                   {q.type === "quiz" ? "Викторина" : "Голосование"} · {q.question_count}{" "}

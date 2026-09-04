@@ -13,6 +13,10 @@
   --text-muted-on-card: #5d6b84;       /* приглушённый текст на белом */
   --primary: #5b8def;         /* CTA, ссылки, фокусы */
   --primary-strong: #7ba4ff;  /* hover */
+  --primary-cta: #3d6fe0;     /* фон залитой кнопки: белый текст ≥4.5:1 (WCAG AA) */
+  --primary-cta-strong: #3463cf;
+  --primary-text: #a5c0f7;    /* primary как текст на тёмной поверхности ≥4.5:1 */
+  --warn-text: #e79d13;       /* warning как текст на тёмной поверхности */
   --accent: var(--primary);   /* историческое имя, теперь = primary */
   --accent2: #7ba4ff;         /* рамки фокуса, чеки в дропдаунах */
   --highlight: #ffbe56;       /* янтарный: акцент слова в заголовке, таймер, победитель */
@@ -21,7 +25,7 @@
   --c2: #e79d13;
   --c3: #30c760;
   --ok: #30c760;
-  --bad: #e5484d;
+  --bad: #f0555a;             /* текст/рамки danger на тёмном ≥4.5:1; заливки ответов — --c0 */
   --border: #2a3352;
   --border-strong: #3d4a6a;
   --bg-a: var(--bg2);
@@ -51,6 +55,10 @@
   --text-muted-on-card: #5d6b84;
   --primary: #3d6fe0;
   --primary-strong: #2d55b8;
+  --primary-cta: #3d6fe0;
+  --primary-cta-strong: #2d55b8;
+  --primary-text: #3257c0;    /* primary как текст на светлой поверхности ≥4.5:1 */
+  --warn-text: #8a5f08;
   --accent2: #2d55b8;
   --highlight: var(--primary);
   --c0: #d93a3f;
@@ -58,7 +66,7 @@
   --c2: #c98a0e;
   --c3: #239e48;
   --ok: #239e48;
-  --bad: #d93a3f;
+  --bad: #c93338;             /* текст/рамки danger на светлом ≥4.5:1; заливки ответов — --c0 */
   --border: #d8dee8;
   --border-strong: #b8c1d2;
   --bg-a: #ffffff;
@@ -172,6 +180,18 @@ input:focus {
   color: var(--highlight);
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .btn {
   display: inline-block;
   font: inherit;
@@ -191,13 +211,14 @@ input:focus {
   opacity: 0.45;
   cursor: default;
 }
-/* primary — единственный заливочный цвет; danger и outline всегда контурные */
+/* primary — единственный заливочный цвет; danger и outline всегда контурные.
+   Фон — --primary-cta (темнее --primary в тёмной теме): белый текст проходит AA 4.5:1 */
 .btn-primary {
-  background: var(--primary);
+  background: var(--primary-cta);
   color: #fff;
 }
 .btn-primary:hover:not(:disabled) {
-  background: var(--primary-strong);
+  background: var(--primary-cta-strong);
 }
 .btn-outline {
   background: transparent;
@@ -262,7 +283,7 @@ input:focus {
   gap: 6px;
   background: rgba(91, 141, 239, 0.14); /* fallback до color-mix */
   background: color-mix(in srgb, var(--primary) 12%, var(--surface));
-  color: var(--primary);
+  color: var(--primary-text);
   border-radius: 999px;
   padding: 4px 12px;
   font-size: 13px;
@@ -283,7 +304,7 @@ input:focus {
 .badge-muted {
   background: rgba(231, 157, 19, 0.14); /* fallback до color-mix */
   background: color-mix(in srgb, var(--c2) 12%, var(--surface));
-  color: var(--c2);
+  color: var(--warn-text);
 }
 
 /* ---------- Лендинг ---------- */
@@ -363,7 +384,7 @@ input:focus {
 .feature-icon {
   color: var(--on-bg);
 }
-.feature-card h3 {
+.feature-card h2 {
   margin: 10px 0 6px;
 }
 .feature-card p {
@@ -493,7 +514,7 @@ input:focus {
   height: 44px;
   opacity: 0.7;
 }
-.empty-state h3 {
+.empty-state h2 {
   margin: 8px 0 0;
   font-size: 20px;
 }
@@ -510,7 +531,7 @@ input:focus {
   flex-wrap: wrap;
   color: var(--text);
 }
-.quiz-card h3 {
+.quiz-card h2 {
   margin: 0;
 }
 .quiz-card p {
@@ -708,6 +729,7 @@ input:focus {
 }
 .add-answer {
   border-style: dashed;
+  grid-column: 1 / -1; /* на всю ширину сетки ответов, а не в одну колонку */
 }
 .editor-actions {
   display: flex;
@@ -1016,7 +1038,7 @@ input:focus {
 .board {
   border: 1px solid var(--panel-border);
 }
-.board h3 {
+.board h2 {
   margin-top: 0;
   font-size: 20px;
 }
@@ -1811,7 +1833,7 @@ input:focus {
 .answer-btn.c3 { background: var(--c3); }
 /* правда/ложь */
 .answer-btn.tf-yes { background: var(--ok); }
-.answer-btn.tf-no { background: var(--bad); }
+.answer-btn.tf-no { background: var(--c0); }
 /* waiting-card (спека §6.4 + §6.5 отличие): surfaceAlt вместо chipBg */
 .waiting-card {
   background: var(--surface-alt);
@@ -2160,7 +2182,7 @@ input:focus {
   background: #fff;
   color: var(--ink);
 }
-.dialog h3 {
+.dialog h2 {
   margin-top: 0;
 }
 .dialog p {
@@ -2318,7 +2340,7 @@ input:focus {
   background: var(--panel-bg);
   border: 1px solid var(--panel-border);
   padding: 10px 13px; /* компенсация рамки, чтобы не прыгало */
-  color: var(--primary);
+  color: var(--primary-text);
 }
 .cabinet-nav-icon {
   width: 18px;
@@ -2444,7 +2466,7 @@ input:focus {
   background: rgba(91, 141, 239, 0.14); /* fallback до color-mix */
   background: color-mix(in srgb, var(--primary) 12%, var(--surface));
   border-color: transparent;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 /* dropdown создания: белый список, на мобиле — bottom sheet */
@@ -2738,7 +2760,7 @@ input:focus {
   justify-content: space-between;
   margin-bottom: 12px;
 }
-.picker-head h3 {
+.picker-head h2 {
   margin: 0;
 }
 .picker-close {
@@ -2838,4 +2860,33 @@ input:focus {
   width: 18px;
   height: 18px;
   display: block;
+}
+
+/* ---------- EM-63: тач-таргеты ≥44px на мобильном (блок в конце файла — переигрывает базовые правила) ---------- */
+@media (max-width: 760px) {
+  .btn {
+    min-height: 44px;
+  }
+  .theme-toggle {
+    width: 44px;
+    height: 44px;
+  }
+  .filter-pill {
+    padding: 13px 16px;
+  }
+  .btn-sm,
+  .icon-btn {
+    min-height: 44px;
+  }
+  .dd-toggle {
+    padding: 12px 14px;
+  }
+  .points-input {
+    padding: 10px 12px !important;
+  }
+  .subnav a {
+    display: inline-block;
+    padding: 10px 12px;
+    margin: -10px -12px;
+  }
 }

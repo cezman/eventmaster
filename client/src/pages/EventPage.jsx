@@ -175,7 +175,7 @@ export default function EventPage() {
       <div className="page">
         <div className="page-body">
           <div className="empty-state">
-            <h3>Мероприятие не найдено</h3>
+            <h2>Мероприятие не найдено</h2>
             <p>Возможно, оно было удалено</p>
             <Link className="btn btn-primary" to="/dashboard">
               В кабинет
@@ -197,6 +197,7 @@ export default function EventPage() {
         <nav className="subnav" aria-label="Навигация">
           <Link to="/dashboard">← Кабинет</Link>
         </nav>
+        <h1 className="sr-only">{title || "Мероприятие"}</h1>
 
         <div className="card event-head">
           <div className="event-head-main">
@@ -254,7 +255,7 @@ export default function EventPage() {
         {blocks.length === 0 ? (
           <div className="empty-state">
             <span className="empty-state-emoji">🎪</span>
-            <h3>Сценарий пуст</h3>
+            <h2>Сценарий пуст</h2>
             <p>Добавьте первый раунд — квиз или голосование из библиотеки</p>
             <button className="btn btn-primary btn-lg" onClick={openPicker}>
               + Добавить раунд
@@ -314,7 +315,7 @@ export default function EventPage() {
           {/* клик по оверлею закрывает, клики внутри — нет */}
           <div className="card picker-card" role="dialog" aria-modal="true" aria-label="Библиотека квизов" onClick={(e) => e.stopPropagation()}>
             <div className="picker-head">
-              <h3>Библиотека квизов</h3>
+              <h2>Библиотека квизов</h2>
               <button type="button" className="picker-close" aria-label="Закрыть" onClick={() => setPickerOpen(false)}>
                 ×
               </button>

@@ -127,11 +127,11 @@ export default function AdminPage() {
                   </div>
                 ) : (
                   <div>
-                    <h3>
+                    <h2>
                       {u.email}{" "}
                       {u.role === "admin" && <span className="badge">Админ</span>}
                       {u.status === "blocked" && <span className="badge badge-muted">Заблокирован</span>}
-                    </h3>
+                    </h2>
                     <p className="muted">
                       {[u.name, u.surname].filter(Boolean).join(" ") || "без имени"} · квизов: {u.quiz_count} ·
                       с {new Date(String(u.created_at).replace(" ", "T") + "Z").toLocaleDateString("ru-RU")}
