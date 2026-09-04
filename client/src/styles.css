@@ -2270,6 +2270,16 @@ input:focus {
 
 /* ---------- Кабинет ведущего ---------- */
 /* сайдбар с разделами + контент; вкладка выбирается через ?tab= */
+/* шелл кабинета шире дефолтной страницы: сайдбар у левого края (на одной
+   вертикали с лого), контент — отдельная колонка по центру оставшегося места */
+.page-body.cabinet {
+  max-width: none;
+}
+.cabinet-content {
+  width: 100%;
+  max-width: 880px;
+  margin: 0 auto;
+}
 .cabinet {
   display: grid;
   grid-template-columns: 230px minmax(0, 1fr);
@@ -2821,7 +2831,7 @@ input:focus {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 0 0 14px;
+  padding: 18px 0 14px; /* отступ сверху — ссылка не прижата к краю вьюпорта */
 }
 /* SVG-иконка в кнопке темы: один размер в обеих темах, в отличие от эмодзи */
 .theme-icon {

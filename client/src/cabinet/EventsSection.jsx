@@ -324,7 +324,7 @@ export default function EventsSection() {
 
       {createKind && (
         <div className="dialog-overlay" onClick={() => busyKind === null && setCreateKind(null)}>
-          <div className="dialog" role="dialog" aria-modal="true" aria-label="Новое мероприятие" onClick={(e) => e.stopPropagation()}>
+          <div className="card dialog" role="dialog" aria-modal="true" aria-label="Новое мероприятие" onClick={(e) => e.stopPropagation()}>
             <h3>Новое мероприятие</h3>
             <label className="create-title-label">
               Название
