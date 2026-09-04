@@ -50,9 +50,17 @@ export default function QuizEditor() {
   useEffect(() => {
     api(`/quizzes/${id}`, { token: localStorage.getItem("token") })
       .then((d) => {
-        quizRef.current = d.quiz;
-        savedRef.current = serialize(d.quiz);
-        setQuiz(d.quiz);
+        // EM-51: пустой квиз (только созданный) сразу открываем с первой карточкой вопроса,
+        // а не заглушкой «добавьте первый вопрос». Автодобавленное не считаем изменением
+        // (savedRef по той же дополненной структуре), а валидацию гоняем по сохранённой —
+        // иначе новый квиз открывался бы с красной рамкой и «Несохранёнными изменениями»
+        const quiz =
+          d.quiz.questions.length === 0
+            ? { ...d.quiz, questions: [emptyQuestion()] }
+            : d.quiz;
+        quizRef.current = quiz;
+        savedRef.current = serialize(quiz);
+        setQuiz(quiz);
         // старые квизы могут не проходить валидацию (EM-28) — показываем проблемы сразу
         setShowErrors(validateQuiz(d.quiz).length > 0);
       })
@@ -403,47 +411,48 @@ export default function QuizEditor() {
                     onChange={(e) => patchQuestion(qi, { points: Math.round(Number(e.target.value)) || 1 })}
                   />
                 </label>
-                <div className="q-tools">
-                  <button
-                    className="btn btn-outline btn-sm" type="button"
-                    onClick={() => setPreviewIdx(qi)}
-                    aria-label={`Предпросмотр вопроса ${qi + 1}`}
-                    title="Предпросмотр на телефоне"
-                  >
-                    👁 Превью
-                  </button>
-                  <button
-                    className="btn btn-outline btn-sm icon-btn" type="button"
-                    onClick={() => moveQuestion(qi, -1)}
-                    disabled={qi === 0}
-                    aria-label="Переместить вопрос выше"
-                    title="Выше"
-                  >
-                    ↑
-                  </button>
-                  <button
-                    className="btn btn-outline btn-sm icon-btn" type="button"
-                    onClick={() => moveQuestion(qi, 1)}
-                    disabled={qi === quiz.questions.length - 1}
-                    aria-label="Переместить вопрос ниже"
-                    title="Ниже"
-                  >
-                    ↓
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm"
-                    onClick={() => duplicateQuestion(qi)}
-                    aria-label="Дублировать вопрос"
-                  >
-                    Дублировать
-                  </button>
-                  <button type="button" className="btn btn-danger btn-sm" onClick={() => setDeleteTarget(qi)}>
-                    Удалить
-                  </button>
-                </div>
               </div>
-            </div>
+              {/* EM-51: инструменты — отдельной группой правее, не слипаются с настройками */}
+              <div className="q-tools">
+                <button
+                  className="btn btn-outline btn-sm" type="button"
+                  onClick={() => setPreviewIdx(qi)}
+                  aria-label={`Предпросмотр вопроса ${qi + 1}`}
+                  title="Предпросмотр на телефоне"
+                >
+                  👁 Превью
+                </button>
+                <button
+                  className="btn btn-outline btn-sm icon-btn" type="button"
+                  onClick={() => moveQuestion(qi, -1)}
+                  disabled={qi === 0}
+                  aria-label="Переместить вопрос выше"
+                  title="Выше"
+                >
+                  ↑
+                </button>
+                <button
+                  className="btn btn-outline btn-sm icon-btn" type="button"
+                  onClick={() => moveQuestion(qi, 1)}
+                  disabled={qi === quiz.questions.length - 1}
+                  aria-label="Переместить вопрос ниже"
+                  title="Ниже"
+                >
+                  ↓
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={() => duplicateQuestion(qi)}
+                  aria-label="Дублировать вопрос"
+                >
+                  Дублировать
+                </button>
+                <button type="button" className="btn btn-danger btn-sm" onClick={() => setDeleteTarget(qi)}>
+                  Удалить
+                </button>
+              </div>
+              </div>
             <input
               className="question-text"
               placeholder="Текст вопроса"
