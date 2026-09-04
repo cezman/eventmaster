@@ -568,7 +568,7 @@ input:focus {
 .title-label {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px; /* EM-51: 6px — «Название» висело вплотную к инпуту */
   font-weight: 700;
 }
 /* чекбокс live-распределения в редакторе (EM-27): обычная строка, не блочный лейбл */
@@ -589,8 +589,14 @@ input:focus {
 }
 .question-head {
   display: flex;
+  flex-wrap: wrap; /* на узкой карточке настройки уходят на вторую строку, а не слипаются */
   justify-content: space-between;
   align-items: center;
+  gap: 10px 16px;
+}
+.question-head > b {
+  font-size: 16px;
+  white-space: nowrap; /* «Вопрос 1» не переносится на два слова-строки */
 }
 /* тулбар вопроса (EM-29): ↑/↓, дублировать, удалить; wrap — на 320px карточка уже блока */
 .q-tools {
@@ -1393,8 +1399,9 @@ input:focus {
 .question-settings {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 14px 18px;
   flex-wrap: wrap;
+  margin-left: auto; /* настройки — к правому краю, «Вопрос N» слева не слипается с ними */
 }
 .points-input {
   width: 90px;
@@ -1661,7 +1668,7 @@ input:focus {
   .panel-lobby-top {
     display: flex;
     flex-direction: row;
-    align-items: stretch;
+    align-items: flex-start; /* не растягиваем лаунчпад по высоте QR — без пустоты под кнопкой */
     gap: 14px;
   }
   .panel-lobby-top .panel-launch {

@@ -154,7 +154,9 @@ export default function HostPanel() {
     <div className="panel-header">
       <Logo>{game ? game.title : undefined}</Logo>
       <div className="panel-header-actions">
-        {status === "connected" && game && (
+        {/* «Зал ↗» в шапке: когда зал открыт — переключиться; вне лобби при закрытом зале —
+            единственный способ его вернуть (в лобби вместо неё лаунчпад, EM-51) */}
+        {status === "connected" && game && (screenOpen || phase !== "lobby") && (
           <button className="btn btn-ghost btn-sm" onClick={openScreen}>
             Зал ↗
           </button>

@@ -61,6 +61,7 @@ export default function GamesSection() {
     setError("");
     setBusy(true);
     try {
+      // EM-51: создаём пустым — редактор сам открывает первую карточку вопроса
       const d = await api("/quizzes", {
         method: "POST",
         token: localStorage.getItem("token"),
