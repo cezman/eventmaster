@@ -6,6 +6,7 @@ import { NAME_COLORS } from "../customize";
 import Logo from "../components/Logo";
 import { PlayerChip, PlayerName } from "../components/AudienceView";
 import ConfirmDialog from "../components/ConfirmDialog";
+import ReconnectOverlay, { useReconnectStatus } from "../components/ReconnectOverlay";
 import { useToast } from "../components/Toast";
 
 // EM-36: пульт ведущего — управление идущей игрой. Зал (/screen/<pin>) показывает,
@@ -118,6 +119,17 @@ export default function HostPanel() {
   }, [socket, token, quizId, pinKey, navigate]);
 
   const phase = final ? "finished" : question ? (reveal ? "reveal" : "question") : game?.state;
+  // EM-45: оверлей переподключения — только пока пульт подключён к партии
+  const reconnect = useReconnectStatus(socket, status === "connected");
+  const reconnectOverlay = (
+    <ReconnectOverlay
+      state={reconnect.state}
+      secondsLeft={reconnect.secondsLeft}
+      retryLabel="Переподключить"
+      onRetry={() => window.location.reload()}
+      onHome={() => navigate("/")}
+    />
+  );
 
   const hostAction = (event) => () => socket.emit(event);
 
@@ -229,6 +241,7 @@ export default function HostPanel() {
 
   return (
     <div className="host-panel">
+      {reconnectOverlay}
       {header}
       {connectionStatus}
       {confirmEnd && (

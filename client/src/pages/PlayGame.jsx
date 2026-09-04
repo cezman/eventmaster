@@ -4,6 +4,7 @@ import { getSocket } from "../socket";
 import PlayerAvatar, { parseAvatar } from "../components/PlayerAvatar";
 import Dropdown from "../components/Dropdown";
 import { DoorIcon } from "../components/icons";
+import ReconnectOverlay, { useReconnectStatus } from "../components/ReconnectOverlay";
 import confetti from "canvas-confetti";
 import {
   NAME_COLORS,
@@ -134,6 +135,16 @@ export default function PlayGame() {
   }, [secondsLeft]);
 
   const myName = (sessionStorage.getItem("playerName") || "").trim();
+  // EM-45: оверлей переподключения — только пока игрок в партии
+  const reconnect = useReconnectStatus(socket, joined);
+  const reconnectOverlay = (
+    <ReconnectOverlay
+      state={reconnect.state}
+      secondsLeft={reconnect.secondsLeft}
+      onRetry={() => navigate("/play")}
+      onHome={() => navigate("/")}
+    />
+  );
 
   // салют при финале — громче, если игрок в топ-3
   useEffect(() => {
@@ -333,6 +344,7 @@ export default function PlayGame() {
     const myRow = final.players.find((p) => p.name === myName);
     return (
       <div className="play-screen">
+        {reconnectOverlay}
         <h1>{["🎉 Победа!", "👏 Отлично!", "👍 Спасибо за игру!"][me >= 0 ? Math.min(me, 2) : 2]}</h1>
         {me >= 0 ? (
           <p>
@@ -362,6 +374,7 @@ export default function PlayGame() {
   if (question && !reveal) {
     return (
       <div className="play-screen">
+        {reconnectOverlay}
         <div className="q-meta">
           Вопрос {question.index + 1} / {question.total}
         </div>
@@ -415,6 +428,7 @@ export default function PlayGame() {
     const timedOut = reveal.myAnswered === false;
     return (
       <div className="play-screen">
+        {reconnectOverlay}
         {question && <h2 className="q-text-sm">{question.text}</h2>}
         {question?.type === "quiz" ? (
           <div className={`reveal-card ${reveal.myCorrect ? "ok" : timedOut ? "timeout" : "bad"}`}>
@@ -489,6 +503,7 @@ export default function PlayGame() {
   // лобби: ждём начала, можно слать реакции
   return (
     <div className="play-screen">
+      {reconnectOverlay}
       <h1>
         <span style={{ color: NAME_COLORS[color] }}>
           <PlayerAvatar avatar={JSON.stringify(avatar)} size={30} /> {myName}
