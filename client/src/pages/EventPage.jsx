@@ -88,7 +88,7 @@ export default function EventPage() {
   };
 
   const run = () => {
-    const block = blocks.find((b) => b.type === "quiz" || b.type === "poll");
+    const block = blocks.find((b) => (b.type === "quiz" || b.type === "poll") && Number.isInteger(b.content.quizId));
     if (!block) {
       showToast("В сценарии нет квизов для запуска", "error");
       return;
@@ -107,25 +107,44 @@ export default function EventPage() {
       });
   };
 
+  // выбор квиза из пикера: если в сценарии уже есть пустой блок этого типа — заполняем его
   const addQuizBlock = async (q) => {
     if (busy) return;
     setBusy(true);
     try {
-      const d = await api(`/events/${id}/blocks`, {
-        method: "POST",
-        token,
-        body: { type: q.type, content: { quizId: q.id } },
-      });
+      const nullBlock = blocks.find((b) => b.type === q.type && !Number.isInteger(b.content.quizId));
+      const d = nullBlock
+        ? await api(`/events/${id}/blocks/${nullBlock.id}`, { method: "PUT", token, body: { content: { quizId: q.id } } })
+        : await api(`/events/${id}/blocks`, { method: "POST", token, body: { type: q.type, content: { quizId: q.id } } });
       setBlocks(d.blocks);
-      setEvent((ev) => ({ ...ev, block_count: d.blocks.length }));
       setPickerOpen(false);
-      showToast("Раунд добавлен в сценарий", "ok");
+      showToast("Квиз добавлен в сценарий", "ok");
     } catch (e) {
       showToast(`Не удалось добавить: ${e.message}`, "error");
       // квиз могли удалить, пока пикер открыт — убираем мёртвую строку
       if (/не найден/i.test(e.message)) setQuizzes((list) => list.filter((x) => x.id !== q.id));
     }
     setBusy(false);
+  };
+
+  // «Создать новый» у пустого блока: квиз → сразу в блок → редактор вопросов
+  const createQuizForBlock = async (block) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const kind = block.type;
+      const d = await api("/quizzes", {
+        method: "POST",
+        token,
+        // wrap:false — квиз для текущего мероприятия, обёртка-дубликат не нужна
+        body: { title: kind === "quiz" ? "Новый квиз" : "Новый опрос", type: kind, questions: [], wrap: false },
+      });
+      await api(`/events/${id}/blocks/${block.id}`, { method: "PUT", token, body: { content: { quizId: d.quiz.id } } });
+      navigate(`/quiz/${d.quiz.id}`);
+    } catch (e) {
+      showToast(`Не удалось создать квиз: ${e.message}`, "error");
+      setBusy(false);
+    }
   };
 
   const removeBlock = async (blockId) => {
@@ -168,7 +187,9 @@ export default function EventPage() {
   }
 
   const status = STATUS[event.status] || STATUS.draft;
-  const playable = blocks.some((b) => b.type === "quiz" || b.type === "poll");
+  // патч L2: «Запустить» заблокирован, пока есть quiz/poll-блоки без квиза
+  const hasQuizBlocks = blocks.some((b) => b.type === "quiz" || b.type === "poll");
+  const incomplete = blocks.some((b) => (b.type === "quiz" || b.type === "poll") && !Number.isInteger(b.content.quizId));
 
   return (
     <div className="page">
@@ -210,8 +231,13 @@ export default function EventPage() {
                 Вернуть в черновик
               </button>
             ) : null}
-            {playable && (
-              <button className="btn btn-primary" onClick={run}>
+            {hasQuizBlocks && (
+              <button
+                className="btn btn-primary"
+                disabled={incomplete}
+                title={incomplete ? "Заполните все блоки вопросов" : undefined}
+                onClick={run}
+              >
                 ▶ Запустить
               </button>
             )}
@@ -239,26 +265,39 @@ export default function EventPage() {
             {blocks.map((b, i) => {
               const t = BLOCK_TYPES[b.type] || BLOCK_TYPES.text;
               const isQuiz = b.type === "quiz" || b.type === "poll";
+              const quizId = b.content.quizId;
+              const needsQuiz = isQuiz && !Number.isInteger(quizId);
               return (
                 <div className="card block-row" key={b.id}>
                   <span className="block-num" aria-hidden="true">{i + 1}</span>
                   <div className="event-card-icon" aria-hidden="true">{t.icon}</div>
                   <div className="block-row-body">
-                    <b>{isQuiz ? b.quizTitle || "Квиз удалён" : b.content.heading || t.label}</b>
+                    <b>{isQuiz ? (Number.isInteger(quizId) ? b.quizTitle || "Квиз удалён" : "Квиз ещё не выбран") : b.content.heading || t.label}</b>
                     <p className="event-card-meta">
                       {isQuiz
-                        ? t.label
+                        ? needsQuiz
+                          ? "Выберите квиз из библиотеки или создайте новый"
+                          : t.label
                         : b.type === "break" && b.content.duration
                           ? `${t.label}: ${b.content.duration} мин`
                           : t.label}
                     </p>
                   </div>
                   <div className="quiz-card-actions">
-                    {isQuiz && b.content.quizId && (
-                      <Link className="btn btn-outline" to={`/quiz/${b.content.quizId}`}>
+                    {needsQuiz ? (
+                      <>
+                        <button className="btn btn-outline btn-sm" disabled={busy} onClick={openPicker}>
+                          Выбрать из библиотеки
+                        </button>
+                        <button className="btn btn-primary btn-sm" disabled={busy} onClick={() => createQuizForBlock(b)}>
+                          Создать новый
+                        </button>
+                      </>
+                    ) : isQuiz && quizId ? (
+                      <Link className="btn btn-outline" to={`/quiz/${quizId}`}>
                         Редактировать квиз
                       </Link>
-                    )}
+                    ) : null}
                     <button className="btn btn-danger" onClick={() => setConfirmBlockId(b.id)}>
                       Убрать
                     </button>

@@ -47,17 +47,20 @@ function parseJson(raw) {
   }
 }
 
-// валидация content по типу блока: у quiz/poll обязателен квиз самого ведущего
+// валидация content по типу блока: quizId может быть null — «пустой» блок
+// заполнят позже с экрана сценария (патч дизайнера, L2); заполненный должен
+// быть целым и указывать на квиз самого ведущего
 function validateContent(type, content, hostId) {
   if (content === undefined) return {};
   if (!isPlainObject(content)) throw new Error("content должен быть объектом");
   if (type === "quiz" || type === "poll") {
-    if (!Number.isInteger(content.quizId)) throw new Error("Для блока quiz/poll нужен целочисленный quizId");
+    if (content.quizId === null || content.quizId === undefined) return { ...content, quizId: null };
+    if (!Number.isInteger(content.quizId)) throw new Error("quizId должен быть числом или null");
     const quiz = db
       .prepare("SELECT id FROM quizzes WHERE id = ? AND host_id = ?")
       .get(content.quizId, hostId);
     if (!quiz) throw new Error("Квиз не найден");
-    return { ...content, quizId: content.quizId };
+    return { ...content };
   }
   return content;
 }
@@ -80,19 +83,26 @@ function compactPositions(eventId) {
 }
 
 eventRoutes.get("/", (req, res) => {
+  // фильтр по статусу (патч дизайнера §2); неизвестное значение — просто «Все»
+  const statusFilter = ["draft", "ready", "live", "completed"].includes(req.query.status)
+    ? req.query.status
+    : null;
   const rows = db
     .prepare(
       `SELECT e.*,
         (SELECT COUNT(*) FROM scenario_blocks b WHERE b.event_id = e.id) AS block_count,
         (SELECT COUNT(*) FROM scenario_blocks b WHERE b.event_id = e.id AND b.type = 'quiz') AS quiz_count,
         (SELECT COUNT(*) FROM scenario_blocks b WHERE b.event_id = e.id AND b.type = 'poll') AS poll_count,
+        (SELECT COUNT(*) FROM scenario_blocks b WHERE b.event_id = e.id AND b.type IN ('quiz', 'poll')
+           AND (json_valid(b.content) = 0 OR json_extract(b.content, '$.quizId') IS NULL)) AS broken_blocks,
         (SELECT COALESCE(SUM(
            (SELECT COUNT(*) FROM questions q
             WHERE q.quiz_id = json_extract(b.content, '$.quizId'))), 0)
          FROM scenario_blocks b WHERE b.event_id = e.id AND b.type IN ('quiz', 'poll')) AS question_count
-       FROM events e WHERE e.host_id = ? ORDER BY e.created_at DESC`
+       FROM events e WHERE e.host_id = ?${statusFilter ? " AND e.status = ?" : ""}
+       ORDER BY e.created_at DESC`
     )
-    .all(req.userId);
+    .all(...(statusFilter ? [req.userId, statusFilter] : [req.userId]));
   res.json({ events: rows });
 });
 
@@ -157,10 +167,6 @@ eventRoutes.post("/:id/blocks", (req, res) => {
   db.exec("BEGIN");
   try {
     const validContent = validateContent(type, content, req.userId);
-    // quiz/poll без квиза не имеет смысла для движка сценария — отбрасываем сразу
-    if ((type === "quiz" || type === "poll") && !Number.isInteger(validContent.quizId)) {
-      throw new Error("Для блока quiz/poll нужен целочисленный quizId");
-    }
     // MAX вместо COUNT — не ломается, если в нумерации есть дыры
     const maxPos = db
       .prepare("SELECT COALESCE(MAX(position), -1) AS m FROM scenario_blocks WHERE event_id = ?")
