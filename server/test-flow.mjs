@@ -259,6 +259,76 @@ if (!badQuiz.error || !badQuiz.error.includes("верный ответ")) {
 }
 log("Викторина без верного ответа отклонена сервером ✓");
 
+// — EM-36: экран зала (screen:join) и пульт (host:attach) —
+const em36token = async (email, password) => {
+  const login = await fetch(URL + "/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  }).then((r) => r.json());
+  if (login.token) return login.token;
+  await fetch(URL + "/api/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password, name: "Тест", surname: "Тестов" }),
+  }).then((r) => r.json());
+  const retry = await fetch(URL + "/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  }).then((r) => r.json());
+  if (!retry.token) throw new Error("em36: второй аккаунт не создан");
+  return retry.token;
+};
+const otherToken = await em36token("em36-test@example.com", "secret2");
+const em36quiz = await api("POST", "/api/quizzes", {
+  title: "EM-36 зал+пульт",
+  type: "quiz",
+  questions: [{
+    text: "2 + 2?",
+    time_limit: 20,
+    answers: [
+      { text: "4", is_correct: true },
+      { text: "5", is_correct: false },
+    ],
+  }],
+});
+const h36 = io(URL);
+const pin36 = await new Promise((resolve, reject) => {
+  h36.emit("host:create-game", { token: TOKEN, quizId: em36quiz.quiz.id }, (res) =>
+    res.error ? reject(new Error(res.error)) : resolve(res.pin)
+  );
+});
+// чужой пульт не подключается к чужой партии
+const h36alien = io(URL);
+const alienAck = await new Promise((resolve) => h36alien.emit("host:attach", { token: otherToken, pin: pin36 }, resolve));
+if (!alienAck.error) throw new Error("em36: чужой host:attach должен быть отклонён");
+log("EM-36: чужой host:attach отклонён ✓");
+// экран зала: пассивная подписка на комнату
+const screen36 = io(URL);
+const screenAck = await new Promise((resolve) => screen36.emit("screen:join", { pin: pin36 }, resolve));
+if (screenAck.error || screenAck.state !== "lobby") throw new Error("em36: screen:join failed: " + JSON.stringify(screenAck));
+await new Promise((resolve) => screen36.once("players", resolve));
+h36.emit("host:start");
+const screenQ = await new Promise((resolve) => screen36.once("question", resolve));
+if (!screenQ.text) throw new Error("em36: экран не получил question");
+log("EM-36: screen:join получает players/question ✓");
+// пульт владельца перехватывает роль: старый хост больше не управляет
+let screenRevealed = false;
+screen36.once("reveal", () => { screenRevealed = true; });
+const h36panel = io(URL);
+const attachAck = await new Promise((resolve) => h36panel.emit("host:attach", { token: TOKEN, pin: pin36 }, resolve));
+if (attachAck.error) throw new Error("em36: свой host:attach не удался: " + JSON.stringify(attachAck));
+h36.emit("host:reveal"); // старый сокет: сервер отклоняет по hostSocketId
+await wait(400);
+if (screenRevealed) throw new Error("em36: старый хост управляет игрой после attach");
+h36panel.emit("host:reveal"); // новый пульт управляет
+await new Promise((resolve) => screen36.once("reveal", resolve));
+log("EM-36: host:attach перехватывает роль, reveal от нового пульта ✓");
+h36panel.emit("host:end");
+h36.close(); h36alien.close(); h36panel.close(); screen36.close();
+
+
 log("✅ Все этапы пройдены: создание, лобби, 3 вопроса, reconnect по токену, offline-счётчик, skip, финал, EM-27");
 host.close();
 p1.close();

@@ -1,30 +1,26 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
 import QRCode from "qrcode";
-import { getSocket } from "../socket";
-import { useAuth } from "../auth";
 import { NAME_COLORS } from "../customize";
-import PlayerAvatar from "../components/PlayerAvatar";
-import Logo from "../components/Logo";
-import { TrophyIcon, ExpandIcon, MinimizeIcon } from "../components/icons";
-import ConfirmDialog from "../components/ConfirmDialog";
-import { useToast } from "../components/Toast";
-import confetti from "canvas-confetti";
+import PlayerAvatar from "./PlayerAvatar";
+import { TrophyIcon } from "./icons";
+
+// EM-36: всё, что видит ЗАЛ на проекторе — чистый рендер без единого контрола.
+// Используется страницей /screen/<pin>; пульт (/host/<quizId>) рисует только управление.
 
 const ANSWER_LABELS = ["A", "B", "C", "D"];
 const RING_CIRC = 2 * Math.PI * 34; // длина окружности ring-таймера (r=34)
 
-function PlayerName({ p }) {
+export function PlayerName({ p, size = 26 }) {
   return (
     <span className="board-player-name" style={{ color: NAME_COLORS[p.color] || "#fff" }}>
-      <PlayerAvatar avatar={p.avatar} size={26} /> {p.name}
+      <PlayerAvatar avatar={p.avatar} size={size} /> {p.name}
     </span>
   );
 }
 
 // строки reveal (спека §6.4/§6.6): появление со stagger i×200ms,
 // бары анимируются от нуля после монтирования
-function RevealRows({ reveal, correctIndex, isQuiz, question }) {
+export function RevealRows({ reveal, correctIndex, isQuiz, question }) {
   const [barsIn, setBarsIn] = useState(false);
   useEffect(() => {
     setBarsIn(false);
@@ -66,14 +62,16 @@ function RevealRows({ reveal, correctIndex, isQuiz, question }) {
   );
 }
 
-// чип игрока с кик-аффордансом (дизайн-спека EM-30): на десктопе × по hover,
-// на таче long-press 500 мс → меню; онлайн-игроку — мини-confirm, оффлайн — сразу
-function PlayerChip({ p, onKick }) {
+// чип игрока: с кик-аффордансом в пульте (onKick передан) и без него — на зале.
+// Кик: на десктопе × по hover, на таче long-press 500 мс → меню; онлайн-игроку —
+// мини-confirm, оффлайн — сразу
+export function PlayerChip({ p, onKick }) {
   const [menuOpen, setMenuOpen] = useState(false); // меню long-press (тач)
   const [confirmOpen, setConfirmOpen] = useState(false); // мини-confirm для онлайн-игрока
   const ref = useRef(null);
   const pressTimer = useRef(null);
   const offline = p.online === false;
+  const kickable = typeof onKick === "function";
 
   const clearPress = () => {
     if (pressTimer.current) {
@@ -113,7 +111,7 @@ function PlayerChip({ p, onKick }) {
     else setConfirmOpen(true);
   };
   const onPointerDown = (e) => {
-    if (e.pointerType !== "touch") return;
+    if (!kickable || e.pointerType !== "touch") return;
     if (e.target.closest("button")) return; // нажатия кнопок поповера — не long-press
     clearPress();
     pressTimer.current = setTimeout(() => setMenuOpen(true), 500);
@@ -122,8 +120,8 @@ function PlayerChip({ p, onKick }) {
   return (
     <div
       ref={ref}
-      className={`player-chip kickable${offline ? " offline" : ""}`}
-      data-kickable="true"
+      className={`player-chip${kickable ? " kickable" : ""}${offline ? " offline" : ""}`}
+      data-kickable={kickable ? "true" : undefined}
       onPointerDown={onPointerDown}
       onPointerUp={clearPress}
       onPointerMove={clearPress}
@@ -132,9 +130,11 @@ function PlayerChip({ p, onKick }) {
     >
       <PlayerName p={p} />
       {offline && <span className="chip-offline">нет связи</span>}
-      <button type="button" className="chip-kick" aria-label={`Кикнуть ${p.name}`} onClick={startKick}>
-        ×
-      </button>
+      {kickable && (
+        <button type="button" className="chip-kick" aria-label={`Кикнуть ${p.name}`} onClick={startKick}>
+          ×
+        </button>
+      )}
       {menuOpen && (
         <div className="chip-popover" role="menu">
           <button type="button" className="chip-popover-item" onClick={startKick}>
@@ -166,216 +166,19 @@ function PlayerChip({ p, onKick }) {
   );
 }
 
-export default function HostGame() {
-  const { quizId } = useParams();
-  const { token } = useAuth();
-  const navigate = useNavigate();
-  const socket = getSocket();
-  const showToast = useToast();
-
-  const [game, setGame] = useState(null); // {pin,title,type,state,qIndex,total,players}
-  const [question, setQuestion] = useState(null);
-  const [reveal, setReveal] = useState(null);
-  const [final, setFinal] = useState(null);
-  const [answered, setAnswered] = useState(0);
-  const [counts, setCounts] = useState([]);
-  const [live, setLive] = useState(false); // показывать распределение по вариантам до reveal
-  const [secondsLeft, setSecondsLeft] = useState(null);
-  const [reactions, setReactions] = useState([]); // летающие эмодзи
-  const [error, setError] = useState("");
-  const [confirmEnd, setConfirmEnd] = useState(false);
-  const [joinUrl, setJoinUrl] = useState("");
+export default function AudienceView({ game, question, reveal, final, answered, counts, live, secondsLeft, reactions, joinUrl }) {
   const canvasRef = useRef(null);
-  const claimedRef = useRef(false); // успешный claim уже был — не заводим новую партию после host:end
-  const pinKey = `hostpin-${quizId}`;
-
-  useEffect(() => {
-    // claim = создать игру или вернуть свою по сохранённому PIN.
-    // На «connect» вешаем тот же claim: при тёплом переподключении транспорта hostSocketId
-    // протухает — reclaim по PIN возвращает хоста в игру со снапшотом состояния.
-    const claim = () => {
-      const savedPin = sessionStorage.getItem(pinKey);
-      if (!savedPin && claimedRef.current) return; // после host:end (pinKey очищен)
-      socket.emit(
-        "host:create-game",
-        { token, quizId, reclaimPin: savedPin },
-        (res) => {
-          if (res.error) return setError(res.error);
-          claimedRef.current = true;
-          sessionStorage.setItem(pinKey, res.pin);
-          setJoinUrl(`${window.location.origin}/play/${res.pin}`);
-        }
-      );
-    };
-    if (socket.connected) claim();
-    socket.on("connect", claim);
-
-    const onSnapshot = (snap) => {
-      setGame(snap);
-      if (snap.state === "lobby") {
-        setQuestion(null);
-        setReveal(null);
-        setFinal(null);
-      }
-    };
-    const onPlayers = (d) => setGame((g) => (g ? { ...g, players: d.players } : g));
-    const onQuestion = (q) => {
-      setQuestion(q);
-      setReveal(null);
-      setFinal(null);
-      setAnswered(0);
-      setCounts(q.answers.map(() => 0));
-      setLive(q.showLiveResults === true);
-      setSecondsLeft(q.timeLimit);
-    };
-    const onReveal = (r) => {
-      setReveal(r);
-      setSecondsLeft(null);
-      setCounts(r.counts);
-    };
-    const onFinished = (f) => {
-      setFinal(f);
-      setQuestion(null);
-      setReveal(null);
-      setSecondsLeft(null);
-    };
-    const onCount = (d) => {
-      setAnswered(d.answered);
-      // без showLiveResults сервер шлёт counts: null — распределение скрыто до reveal
-      if (d.counts) setCounts(d.counts);
-    };
-    const onReaction = (r) => {
-      const item = { ...r, id: Date.now() + Math.random(), left: 8 + Math.random() * 84 };
-      setReactions((cur) => [...cur.slice(-15), item]);
-      setTimeout(() => setReactions((cur) => cur.filter((x) => x.id !== item.id)), 3000);
-    };
-    const onClosed = () => navigate("/dashboard");
-
-    socket.on("host:game", onSnapshot);
-    socket.on("players", onPlayers);
-    socket.on("question", onQuestion);
-    socket.on("reveal", onReveal);
-    socket.on("finished", onFinished);
-    socket.on("answer-count", onCount);
-    socket.on("reaction", onReaction);
-    socket.on("game:closed", onClosed);
-    return () => {
-      socket.off("host:game", onSnapshot);
-      socket.off("players", onPlayers);
-      socket.off("question", onQuestion);
-      socket.off("reveal", onReveal);
-      socket.off("finished", onFinished);
-      socket.off("answer-count", onCount);
-      socket.off("reaction", onReaction);
-      socket.off("game:closed", onClosed);
-      socket.off("connect", claim);
-    };
-  }, [socket, token, quizId]);
-
-  // обратный отсчёт на вопросе
-  useEffect(() => {
-    if (secondsLeft == null || secondsLeft <= 0) return undefined;
-    const t = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
-    return () => clearTimeout(t);
-  }, [secondsLeft]);
+  const phase = final ? "finished" : question ? (reveal ? "reveal" : "question") : game.state;
+  const showReactions = phase === "lobby" || phase === "finished";
 
   useEffect(() => {
     if (canvasRef.current && joinUrl) {
       QRCode.toCanvas(canvasRef.current, joinUrl, { width: 220, margin: 1 }, () => {});
     }
-  }, [joinUrl, game?.state]);
-
-  // салют на большом экране, когда игра завершена
-  useEffect(() => {
-    if (!final) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    confetti({ particleCount: 160, spread: 110, origin: { y: 0.5 } });
-  }, [final]);
-
-  // presenter mode: класс на body живёт, пока экран хоста в fullscreen
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  useEffect(() => {
-    const sync = () => {
-      const active = Boolean(document.fullscreenElement);
-      setIsFullscreen(active);
-      document.body.classList.toggle("presenter-mode", active);
-    };
-    // начальная синхронизация (remount в уже активном fullscreen, HMR)
-    sync();
-    document.addEventListener("fullscreenchange", sync);
-    return () => {
-      document.removeEventListener("fullscreenchange", sync);
-      document.body.classList.remove("presenter-mode");
-      // уход со страницы хоста — гасим fullscreen, чтобы не остаться в нём на дашборде
-      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-    };
-  }, []);
-
-  const toggleFullscreen = () => {
-    // iPhone Safari: API для не-видео элементов нет — без guard будет синхронный TypeError
-    if (!document.documentElement.requestFullscreen) return;
-    if (document.fullscreenElement) {
-      document.exitFullscreen().catch(() => {});
-    } else {
-      document.documentElement.requestFullscreen().catch(() => {});
-    }
-  };
-
-  if (error) {
-    return (
-      <div className="page">
-        <p className="error">{error}</p>
-        <Link to="/dashboard">← К списку игр</Link>
-      </div>
-    );
-  }
-  if (!game) return <div className="page"><p className="muted">Подключение…</p></div>;
-
-  const phase = final ? "finished" : question ? (reveal ? "reveal" : "question") : game.state;
-  const showReactions = phase === "lobby" || phase === "finished";
-
-  const hostAction = (event) => () => socket.emit(event);
-
-  // кик из лобби: тост только по ack сервера (иначе мог бы соврать при гонке со стартом)
-  const kickPlayer = (p) => {
-    socket.emit("kick-player", { playerId: p.id }, (res) => {
-      if (res?.ok) showToast(`${p.name} исключён(а)`, "info");
-    });
-  };
-
-  const endGame = () => {
-    socket.emit("host:end");
-    sessionStorage.removeItem(pinKey);
-    navigate("/dashboard");
-  };
+  }, [joinUrl, phase]);
 
   return (
-    <div className="host-screen">
-      <header className="host-header">
-        <Logo>{game.title}</Logo>
-        <div className="spacer" />
-        <button className="btn btn-ghost" onClick={toggleFullscreen}>
-          {isFullscreen ? <MinimizeIcon className="inline-icon" /> : <ExpandIcon className="inline-icon" />}
-          {isFullscreen ? "Выйти из полноэкрана" : "Во весь экран"}
-        </button>
-        <button className="btn btn-ghost hide-in-presenter" onClick={() => setConfirmEnd(true)}>
-          Завершить игру
-        </button>
-      </header>
-
-      {confirmEnd && (
-        <ConfirmDialog
-          title="Завершить игру?"
-          text="Игра закончится для всех игроков, результаты сохранятся в истории."
-          confirmLabel="Завершить"
-          onConfirm={() => {
-            setConfirmEnd(false);
-            endGame();
-          }}
-          onCancel={() => setConfirmEnd(false)}
-        />
-      )}
-
+    <>
       {showReactions && (
         <div className="reaction-layer">
           {reactions.map((r) => (
@@ -406,17 +209,12 @@ export default function HostGame() {
             </h2>
             <div className="players-grid">
               {game.players.map((p) => (
-                <PlayerChip p={p} key={p.id} onKick={kickPlayer} />
+                <PlayerChip p={p} key={p.id} />
               ))}
             </div>
             <p className="muted lobby-hint">
               Пока ждём — игроки могут отправлять реакции (👍 ❤️ 😂 🎉 🔥 👏), они появятся на этом экране.
             </p>
-            {game.players.length > 0 && (
-              <button className="btn btn-primary btn-xl" onClick={hostAction("host:start")}>
-                Начать игру
-              </button>
-            )}
           </div>
         </div>
       )}
@@ -478,14 +276,6 @@ export default function HostGame() {
               );
             })}
           </div>
-          <div className="host-question-actions">
-            <button className="btn btn-primary btn-xl" onClick={hostAction("host:reveal")}>
-              Показать результаты
-            </button>
-            <button className="btn btn-outline btn-xl" onClick={hostAction("host:skip")}>
-              Пропустить вопрос
-            </button>
-          </div>
         </div>
       )}
 
@@ -509,9 +299,6 @@ export default function HostGame() {
               ))}
             </div>
           )}
-          <button className="btn btn-primary btn-xl" onClick={hostAction("host:next")}>
-            {question && question.index + 1 < question.total ? "Следующий вопрос →" : "Финальные результаты"}
-          </button>
         </div>
       )}
 
@@ -560,16 +347,8 @@ export default function HostGame() {
               ))}
             </div>
           )}
-          <div className="editor-actions center">
-            <button className="btn btn-primary btn-lg" onClick={hostAction("host:play-again")}>
-              Играть снова
-            </button>
-            <button className="btn btn-outline btn-lg" onClick={endGame}>
-              В кабинет
-            </button>
-          </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

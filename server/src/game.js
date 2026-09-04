@@ -129,8 +129,9 @@ function startQuestion(io, game) {
   game.questionStart = Date.now();
   for (const p of game.players.values()) p.answer = null;
   io.to(`game:${game.pin}`).emit("question", questionForRoom(game));
-  const host = io.sockets.sockets.get(game.hostSocketId);
-  host?.emit("answer-count", {
+  // счётчик в комнату: зал и пульт показывают «ответили N/M»; counts (распределение)
+  // едет только при showLiveResults — анти-чит-инвариант
+  io.to(`game:${game.pin}`).emit("answer-count", {
     answered: 0,
     total: onlineCount(game),
     counts: game.quiz.showLiveResults ? countsFor(game) : null,
@@ -205,6 +206,7 @@ export function registerGameHandlers(io) {
         const game = games.get(String(reclaimPin));
         if (game.hostId === hostId && game.quizId === Number(quizId)) {
           clearTimeout(game.closeTimer);
+          game.closeTimer = null;
           game.hostSocketId = socket.id;
           socket.join(`game:${game.pin}`);
           socket.emit("host:game", snapshotForHost(game));
@@ -256,6 +258,57 @@ export function registerGameHandlers(io) {
       games.set(game.pin, game);
       socket.join(`game:${game.pin}`);
       socket.emit("host:game", snapshotForHost(game));
+      ack({ ok: true, pin: game.pin });
+    });
+
+    // EM-36: экран зала — просмотр комнаты по PIN без каких-либо прав.
+    // Сокет не попадает в players и никогда не становится hostSocketId, поэтому
+    // disconnect экрана не помечает игроков и не запускает close-таймер хоста.
+    socket.on("screen:join", ({ pin } = {}, ack = () => {}) => {
+      const game = games.get(String(pin || "").trim());
+      if (!game) return ack({ error: "Игра с таким PIN не найдена" });
+      socket.join(`game:${game.pin}`);
+      ack({ ok: true, pin: game.pin, title: game.title, type: game.type, state: game.state });
+      socket.emit("players", { players: playersList(game) });
+      if (game.state === "question") socket.emit("question", questionForRoom(game));
+      if (game.state === "reveal") {
+        socket.emit("question", questionForRoom(game));
+        reveal(io, game);
+      }
+      if (game.state === "finished")
+        socket.emit("finished", { leaderboard: leaderboard(game), players: playersList(game) });
+    });
+
+    // EM-36: пульт ведущего подключается к ИДУЩЕЙ игре (обновление страницы пульта,
+    // второй устройство) вместо создания второй партии. Перехватывает роль хоста:
+    // старый пульт теряет управление (hostSocketId перезаписан).
+    socket.on("host:attach", ({ token, pin } = {}, ack = () => {}) => {
+      const hostId = verifyToken(token);
+      if (!hostId) return ack({ error: "Не авторизован" });
+      const game = games.get(String(pin || "").trim());
+      if (!game || game.hostId !== hostId) return ack({ error: "Игра не найдена" });
+      clearTimeout(game.closeTimer);
+      game.closeTimer = null;
+      // прежний пульт теряет управление — сообщаем ему об этом
+      io.sockets.sockets.get(game.hostSocketId)?.emit("host:detached");
+      game.hostSocketId = socket.id;
+      socket.join(`game:${game.pin}`);
+      socket.emit("host:game", snapshotForHost(game));
+      broadcastPlayers(io, game);
+      if (game.state === "question") {
+        socket.emit("question", questionForRoom(game));
+        socket.emit("answer-count", {
+          answered: [...game.players.values()].filter((p) => p.answer != null && p.online !== false).length,
+          total: onlineCount(game),
+          counts: game.quiz.showLiveResults ? countsFor(game) : null,
+        });
+      }
+      if (game.state === "reveal") {
+        socket.emit("question", questionForRoom(game));
+        reveal(io, game);
+      }
+      if (game.state === "finished")
+        socket.emit("finished", { leaderboard: leaderboard(game), players: playersList(game) });
       ack({ ok: true, pin: game.pin });
     });
 
@@ -361,9 +414,8 @@ export function registerGameHandlers(io) {
       const idx = Number(choice);
       if (!Number.isInteger(idx) || idx < 0 || idx >= q.answers.length) return;
       p.answer = idx;
-      const host = io.sockets.sockets.get(game.hostSocketId);
       const answered = [...game.players.values()].filter((x) => x.answer != null && x.online !== false).length;
-      host?.emit("answer-count", {
+      io.to(`game:${game.pin}`).emit("answer-count", {
         answered,
         total: onlineCount(game),
         counts: game.quiz.showLiveResults ? countsFor(game) : null,
@@ -454,8 +506,9 @@ export function registerGameHandlers(io) {
         p.awarded = 0;
         p.lastCorrect = false;
       }
-      // игрокам явный сигнал вернуться в лобби (иначе остаются на reveal)
-      io.to(`game:${game.pin}`).emit("game:lobby");
+      // игрокам явный сигнал вернуться в лобби (иначе остаются на reveal);
+      // title — экран зала обновляет заголовок после перечитывания квиза
+      io.to(`game:${game.pin}`).emit("game:lobby", { title: game.title });
       broadcastPlayers(io, game);
       socket.emit("host:game", snapshotForHost(game));
     });
