@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { useAuth } from "../auth";
@@ -6,12 +6,27 @@ import ConfirmDialog from "../components/ConfirmDialog";
 import { useToast } from "../components/Toast";
 import { plural } from "../plural";
 
-// EM-53 (спека §2.3): статус мероприятия → подпись и класс бейджа
+// EM-60 (патч дизайнера design-create-flow-patches.md): создание — кнопка [+ ⬎] в шапке,
+// dropdown на десктопе / bottom sheet на мобиле; фильтры по статусу; empty state с карточками.
 const STATUS = {
   draft: { label: "Черновик", cls: "badge-muted" },
   ready: { label: "Готов", cls: "" },
   live: { label: "Live", cls: "badge-live" },
   completed: { label: "Завершён", cls: "badge-dim" },
+};
+
+const FILTERS = [
+  ["all", "Все"],
+  ["draft", "Черновики"],
+  ["ready", "Готов"],
+  ["live", "Live"],
+  ["completed", "Архив"],
+];
+
+const CREATE_KINDS = {
+  quiz: { icon: "❓", title: "Квиз", sub: "Быстрый: 1 блок type=quiz" },
+  poll: { icon: "📊", title: "Опрос", sub: "Быстрый: 1 блок type=poll" },
+  scenario: { icon: "🎪", title: "Сценарий", sub: "Пустой сценарий, добавляй блоки вручную" },
 };
 
 // иконка типа: одноцелевое мероприятие (один quiz/poll-блок) показывает его тип
@@ -38,50 +53,64 @@ function EventListSkeleton() {
   );
 }
 
-// кеш между монтированиями вкладки, привязан к userId — как в GamesSection
+// кеш только для полного списка (фильтр «Все»), привязан к userId — как в GamesSection
 let eventsCache = null; // { userId, data }
 
-// Раздел «Мероприятия»: карточки мероприятий + quick-start
 export default function EventsSection() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const showToast = useToast();
+  const token = localStorage.getItem("token");
   const cached = eventsCache && eventsCache.userId === user?.id ? eventsCache.data : null;
   const [events, setEvents] = useState(cached);
+  const [filter, setFilter] = useState("all");
   const [confirmId, setConfirmId] = useState(null);
-  const [menuId, setMenuId] = useState(null); // id события с открытым ⋯-меню
-  const [busyKind, setBusyKind] = useState(null); // быстрое создание: quiz | poll | scenario
+  const [menuId, setMenuId] = useState(null); // ⋯-меню на карточке
+  const [createOpen, setCreateOpen] = useState(false); // dropdown/bottom-sheet создания
+  const [createKind, setCreateKind] = useState(null); // выбранный пункт → модалка названия
+  const [createTitle, setCreateTitle] = useState("Новое мероприятие");
+  const [busyKind, setBusyKind] = useState(null);
+  const titleInputRef = useRef(null);
 
-  const token = localStorage.getItem("token");
-
-  const load = () => {
-    api("/events", { token })
+  // монотонный номер запроса: ответ устаревшего фильтра не перезапишет свежий
+  const loadSeq = useRef(0);
+  const load = (f = filter) => {
+    const seq = ++loadSeq.current;
+    api(`/events${f !== "all" ? `?status=${f}` : ""}`, { token })
       .then((d) => {
-        if (user?.id == null) { setEvents(d.events); return; } // user не загружен — не кешируем
-        eventsCache = { userId: user.id, data: d.events };
-        setEvents(d.events);
+        if (seq !== loadSeq.current) return;
+        // live всегда наверх независимо от фильтра (патч §2)
+        const sorted = [...d.events].sort((a, b) => (b.status === "live") - (a.status === "live"));
+        if (f === "all" && user?.id != null) eventsCache = { userId: user.id, data: sorted };
+        setEvents(sorted);
       })
       .catch((e) => {
+        if (seq !== loadSeq.current) return;
         if (cached === null) setEvents([]);
         showToast(`Не удалось загрузить мероприятия: ${e.message}`, "error");
       });
   };
-  useEffect(load, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(filter); }, [filter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (menuId === null) return;
-    const onKey = (e) => e.key === "Escape" && setMenuId(null);
+    if (!createOpen && menuId === null && !createKind) return;
+    const onKey = (e) => {
+      if (e.key !== "Escape") return;
+      setCreateOpen(false);
+      setMenuId(null);
+      if (busyKind === null) setCreateKind(null);
+    };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [menuId]);
+  }, [createOpen, menuId, createKind, busyKind]);
 
-  // «Запустить» пока работает по-старому: играем первый quiz/poll-блок (EM-55 добавит запуск сценария)
+  // «Запустить» пока играет первый quiz/poll-блок; запуск сценария целиком — EM-55
   const run = async (id) => {
     try {
       const d = await api(`/events/${id}`, { token });
-      const block = d.blocks.find((b) => b.type === "quiz" || b.type === "poll");
+      const block = d.blocks.find((b) => (b.type === "quiz" || b.type === "poll") && Number.isInteger(b.content.quizId));
       if (!block) {
-        showToast("В сценарии нет квизов для запуска", "error");
+        showToast("В сценарии нет заполненных квизов", "error");
         return;
       }
       navigate(`/host/${block.content.quizId}`);
@@ -112,21 +141,32 @@ export default function EventsSection() {
     load();
   };
 
-  // quick-start (спека §2.3): сразу создаём и переходим в редактор
-  const quickStart = async (kind) => {
+  // выбор пункта создания → модалка названия (патч §4)
+  const pickCreate = (kind) => {
+    setCreateOpen(false);
+    setCreateKind(kind);
+    setCreateTitle("Новое мероприятие");
+  };
+
+  useEffect(() => {
+    if (createKind && titleInputRef.current) {
+      titleInputRef.current.focus();
+      titleInputRef.current.select();
+    }
+  }, [createKind]);
+
+  const submitCreate = async () => {
+    if (busyKind) return; // Enter/повторный клик не должны плодить мероприятия
+    const kind = createKind;
+    const title = createTitle.trim() || "Новое мероприятие";
     setBusyKind(kind);
     try {
-      if (kind === "scenario") {
-        const d = await api("/events", { method: "POST", token, body: { title: "Новое мероприятие" } });
-        navigate(`/event/${d.event.id}`);
-      } else {
-        const d = await api("/quizzes", {
-          method: "POST",
-          token,
-          body: { title: kind === "quiz" ? "Новый квиз" : "Новый опрос", type: kind, questions: [] },
-        });
-        navigate(`/quiz/${d.quiz.id}`);
+      const d = await api("/events", { method: "POST", token, body: { title } });
+      // quiz/poll — сразу один пустой блок (quizId=null), заполнится с экрана сценария
+      if (kind !== "scenario") {
+        await api(`/events/${d.event.id}/blocks`, { method: "POST", token, body: { type: kind, content: { quizId: null } } });
       }
+      navigate(`/event/${d.event.id}`);
     } catch (e) {
       showToast(`Не удалось создать: ${e.message}`, "error");
       setBusyKind(null);
@@ -135,37 +175,82 @@ export default function EventsSection() {
 
   return (
     <>
-      <div className="dashboard-head">
+      <div className="dashboard-head event-head-row">
         <h1>Мероприятия</h1>
+        <div className="event-head-tools">
+          <div className="event-filters" role="group" aria-label="Фильтр по статусу">
+            {FILTERS.map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                className={`filter-pill ${filter === id ? "active" : ""}`}
+                aria-pressed={filter === id}
+                onClick={() => setFilter(id)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="create-wrap">
+            <button
+              type="button"
+              className="btn btn-primary"
+              aria-haspopup="menu"
+              aria-expanded={createOpen}
+              onClick={() => setCreateOpen((v) => !v)}
+            >
+              + Создать ▾
+            </button>
+            {createOpen && (
+              <>
+                <div className="menu-backdrop" onClick={() => setCreateOpen(false)} />
+                <div className="create-pop" role="menu">
+                  {Object.entries(CREATE_KINDS).map(([kind, k]) => (
+                    <button key={kind} role="menuitem" disabled={busyKind !== null} onClick={() => pickCreate(kind)}>
+                      <span className="create-pop-icon" aria-hidden="true">{k.icon}</span>
+                      <span>
+                        <b>{k.title}</b>
+                        <span className="create-pop-sub">{k.sub}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       </div>
 
       {events === null ? (
         <EventListSkeleton />
       ) : events.length === 0 ? (
-        <div className="empty-state">
-          <span className="empty-state-emoji">🎪</span>
-          <h3>У вас пока нет мероприятий</h3>
-          <p>Создайте квиз или соберите сценарий из нескольких раундов</p>
-          <div className="quick-start">
-            <button className="quick-start-card" disabled={busyKind !== null} onClick={() => quickStart("quiz")}>
-              <span className="qs-icon">❓</span>
-              <b>{busyKind === "quiz" ? "..." : "Квиз"}</b>
-            </button>
-            <button className="quick-start-card" disabled={busyKind !== null} onClick={() => quickStart("poll")}>
-              <span className="qs-icon">📊</span>
-              <b>{busyKind === "poll" ? "..." : "Опрос"}</b>
-            </button>
-            <button className="quick-start-card" disabled={busyKind !== null} onClick={() => quickStart("scenario")}>
-              <span className="qs-icon">🎪</span>
-              <b>{busyKind === "scenario" ? "..." : "Сценарий"}</b>
-            </button>
+        filter === "all" ? (
+          <div className="empty-state">
+            <span className="empty-state-emoji">🎪</span>
+            <h3>У вас пока нет мероприятий</h3>
+            <p>Создайте квиз или соберите сценарий из нескольких раундов</p>
+            <div className="quick-start">
+              {Object.entries(CREATE_KINDS).map(([kind, k]) => (
+                <button key={kind} className="quick-start-card" disabled={busyKind !== null} onClick={() => pickCreate(kind)}>
+                  <span className="qs-icon" aria-hidden="true">{k.icon}</span>
+                  <b>{busyKind === kind ? "..." : k.title}</b>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="empty-state">
+            <h3>Пусто</h3>
+            <p>В этом фильтре мероприятий нет</p>
+          </div>
+        )
       ) : (
         <div className="event-list">
           {events.map((ev) => {
             const status = STATUS[ev.status] || STATUS.draft;
             const playable = ev.quiz_count + ev.poll_count > 0;
+            // патч L2: неполные блоки (quizId=null) блокируют запуск
+            const incomplete = ev.block_count === 0 || ev.broken_blocks > 0;
             return (
               <div className="card event-card" key={ev.id}>
                 <div className="event-card-icon" aria-hidden="true">{eventIcon(ev)}</div>
@@ -190,7 +275,12 @@ export default function EventsSection() {
                       </Link>
                     ) : (
                       playable && (
-                        <button className="btn btn-primary" onClick={() => run(ev.id)}>
+                        <button
+                          className="btn btn-primary"
+                          disabled={incomplete}
+                          title={incomplete ? "Заполните все блоки вопросов" : undefined}
+                          onClick={() => run(ev.id)}
+                        >
                           ▶ Запустить
                         </button>
                       )
@@ -211,7 +301,6 @@ export default function EventsSection() {
                       </button>
                       {menuId === ev.id && (
                         <>
-                          {/* прозрачная подложка на весь экран — закрытие меню кликом мимо */}
                           <div className="menu-backdrop" onClick={() => setMenuId(null)} />
                           <div className="menu-pop" role="menu">
                             <button role="menuitem" onClick={() => clone(ev.id)}>
@@ -229,6 +318,32 @@ export default function EventsSection() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {createKind && (
+        <div className="dialog-overlay" onClick={() => busyKind === null && setCreateKind(null)}>
+          <div className="dialog" role="dialog" aria-modal="true" aria-label="Новое мероприятие" onClick={(e) => e.stopPropagation()}>
+            <h3>Новое мероприятие</h3>
+            <label className="create-title-label">
+              Название
+              <input
+                ref={titleInputRef}
+                value={createTitle}
+                maxLength={200}
+                onChange={(e) => setCreateTitle(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && submitCreate()}
+              />
+            </label>
+            <div className="notfound-actions">
+              <button className="btn btn-outline" disabled={busyKind !== null} onClick={() => setCreateKind(null)}>
+                Отмена
+              </button>
+              <button className="btn btn-primary" disabled={busyKind !== null} onClick={submitCreate}>
+                {busyKind ? "..." : "Создать"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

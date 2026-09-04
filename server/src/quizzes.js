@@ -89,7 +89,7 @@ quizRoutes.get("/", (req, res) => {
 });
 
 quizRoutes.post("/", (req, res) => {
-  const { title, type, questions } = req.body || {};
+  const { title, type, questions, wrap } = req.body || {};
   if (!title || !title.trim()) return res.status(400).json({ error: "Введите название" });
   if (!["quiz", "poll"].includes(type)) return res.status(400).json({ error: "Неверный тип" });
   try {
@@ -99,8 +99,9 @@ quizRoutes.post("/", (req, res) => {
       .prepare("INSERT INTO quizzes (host_id, title, type) VALUES (?, ?, ?)")
       .run(req.userId, title.trim(), type);
     const quizId = Number(result.lastInsertRowid);
-    // каждое мероприятие — единица запуска (спека §1.2): квиз сразу заворачиваем в event
-    createSimpleEventForQuiz(req.userId, quizId, title.trim(), type);
+    // каждое мероприятие — единица запуска (спека §1.2): квиз сразу заворачиваем в event.
+    // wrap:false — квиз создаётся для уже существующего мероприятия (EM-60, «Создать новый»)
+    if (wrap !== false) createSimpleEventForQuiz(req.userId, quizId, title.trim(), type);
     if (Array.isArray(questions) && questions.length) saveQuestions(quizId, questions);
     db.exec("COMMIT");
     res.json({ quiz: loadFullQuiz(quizId, req.userId) });

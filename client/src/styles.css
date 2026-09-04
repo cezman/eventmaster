@@ -2400,6 +2400,128 @@ input:focus {
   justify-content: flex-end;
 }
 
+/* шапка раздела: заголовок + фильтры + [+ Создать] (EM-60, патч дизайнера §2) */
+.event-head-row {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.event-head-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.event-filters {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.filter-pill {
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+.filter-pill:hover {
+  color: var(--text);
+}
+.filter-pill.active {
+  background: rgba(91, 141, 239, 0.14); /* fallback до color-mix */
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+  border-color: transparent;
+  color: var(--primary);
+}
+
+/* dropdown создания: белый список, на мобиле — bottom sheet */
+.create-wrap {
+  position: relative;
+}
+.create-pop {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 81;
+  min-width: 280px;
+  padding: 6px;
+  /* как диалоги: всегда белый */
+  background: #fff;
+  color: var(--ink);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  box-shadow: var(--card-shadow);
+  display: flex;
+  flex-direction: column;
+}
+.create-pop button {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  border: none;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--ink);
+}
+.create-pop button:hover {
+  background: #eef2fa;
+}
+.create-pop button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.create-pop-icon {
+  font-size: 22px;
+  flex-shrink: 0;
+}
+.create-pop-sub {
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted-on-card);
+}
+@media (max-width: 760px) {
+  /* bottom sheet вместо dropdown (патч §2, мобильный) */
+  .create-pop {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    min-width: 0;
+    border-radius: 16px 16px 0 0;
+    padding: 10px 6px calc(12px + env(safe-area-inset-bottom));
+    animation: sheet-in 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .create-pop button {
+    padding: 14px 16px;
+  }
+}
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .create-pop {
+    animation: none;
+  }
+}
+
+.create-title-label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0 16px;
+}
+
 /* статусные бейджи мероприятия: draft=warning (badge-muted), ready=brand, live=danger, completed=muted */
 .badge-live {
   background: rgba(229, 72, 77, 0.14); /* fallback до color-mix */
