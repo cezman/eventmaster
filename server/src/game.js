@@ -197,28 +197,17 @@ function finishGame(io, game) {
 
 export function registerGameHandlers(io) {
   io.on("connection", (socket) => {
-    socket.on("host:create-game", ({ token, quizId, reclaimPin } = {}, ack = () => {}) => {
+    socket.on("host:create-game", ({ token, quizId } = {}, ack = () => {}) => {
       const hostId = verifyToken(token);
       if (!hostId) return ack({ error: "Не авторизован" });
 
-      // Хост обновил страницу — возвращаем ему его же игру
-      if (reclaimPin && games.has(String(reclaimPin))) {
-        const game = games.get(String(reclaimPin));
-        if (game.hostId === hostId && game.quizId === Number(quizId)) {
-          clearTimeout(game.closeTimer);
-          game.closeTimer = null;
-          game.hostSocketId = socket.id;
-          socket.join(`game:${game.pin}`);
-          socket.emit("host:game", snapshotForHost(game));
-          broadcastPlayers(io, game);
-          if (game.state === "question") socket.emit("question", questionForRoom(game));
-          // хосту в reveal тоже нужен вопрос (экран reveal показывает его текст)
-          if (game.state === "reveal") {
-            socket.emit("question", questionForRoom(game));
-            reveal(io, game);
-          }
-          return ack({ ok: true, pin: game.pin });
-        }
+      // EM-46: пульт при открытии подключается к живой партии своего квиза (обновление
+      // страницы, второе устройство) и только при её отсутствии создаёт новую —
+      // запуск остаётся в один клик и вторая партия не плодится
+      const live = [...games.values()].find((g) => g.hostId === hostId && g.quizId === Number(quizId));
+      if (live) {
+        attachHost(io, socket, live);
+        return ack({ ok: true, pin: live.pin });
       }
 
       const quiz = db
@@ -228,11 +217,6 @@ export function registerGameHandlers(io) {
       const loaded = loadQuiz(quiz.id);
       if (!loaded) return ack({ error: "Добавьте хотя бы один вопрос" });
       const fullQuestions = loaded.questions;
-
-      // одну викторину можно запустить только один раз одновременно
-      for (const [pin, g] of games) {
-        if (g.quizId === quiz.id && g.hostId === hostId) deleteGame(io, g);
-      }
 
       const host = db.prepare("SELECT name, surname, avatar FROM users WHERE id = ?").get(hostId);
       // имя/аватар хоста фиксируются на момент создания игры (reclaim использует старый снапшот)
@@ -268,7 +252,7 @@ export function registerGameHandlers(io) {
       const game = games.get(String(pin || "").trim());
       if (!game) return ack({ error: "Игра с таким PIN не найдена" });
       socket.join(`game:${game.pin}`);
-      ack({ ok: true, pin: game.pin, title: game.title, type: game.type, state: game.state });
+      ack({ ok: true, pin: game.pin, title: game.title, type: game.type, state: game.state, quizId: game.quizId });
       socket.emit("players", { players: playersList(game) });
       if (game.state === "question") socket.emit("question", questionForRoom(game));
       if (game.state === "reveal") {
@@ -279,36 +263,14 @@ export function registerGameHandlers(io) {
         socket.emit("finished", { leaderboard: leaderboard(game), players: playersList(game) });
     });
 
-    // EM-36: пульт ведущего подключается к ИДУЩЕЙ игре (обновление страницы пульта,
-    // второй устройство) вместо создания второй партии. Перехватывает роль хоста:
-    // старый пульт теряет управление (hostSocketId перезаписан).
+    // EM-36: пульт ведущего подключается к ИДУЩЕЙ игре по PIN (второе устройство).
+    // Перехватывает роль хоста: старый пульт теряет управление (host:detached).
     socket.on("host:attach", ({ token, pin } = {}, ack = () => {}) => {
       const hostId = verifyToken(token);
       if (!hostId) return ack({ error: "Не авторизован" });
       const game = games.get(String(pin || "").trim());
       if (!game || game.hostId !== hostId) return ack({ error: "Игра не найдена" });
-      clearTimeout(game.closeTimer);
-      game.closeTimer = null;
-      // прежний пульт теряет управление — сообщаем ему об этом
-      io.sockets.sockets.get(game.hostSocketId)?.emit("host:detached");
-      game.hostSocketId = socket.id;
-      socket.join(`game:${game.pin}`);
-      socket.emit("host:game", snapshotForHost(game));
-      broadcastPlayers(io, game);
-      if (game.state === "question") {
-        socket.emit("question", questionForRoom(game));
-        socket.emit("answer-count", {
-          answered: [...game.players.values()].filter((p) => p.answer != null && p.online !== false).length,
-          total: onlineCount(game),
-          counts: game.quiz.showLiveResults ? countsFor(game) : null,
-        });
-      }
-      if (game.state === "reveal") {
-        socket.emit("question", questionForRoom(game));
-        reveal(io, game);
-      }
-      if (game.state === "finished")
-        socket.emit("finished", { leaderboard: leaderboard(game), players: playersList(game) });
+      attachHost(io, socket, game);
       ack({ ok: true, pin: game.pin });
     });
 
@@ -570,6 +532,33 @@ function hostGame(socket) {
     if (game.hostSocketId === socket.id) return game;
   }
   return null;
+}
+
+// EM-46: подключение пульта к живой партии — перехват роли у прежнего пульта
+// (host:detached) и досыл полного состояния фазы. Общий для host:attach и
+// повторного host:create-game того же квиза.
+function attachHost(io, socket, game) {
+  clearTimeout(game.closeTimer);
+  game.closeTimer = null;
+  io.sockets.sockets.get(game.hostSocketId)?.emit("host:detached");
+  game.hostSocketId = socket.id;
+  socket.join(`game:${game.pin}`);
+  socket.emit("host:game", snapshotForHost(game));
+  broadcastPlayers(io, game);
+  if (game.state === "question") {
+    socket.emit("question", questionForRoom(game));
+    socket.emit("answer-count", {
+      answered: [...game.players.values()].filter((p) => p.answer != null && p.online !== false).length,
+      total: onlineCount(game),
+      counts: game.quiz.showLiveResults ? countsFor(game) : null,
+    });
+  }
+  if (game.state === "reveal") {
+    socket.emit("question", questionForRoom(game));
+    reveal(io, game);
+  }
+  if (game.state === "finished")
+    socket.emit("finished", { leaderboard: leaderboard(game), players: playersList(game) });
 }
 
 function snapshotForHost(game) {
