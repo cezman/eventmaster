@@ -10,6 +10,7 @@ import rateLimit from "express-rate-limit";
 import { instrument } from "@socket.io/admin-ui";
 import { authRoutes } from "./auth.js";
 import { quizRoutes } from "./quizzes.js";
+import { eventRoutes } from "./events.js";
 import { resultRoutes } from "./results.js";
 import { adminRoutes } from "./admin.js";
 import { registerGameHandlers } from "./game.js";
@@ -54,6 +55,7 @@ app.use("/api", apiLimiter);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/quizzes", quizRoutes);
+app.use("/api/events", eventRoutes);
 app.use("/api/results", resultRoutes);
 app.use("/api/admin", adminRoutes);
 

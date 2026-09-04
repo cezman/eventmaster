@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db } from "./db.js";
 import { authRequired } from "./auth.js";
+import { createSimpleEventForQuiz, removeQuizFromEvents } from "./events.js";
 
 export const quizRoutes = Router();
 
@@ -92,13 +93,19 @@ quizRoutes.post("/", (req, res) => {
   if (!title || !title.trim()) return res.status(400).json({ error: "Введите название" });
   if (!["quiz", "poll"].includes(type)) return res.status(400).json({ error: "Неверный тип" });
   try {
+    // квиз + его мероприятие-обёртка + вопросы — атомарно: частичный коммит при 400 недопустим
+    db.exec("BEGIN");
     const result = db
       .prepare("INSERT INTO quizzes (host_id, title, type) VALUES (?, ?, ?)")
       .run(req.userId, title.trim(), type);
     const quizId = Number(result.lastInsertRowid);
+    // каждое мероприятие — единица запуска (спека §1.2): квиз сразу заворачиваем в event
+    createSimpleEventForQuiz(req.userId, quizId, title.trim(), type);
     if (Array.isArray(questions) && questions.length) saveQuestions(quizId, questions);
+    db.exec("COMMIT");
     res.json({ quiz: loadFullQuiz(quizId, req.userId) });
   } catch (e) {
+    db.exec("ROLLBACK");
     res.status(400).json({ error: e.message });
   }
 });
@@ -134,6 +141,15 @@ quizRoutes.put("/:id", (req, res) => {
 });
 
 quizRoutes.delete("/:id", (req, res) => {
-  db.prepare("DELETE FROM quizzes WHERE id = ? AND host_id = ?").run(req.params.id, req.userId);
-  res.json({ ok: true });
+  // квиз и его следы в сценариях мероприятий — одной транзакцией
+  db.exec("BEGIN");
+  try {
+    db.prepare("DELETE FROM quizzes WHERE id = ? AND host_id = ?").run(req.params.id, req.userId);
+    removeQuizFromEvents(Number(req.params.id), req.userId);
+    db.exec("COMMIT");
+    res.json({ ok: true });
+  } catch (e) {
+    db.exec("ROLLBACK");
+    res.status(400).json({ error: e.message });
+  }
 });

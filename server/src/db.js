@@ -102,3 +102,58 @@ for (const [col, def] of [["role", "'host'"], ["status", "'active'"]]) {
     // колонка уже есть
   }
 }
+
+// мероприятия (EM-52, спека design-new-features-spec §1.3): event = контейнер со сценарием
+db.exec(`
+  CREATE TABLE IF NOT EXISTS events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    host_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    cover_image TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'ready', 'live', 'completed')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS scenario_blocks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    type TEXT NOT NULL CHECK (type IN ('quiz', 'poll', 'text', 'image', 'audio', 'break', 'activity')),
+    position INTEGER NOT NULL,
+    content TEXT NOT NULL DEFAULT '{}',
+    settings TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`);
+
+// обёртка квизов в «простое мероприятие» (§1.2): идемпотентно при каждом старте —
+// добирает только квизы, на которые ещё не ссылается ни один quiz/poll-блок;
+// json_valid — чтобы внешне испорченный content не валил старт сервера
+const orphanQuizzes = db
+  .prepare(
+    `SELECT q.id, q.host_id, q.title, q.type FROM quizzes q
+     WHERE NOT EXISTS (
+       SELECT 1 FROM scenario_blocks b
+       WHERE b.type IN ('quiz', 'poll') AND json_valid(b.content)
+         AND json_extract(b.content, '$.quizId') = q.id
+     )`
+  )
+  .all();
+for (const quiz of orphanQuizzes) {
+  db.exec("BEGIN");
+  try {
+    const ev = db
+      .prepare("INSERT INTO events (host_id, title, status) VALUES (?, ?, 'draft')")
+      .run(quiz.host_id, quiz.title);
+    db.prepare("INSERT INTO scenario_blocks (event_id, type, position, content) VALUES (?, ?, 0, ?)").run(
+      Number(ev.lastInsertRowid),
+      quiz.type,
+      JSON.stringify({ quizId: quiz.id })
+    );
+    db.exec("COMMIT");
+  } catch (e) {
+    db.exec("ROLLBACK");
+    throw e;
+  }
+}
