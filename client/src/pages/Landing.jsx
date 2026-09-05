@@ -120,7 +120,7 @@ export default function Landing() {
         }
       })
       .catch(() => setChecked(true)); // сеть/токен — показываем лендинг как есть
-  }, [user, navigate]);
+  }, [user?.id, navigate]); // id, а не объект: /auth/me пересоздаёт user — не перезапуская проверку
 
   if (!checked) return null;
 
