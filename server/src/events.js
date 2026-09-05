@@ -106,6 +106,34 @@ function validateContent(type, content, hostId) {
       colorScheme: content.colorScheme === "rainbow" ? "rainbow" : "brand",
     };
   }
+  // rich-блоки (спека §3.5, EM-66): url необязателен, как промпт у rating — редактор
+  // автосейвит и пустой блок; зал/пульт рендерят пустоту безопасно. Длины согласованы
+  // с payload'ами game.js (url 500, caption 300, title 200, description 2000).
+  // autoplay/timer пока без UI и без payload на экранах — храним на будущее (EM-67/полировка пульта)
+  const str = (v, max) => (typeof v === "string" ? v.trim().slice(0, max) : "");
+  if (type === "image") {
+    return {
+      url: str(content.url, 500),
+      caption: str(content.caption, 300),
+      fullscreen: content.fullscreen === true,
+    };
+  }
+  if (type === "audio") {
+    return {
+      url: str(content.url, 500),
+      title: str(content.title, 200),
+      autoplay: content.autoplay === true,
+    };
+  }
+  if (type === "activity") {
+    const timer = Number.isInteger(content.timer) && content.timer > 0 ? content.timer : null;
+    return {
+      type: ["standup", "brainstorm", "other"].includes(content.type) ? content.type : "other",
+      title: str(content.title, 200),
+      description: str(content.description, 2000),
+      ...(timer ? { timer } : {}),
+    };
+  }
   return content;
 }
 

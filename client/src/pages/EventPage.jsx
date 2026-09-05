@@ -28,7 +28,7 @@ import { resetEventsCache } from "../cabinet/EventsSection";
 
 // EM-54 (спека §3, Phase 2 п.8–12): редактор сценария — таймлайн с drag-and-drop,
 // AddBlockMenu (текст/пауза/квизы), inline BlockEditor, предпросмотр сценария.
-// image/audio/activity — только пункты «Скоро»: их редакторы придут с rich-блоками (Phase 4).
+// image/audio/activity — rich-блоки EM-66: формы в BlockEditor, файлы через POST /api/media.
 const BLOCK_TYPES = {
   quiz: { icon: "❓", label: "Викторина" },
   poll: { icon: "📊", label: "Голосование" },
@@ -45,10 +45,10 @@ const BLOCK_TYPES = {
 const ADD_ITEMS = [
   { type: "quiz", icon: "❓", name: "Вопросы", sub: "Квиз или голосование с вариантами ответов" },
   { type: "text", icon: "📝", name: "Текст", sub: "Заголовок и текст на экране" },
-  { type: "image", icon: "🖼️", name: "Изображение", sub: "Полноэкранная картинка на проекторе", soon: true },
-  { type: "audio", icon: "🎵", name: "Музыка", sub: "Фоновый трек во время паузы", soon: true },
+  { type: "image", icon: "🖼️", name: "Изображение", sub: "Полноэкранная картинка на проекторе" },
+  { type: "audio", icon: "🎵", name: "Музыка", sub: "Фоновый трек во время паузы" },
   { type: "break", icon: "☕", name: "Пауза", sub: "Перерыв с обратным отсчётом" },
-  { type: "activity", icon: "🎯", name: "Активность", sub: "Нетчик, мозговой штурм, разминка", soon: true },
+  { type: "activity", icon: "🎯", name: "Активность", sub: "Нетворкинг, мозговой штурм, разминка" },
   { type: "rating", icon: "⭐", name: "Оценка", sub: "Шкала 1–10, среднее в реальном времени" },
   { type: "openended", icon: "💬", name: "Свободный ответ", sub: "Идеи и отзывы гостей лентой" },
   { type: "wordcloud", icon: "☁️", name: "Облако слов", sub: "Слова гостей растут на проекторе" },
@@ -61,6 +61,9 @@ const DEFAULT_CONTENT = {
   rating: { prompt: "", scale: 10, showAverage: true, labels: { low: "Плохо", mid: "Нормально", high: "Отлично" } },
   openended: { prompt: "", maxLength: 500, displayAs: "feed", filterProfanity: true, maxPerGuest: 3 },
   wordcloud: { prompt: "", maxWordsPerGuest: 3, maxLength: 30, filterProfanity: true, suggestedWords: [], allowCustom: true, colorScheme: "brand" },
+  image: { url: "", caption: "", fullscreen: false },
+  audio: { url: "", title: "", autoplay: false },
+  activity: { type: "standup", title: "", description: "" },
 };
 
 // подписи-близнецы для тоста с согласованием рода («Пауза добавлена»)
@@ -70,6 +73,9 @@ const ADDED_TOAST = {
   rating: "Блок оценки добавлен",
   openended: "Блок свободных ответов добавлен",
   wordcloud: "Блок облака слов добавлен",
+  image: "Картинка добавлена",
+  audio: "Музыка добавлена",
+  activity: "Активность добавлена",
 };
 
 const STATUS = {

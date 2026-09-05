@@ -4204,3 +4204,34 @@ input:focus {
   border-color: var(--primary);
   color: #fff;
 }
+
+/* ---------- EM-66: rich-блоки — поле загрузки медиа в BlockEditor (спека §3.5) ---------- */
+/* ссылка + кнопка загрузки — один ряд, одна высота: растягиваем оба до общего края */
+.be-upload {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+.be-upload input {
+  flex: 1;
+  min-width: 0;
+}
+.be-upload .btn {
+  white-space: nowrap;
+}
+/* превью: картинка вписана с обрезкой, плеер — нативный; высоты фиксированы, чтобы не прыгали */
+.be-thumb {
+  width: 100%;
+  height: 96px;
+  object-fit: cover;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+}
+.be-audio {
+  width: 100%;
+  height: 40px;
+}
+/* подсказка про форматы внутри be-field — там жирный label, подсказка остаётся обычной */
+.be-hint--field {
+  font-weight: 400;
+}
