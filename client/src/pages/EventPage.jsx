@@ -578,11 +578,6 @@ export default function EventPage() {
               placeholder="Название мероприятия"
               aria-label="Название мероприятия"
             />
-            <p className="event-card-meta">
-              {blocks.length > 0
-                ? `${blocks.length} ${plural(blocks.length, ["блок", "блока", "блоков"])} в сценарии`
-                : "Сценарий пуст"}
-            </p>
           </div>
           <div className="event-head-actions">
             <span className={`badge ${status.cls}`}>
