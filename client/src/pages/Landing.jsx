@@ -1,6 +1,7 @@
-import React from "react";
-import { Link } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth";
+import { api } from "../api";
 import Logo from "../components/Logo";
 import ThemeToggle from "../components/ThemeToggle";
 
@@ -90,8 +91,38 @@ function PhoneMock() {
   );
 }
 
+// клик по любой из кнопок «в кабинет» — намерение выражено, авто-редирект больше не нужен
+const markLandingStay = () => sessionStorage.setItem("em-landing-stay", "1");
+
 export default function Landing() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  // гостю проверка не нужна; залогиненному страницу рисуем только после сверки квизов,
+  // иначе лендинг промелькнёт перед авто-редиректом
+  const [checked, setChecked] = useState(!user);
+
+  // EM-70 (D7): залогиненному с ровно одним квизом первый заход на «/» за сессию
+  // сразу открывает кабинет. Флаг в sessionStorage не даёт зациклиться: после редиректа
+  // (или явного клика «в кабинет») возврат на главную показывает лендинг как есть.
+  useEffect(() => {
+    if (!user) return;
+    if (sessionStorage.getItem("em-landing-stay")) {
+      setChecked(true);
+      return;
+    }
+    api("/quizzes", { token: localStorage.getItem("token") })
+      .then((d) => {
+        if (d.quizzes?.length === 1) {
+          sessionStorage.setItem("em-landing-stay", "1");
+          navigate("/dashboard", { replace: true });
+        } else {
+          setChecked(true);
+        }
+      })
+      .catch(() => setChecked(true)); // сеть/токен — показываем лендинг как есть
+  }, [user?.id, navigate]); // id, а не объект: /auth/me пересоздаёт user — не перезапуская проверку
+
+  if (!checked) return null;
 
   return (
     <div className="landing">
@@ -100,7 +131,7 @@ export default function Landing() {
         <nav>
           <ThemeToggle />
           {user ? (
-            <Link className="btn btn-outline" to="/dashboard">
+            <Link className="btn btn-outline" to="/dashboard" onClick={markLandingStay}>
               Кабинет
             </Link>
           ) : (
@@ -125,8 +156,12 @@ export default function Landing() {
               экране: гости заходят без установки приложений, результаты растут в реальном времени.
             </p>
             {user ? (
-              <Link className="btn btn-primary btn-lg" to="/dashboard">
-                Открыть кабинет
+              <Link
+                className="btn btn-primary btn-lg"
+                to="/dashboard"
+                onClick={markLandingStay}
+              >
+                {user.name?.trim() ? `Продолжить как ${user.name.trim()} →` : "Открыть кабинет"}
               </Link>
             ) : (
               <Link className="btn btn-primary btn-lg" to="/register">
