@@ -1,6 +1,7 @@
-// EM-69 (D3): весёлые ники «Прилагательное Существительное NNN» (addendum §5.15,
-// тон решён владельцем — «Бодрый Тигр 814»). Словарь на сервере: он же проверяет
-// уникальность в партии. Все существительные мужского рода — род всегда согласован.
+// EM-69 (D3): весёлые ники «Прилагательное Существительное» (addendum §5.15, тон решён
+// владельцем — «Бодрый Тигр»; правка владельца 2026-09-05: цифры НЕ всегда, а только при
+// коллизии — «Бодрый Тигр 814»). Словарь на сервере: он же проверяет уникальность в партии.
+// Все существительные мужского рода — род всегда согласован.
 export const ADJECTIVES = [
   "Бодрый", "Быстрый", "Мудрый", "Смелый", "Яркий", "Тихий", "Ловкий", "Дикий",
   "Зоркий", "Стойкий", "Весёлый", "Хитрый", "Пушистый", "Храбрый", "Лихой", "Смешной",
@@ -19,15 +20,16 @@ export const NOUNS = [
 
 const rand = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
-// пара ≤ 15 символов: «X Y NNN» = пара + 2 пробела + 3 цифры ⇒ максимум ровно 20
-export function randomNick() {
-  let a = rand(ADJECTIVES);
-  let n = rand(NOUNS);
-  while (a.length + n.length > 15) {
-    a = rand(ADJECTIVES);
-    n = rand(NOUNS);
-  }
-  return `${a} ${n} ${100 + Math.floor(Math.random() * 900)}`;
+// решение владельца 2026-09-05: без цифр, если пара свободна («Бодрый Тигр»);
+// цифры — только при коллизии («Бодрый Тигр 814»). Пара ≤ 15 символов, чтобы
+// вариант с цифрами «X Y NNN» влезал ровно в лимит имени 20.
+export function randomNick(taken) {
+  const a = rand(ADJECTIVES);
+  const n = rand(NOUNS);
+  if (a.length + n.length > 15) return randomNick(taken); // пара не влезет с цифрами — перекатываем
+  const bare = `${a} ${n}`;
+  if (!taken || !taken.has(bare.toLowerCase())) return bare;
+  return `${bare} ${100 + Math.floor(Math.random() * 900)}`;
 }
 
 // ник, свободный в этой партии: до 5 попыток (парк §5.15), затем «Игрок N».
@@ -36,7 +38,7 @@ export function uniqueNick(game) {
   if (!game) return randomNick();
   const taken = new Set([...game.players.values()].map((p) => p.name.toLowerCase()));
   for (let i = 0; i < 5; i++) {
-    const nick = randomNick();
+    const nick = randomNick(taken);
     if (!taken.has(nick.toLowerCase())) return nick;
   }
   let n = game.players.size + 1;
