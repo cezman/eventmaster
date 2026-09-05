@@ -2524,6 +2524,36 @@ input:focus {
   font-size: 12px;
   color: var(--text-muted);
 }
+/* EM-71: зал смотрят из зала — оверлей в масштабе проектора (телефонная карточка 340px нечитаема) */
+.screen-page .reconnect-card {
+  width: min(720px, 84vw);
+  padding: 48px 56px;
+  gap: 16px;
+}
+.screen-page .reconnect-spinner {
+  width: 56px;
+  height: 56px;
+  border-width: 6px;
+}
+.screen-page .reconnect-spinner-alt {
+  font-size: 40px;
+}
+.screen-page .reconnect-title {
+  font-size: 34px;
+}
+.screen-page .reconnect-sub {
+  font-size: 22px;
+}
+.screen-page .reconnect-icon {
+  font-size: 44px;
+}
+.screen-page .reconnect-actions {
+  margin-top: 8px;
+}
+.screen-page .reconnect-actions .btn {
+  font-size: 18px;
+  padding: 14px 26px;
+}
 .reconnect-icon {
   font-size: 24px;
   font-weight: 800;

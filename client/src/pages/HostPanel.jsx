@@ -242,14 +242,17 @@ export default function HostPanel() {
       : block
         ? "block"
         : game?.state;
-  // EM-45: оверлей переподключения — только пока пульт подключён к партии
+  // EM-45: оверлей переподключения — только пока пульт подключён к партии.
+  // EM-71: ретрай форсирует попытку — после «connect» доведёт reclaim (см. «connect» → claim)
   const reconnect = useReconnectStatus(socket, status === "connected");
   const reconnectOverlay = (
     <ReconnectOverlay
       state={reconnect.state}
       secondsLeft={reconnect.secondsLeft}
       retryLabel="Переподключить"
-      onRetry={() => window.location.reload()}
+      onRetry={() => {
+        if (socket.disconnected) socket.connect();
+      }}
       onHome={() => navigate("/")}
     />
   );
