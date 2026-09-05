@@ -295,20 +295,23 @@ export default function ScreenGame() {
                 )}
                 <div className="screen-rating-bars">
                   {(ratingStats?.distribution ||
-                    Array.from({ length: block.scale || 10 }, () => 0)).map((n, i) => (
-                      <div className="screen-rating-row" key={i}>
-                        <span className="screen-rating-num">{i + 1}</span>
-                        <span className="screen-rating-bar">
-                          <i
-                            style={{
-                              width: `${ratingStats && ratingStats.totalResponses ? Math.round((n / ratingStats.totalResponses) * 100) : 0}%`,
-                              transitionDelay: `${i * 40}ms`,
-                            }}
-                          />
-                        </span>
-                        <span className="screen-rating-count">{n}</span>
-                      </div>
-                    ))}
+                    Array.from({ length: block.scale || 10 }, () => 0)).map((n, i) => {
+                      const pct = ratingStats && ratingStats.totalResponses ? Math.round((n / ratingStats.totalResponses) * 100) : 0;
+                      return (
+                        <div className="screen-rating-row" key={i}>
+                          <span className="screen-rating-num">{i + 1}</span>
+                          <span className="screen-rating-bar">
+                            <i
+                              style={{
+                                width: `${pct}%`,
+                                opacity: pct === 0 ? 0 : 1,
+                              }}
+                            />
+                          </span>
+                          <span className="screen-rating-count">{n}</span>
+                        </div>
+                      );
+                    })}
                 </div>
                 <p className="screen-block-body">
                   {ratingStats && ratingStats.totalGuests > 0
