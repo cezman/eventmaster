@@ -6,6 +6,7 @@ import { parseVideoEmbed } from "./video.js";
 import { uniqueNick } from "./nicknames.js";
 
 const games = new Map(); // pin -> game
+let ioRef = null; // EM-72: для closeEventGame — REST-маршруты удаляют мероприятие и добивают партию
 
 function makePin() {
   let pin;
@@ -666,6 +667,7 @@ function newGame({ pin, hostId, host, title, type, quizId, quiz }) {
 }
 
 export function registerGameHandlers(io) {
+  ioRef = io;
   io.on("connection", (socket) => {
     socket.on("host:create-game", ({ token, quizId, eventId } = {}, ack = () => {}) => {
       const hostId = verifyToken(token);
@@ -1355,4 +1357,19 @@ function snapshotForHost(game) {
         ? { type: game.scenario[game.blockIndex].type, title: blockTitle(game.scenario[game.blockIndex]) }
         : null,
   };
+}
+
+// EM-72: удаление идущего мероприятия. DELETE /api/events/:id сначала отвечает 409
+// с PIN живой партии (модалка в кабинете), с подтверждением (?closeLive=1) — добивает
+// партию штатно: game:closed залу/телефону/пульту + games.delete.
+export function liveEventPin(hostId, eventId) {
+  const game = [...games.values()].find((g) => g.hostId === hostId && g.eventId === eventId);
+  return game ? game.pin : null;
+}
+
+export function closeEventGame(hostId, eventId) {
+  const game = [...games.values()].find((g) => g.hostId === hostId && g.eventId === eventId);
+  if (!game || !ioRef) return false;
+  deleteGame(ioRef, game);
+  return true;
 }

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "./db.js";
 import { authRequired } from "./auth.js";
 import { parseVideoEmbed } from "./video.js";
+import { liveEventPin, closeEventGame } from "./game.js";
 
 export const eventRoutes = Router();
 
@@ -283,6 +284,12 @@ eventRoutes.put("/:id", (req, res) => {
 eventRoutes.delete("/:id", (req, res) => {
   const event = getEvent(req.params.id, req.userId);
   if (!event) return res.status(404).json({ error: "Мероприятие не найдено" });
+  // EM-72: у мероприятия живая партия (в памяти сервера) — без подтверждения не удаляем:
+  // 409 с PIN для модалки; с ?closeLive=1 добиваем партию штатно (game:closed всем)
+  const livePin = liveEventPin(req.userId, event.id);
+  if (livePin && req.query.closeLive !== "1")
+    return res.status(409).json({ error: "Мероприятие сейчас идёт на экране", live: true, pin: livePin });
+  if (livePin) closeEventGame(req.userId, event.id);
   db.exec("BEGIN");
   try {
     // snapshot-копии квизов удаляются вместе с мероприятием (спека §1.3):

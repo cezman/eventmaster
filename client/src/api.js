@@ -10,7 +10,11 @@ export async function api(path, { method = "GET", body, token } = {}) {
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || "Что-то пошло не так");
+  if (!res.ok) {
+    const err = new Error(data.error || "Что-то пошло не так");
+    err.payload = data; // структурированные детали (напр. 409 удаления live-мероприятия: {live, pin})
+    throw err;
+  }
   return data;
 }
 
