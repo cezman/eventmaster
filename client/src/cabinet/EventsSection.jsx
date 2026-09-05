@@ -70,6 +70,8 @@ export default function EventsSection() {
   const [events, setEvents] = useState(cached);
   const [filter, setFilter] = useState("all");
   const [confirmId, setConfirmId] = useState(null);
+  const [liveDelete, setLiveDelete] = useState(null); // EM-72: {id, pin} — у мероприятия живая партия
+  const [deleting, setDeleting] = useState(false);
   const [menuId, setMenuId] = useState(null); // ⋯-меню на карточке
   const [createOpen, setCreateOpen] = useState(false); // dropdown/bottom-sheet создания
   const [createKind, setCreateKind] = useState(null); // выбранный пункт → модалка названия
@@ -137,14 +139,25 @@ export default function EventsSection() {
     load();
   };
 
-  const remove = async (id) => {
-    setConfirmId(null);
+  const remove = async (id, closeLive = false) => {
+    if (deleting) return; // двойной клик: второй DELETE получил бы 404 поверх тоста успеха
+    if (!closeLive) setConfirmId(null);
+    setDeleting(true);
     try {
-      await api(`/events/${id}`, { method: "DELETE", token });
-      showToast("Мероприятие удалено", "ok");
+      // ?closeLive=1 — второй шаг подтверждения: у мероприятия была живая партия,
+      // модалка её предупредила, сервер добивает партию перед удалением (EM-72)
+      await api(`/events/${id}${closeLive ? "?closeLive=1" : ""}`, { method: "DELETE", token });
+      showToast(closeLive ? "Мероприятие удалено, партия завершена" : "Мероприятие удалено", "ok");
     } catch (e) {
+      if (e.payload?.live) {
+        setLiveDelete({ id, pin: e.payload.pin });
+        return;
+      }
       showToast(`Не удалось удалить: ${e.message}`, "error");
+    } finally {
+      setDeleting(false);
     }
+    setLiveDelete(null);
     load();
   };
 
@@ -361,6 +374,16 @@ export default function EventsSection() {
           text="Мероприятие будет удалено вместе со сценарием. Квизы библиотеки останутся."
           onConfirm={() => remove(confirmId)}
           onCancel={() => setConfirmId(null)}
+        />
+      )}
+
+      {liveDelete && (
+        <ConfirmDialog
+          title="Мероприятие сейчас идёт"
+          text={`Партия с PIN ${liveDelete.pin} открыта на экране. Удалить мероприятие и завершить партию? Экран и телефоны получат «Игра закрыта», очки мероприятия не сохранятся.`}
+          confirmLabel="Удалить и завершить"
+          onConfirm={() => remove(liveDelete.id, true)}
+          onCancel={() => setLiveDelete(null)}
         />
       )}
     </>
