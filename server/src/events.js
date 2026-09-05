@@ -4,9 +4,9 @@ import { authRequired } from "./auth.js";
 
 export const eventRoutes = Router();
 
-// сценарий = упорядоченные блоки, позиции 0..n-1 без дыр (спека §1.3).
-// rating — Волна 6 (EM-57); openended/wordcloud добавляются в своих итерациях
-const BLOCK_TYPES = ["quiz", "poll", "text", "image", "audio", "break", "activity", "rating"];
+// сценарий = упорядоченные блоки, позиции 0..n-1 без дыр (спека §1.3)
+// rating — EM-57, openended — EM-58; wordcloud — EM-59
+const BLOCK_TYPES = ["quiz", "poll", "text", "image", "audio", "break", "activity", "rating", "openended"];
 
 eventRoutes.use(authRequired);
 
@@ -72,6 +72,18 @@ function validateContent(type, content, hostId) {
       scale: Math.min(10, Math.max(2, Number.isInteger(content.scale) ? content.scale : 10)),
       showAverage: content.showAverage !== false,
       labels: { low: label(labels.low), mid: label(labels.mid), high: label(labels.high) },
+    };
+  }
+  // свободный ввод (спека §7.2); displayAs cloud отрисуется как лента до EM-59
+  if (type === "openended") {
+    const int = (v, min, max, def) =>
+      Math.min(max, Math.max(min, Number.isInteger(v) ? v : def));
+    return {
+      prompt: typeof content.prompt === "string" ? content.prompt.slice(0, 200) : "",
+      maxLength: int(content.maxLength, 1, 500, 500),
+      displayAs: content.displayAs === "cloud" ? "cloud" : "feed",
+      filterProfanity: content.filterProfanity !== false,
+      maxPerGuest: int(content.maxPerGuest, 1, 10, 3),
     };
   }
   return content;

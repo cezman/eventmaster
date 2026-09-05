@@ -66,6 +66,12 @@ export default function PlayGame() {
   const [ratingSent, setRatingSent] = useState(null); // отправленная оценка (myValue)
   const [ratingStats, setRatingStats] = useState(null); // live-агрегат сервера
   const [ratingSending, setRatingSending] = useState(false);
+  // EM-58: openended — текст ввода, мои ответы, лимит и лента чужих
+  const [openText, setOpenText] = useState("");
+  const [openFeed, setOpenFeed] = useState(null); // {responses,totalResponses,totalGuests}
+  const [openMyCount, setOpenMyCount] = useState(0);
+  const [openError, setOpenError] = useState("");
+  const [openSending, setOpenSending] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(null);
   const nameRef = useRef(null);
 
@@ -85,6 +91,10 @@ export default function PlayGame() {
     setRatingChoice(null);
     setRatingSent(null);
     setRatingStats(null);
+    setOpenText("");
+    setOpenFeed(null);
+    setOpenMyCount(0);
+    setOpenError("");
     setKickedPin(saved);
     setKicked(true);
   };
@@ -119,6 +129,10 @@ export default function PlayGame() {
       setRatingChoice(null);
       setRatingSent(null);
       setRatingStats(null);
+      setOpenText("");
+      setOpenFeed(null);
+      setOpenMyCount(0);
+      setOpenError("");
       setGameOver(false); // хост нажал «Играть снова» — экран «Игра завершена» больше не нужен
     };
     const onClosed = () => setClosed(true);
@@ -135,12 +149,28 @@ export default function PlayGame() {
       setRatingChoice(null);
       setRatingSent(null);
       setRatingStats(null);
+      // EM-58: сброс свободного ввода на новом блоке
+      setOpenText("");
+      setOpenFeed(null);
+      setOpenMyCount(0);
+      setOpenError("");
     };
     // EM-57: агрегат оценок — и снапшот при входе (state, с myValue), и каждый голос (update)
     const onRatingStats = (d) => {
       setRatingStats(d);
       if (d.myValue != null) setRatingSent(d.myValue);
     };
+    // EM-58: лента ответов — state при входе (с myCount), response — каждый новый ответ
+    const onOpenendedState = (d) => {
+      setOpenFeed({ responses: d.responses, totalResponses: d.totalResponses, totalGuests: d.totalGuests });
+      if (typeof d.myCount === "number") setOpenMyCount(d.myCount);
+    };
+    const onOpenendedResponse = (r) =>
+      setOpenFeed((cur) =>
+        cur
+          ? { ...cur, responses: [...cur.responses, r], totalResponses: cur.totalResponses + 1 }
+          : { kind: "openended", responses: [r], totalResponses: 1, totalGuests: 0 }
+      );
 
     socket.on("players", onPlayers);
     socket.on("question", onQuestion);
@@ -150,10 +180,12 @@ export default function PlayGame() {
     socket.on("game:lobby", onLobby);
     socket.on("game:closed", onClosed);
     socket.on("kicked", onKicked);
-    for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:transition"])
+    for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:openended", "block:transition"])
       socket.on(ev, onBlock);
     socket.on("rating:state", onRatingStats);
     socket.on("rating:update", onRatingStats);
+    socket.on("openended:state", onOpenendedState);
+    socket.on("openended:response", onOpenendedResponse);
     return () => {
       socket.off("players", onPlayers);
       socket.off("question", onQuestion);
@@ -163,10 +195,12 @@ export default function PlayGame() {
       socket.off("game:lobby", onLobby);
       socket.off("game:closed", onClosed);
       socket.off("kicked", onKicked);
-      for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:transition"])
+      for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:openended", "block:transition"])
         socket.off(ev, onBlock);
       socket.off("rating:state", onRatingStats);
       socket.off("rating:update", onRatingStats);
+      socket.off("openended:state", onOpenendedState);
+      socket.off("openended:response", onOpenendedResponse);
     };
   }, [socket]);
 
@@ -224,6 +258,27 @@ export default function PlayGame() {
       clearTimeout(timer);
       setRatingSending(false);
       if (res?.ok) setRatingSent(ratingChoice);
+    });
+  };
+
+  // EM-58: отправка свободного ответа; ошибка сервера (лимит/мат) показывается под полем
+  const sendOpen = () => {
+    if (openSending || !openText.trim()) return;
+    setOpenSending(true);
+    setOpenError("");
+    const timer = setTimeout(() => {
+      setOpenSending(false);
+      setOpenError("Не отправилось — проверьте связь и попробуйте снова");
+    }, 5000);
+    socket.emit("openended:submit", { text: openText }, (res) => {
+      clearTimeout(timer);
+      setOpenSending(false);
+      if (res?.ok) {
+        setOpenMyCount((c) => c + 1);
+        setOpenText("");
+      } else {
+        setOpenError(res?.error || "Не отправилось");
+      }
     });
   };
 
@@ -486,6 +541,64 @@ export default function PlayGame() {
           )}
           {ratingStats && ratingStats.totalResponses > 0 && (
             <p className="muted small">Оценок: {ratingStats.totalResponses}</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // EM-58: openended — свободный ввод на телефоне: textarea + лимит ответов,
+  // после отправки показываем чужие ответы; «Ещё ответ» пока лимит не исчерпан
+  if (block && !question && !reveal && !final && block.blockType === "openended") {
+    const maxPerGuest = block.maxPerGuest || 3;
+    const left = Math.max(0, maxPerGuest - openMyCount);
+    const others = (openFeed?.responses || []).filter((r) => r.guestName !== myName).slice(-3);
+    return (
+      <div className="play-screen">
+        {reconnectOverlay}
+        <div className="play-openended">
+          <h2 className="q-text-sm">{block.prompt || "Ваш ответ"}</h2>
+          {left > 0 ? (
+            <>
+              <textarea
+                className="play-openended-input"
+                rows={4}
+                maxLength={block.maxLength || 500}
+                placeholder="Ваш ответ…"
+                value={openText}
+                onChange={(e) => setOpenText(e.target.value)}
+              />
+              {openError && (
+                <p className="play-openended-error" role="alert">
+                  {openError}
+                </p>
+              )}
+              <button
+                className="btn btn-primary btn-xl btn-block"
+                disabled={openSending || !openText.trim()}
+                onClick={sendOpen}
+              >
+                {openSending ? "Отправляем…" : "Отправить"}
+              </button>
+              <p className="muted small">
+                Осталось {left} из {maxPerGuest}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="play-openended-thanks">Ответ принят ✅</p>
+              <p className="muted small">Вы использовали все ответы</p>
+            </>
+          )}
+          {others.length > 0 && (
+            <div className="play-openended-others">
+              <p className="muted small">Последние ответы:</p>
+              {others.map((r) => (
+                <p className="play-openended-other" key={r.id}>
+                  {r.text}
+                </p>
+              ))}
+            </div>
           )}
         </div>
       </div>
