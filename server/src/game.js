@@ -3,6 +3,7 @@ import { db } from "./db.js";
 import { verifyToken } from "./auth.js";
 import { containsProfanity } from "./profanity.js";
 import { parseVideoEmbed } from "./video.js";
+import { uniqueNick } from "./nicknames.js";
 
 const games = new Map(); // pin -> game
 
@@ -792,6 +793,12 @@ export function registerGameHandlers(io) {
       ack({ ok: true, pin: game.pin });
     });
 
+    // EM-69: 🎲 — ник, свободный в этой партии (по PIN); без PIN — просто случайный
+    socket.on("player:random-name", ({ pin } = {}, ack = () => {}) => {
+      const game = games.get(String(pin || "").trim()) || null;
+      ack({ name: uniqueNick(game) });
+    });
+
     socket.on("player:join", ({ pin, name, avatar, color, token } = {}, ack = () => {}) => {
       const game = games.get(String(pin || "").trim());
       if (!game) return ack({ error: "Игра с таким PIN не найдена" });
@@ -848,13 +855,14 @@ export function registerGameHandlers(io) {
 
       let clean = String(name || "").trim().slice(0, 20);
       if (!clean) return ack({ error: "Введите имя" });
+      // EM-69: ники в партии уникальны; вместо молчаливого «Вася 2» — внятный отказ
+      // (свой ник с суффиксом игрок не выбирал). Вернувшемуся по токену имя не трогаем.
       const taken = new Set([...game.players.values()].map((p) => p.name.toLowerCase()));
-      let candidate = clean;
-      let i = 2;
-      while (taken.has(candidate.toLowerCase())) candidate = `${clean} ${i++}`;
+      if (taken.has(clean.toLowerCase()))
+        return ack({ error: `Имя «${clean}» уже занято — придумайте другое или нажмите 🎲` });
 
       const player = {
-        name: candidate,
+        name: clean,
         score: 0,
         answer: null,
         lastCorrect: false,

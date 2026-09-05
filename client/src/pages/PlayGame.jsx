@@ -54,6 +54,7 @@ export default function PlayGame() {
   const [gameOver, setGameOver] = useState(false); // вход в уже завершённую игру
   const [kicked, setKicked] = useState(false); // хост удалил игрока из партии
   const [kickedPin, setKickedPin] = useState(sessionStorage.getItem("kickedPin") || "");
+  const [diceBusy, setDiceBusy] = useState(false); // 🎲 EM-69: ждём ник от сервера
   const [customizeOpen, setCustomizeOpen] = useState(false); // конструктор аватара в лобби свёрнут
   const [players, setPlayers] = useState([]);
   const [question, setQuestion] = useState(null);
@@ -374,6 +375,18 @@ export default function PlayGame() {
     return () => socket.off("connect", rejoin);
   }, [socket, pinParam]);
 
+  // 🎲 EM-69: сервер подбирает ник, свободный в партии с этим PIN (без PIN — просто случайный)
+  const rollName = () => {
+    if (diceBusy) return;
+    setDiceBusy(true);
+    const t = setTimeout(() => setDiceBusy(false), 2000); // ack мог потеряться при обрыве
+    socket.emit("player:random-name", { pin: pin.replace(/\D/g, "") }, (res) => {
+      clearTimeout(t);
+      setDiceBusy(false);
+      if (res?.name) setName(res.name.slice(0, 20));
+    });
+  };
+
   const join = (e) => {
     e.preventDefault();
     setError("");
@@ -478,16 +491,30 @@ export default function PlayGame() {
               Вы были исключены из этой игры. Введите другой PIN или вернитесь позже.
             </div>
           )}
-          <label className="field-label">
-            Ваше имя
-            <input
-              maxLength={20}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              ref={nameRef}
-              required
-            />
-          </label>
+          {/* лейбл отдельно от ряда: внутри label нельзя класть кнопку (интерактивный элемент) */}
+          <div className="field-label">
+            <label htmlFor="player-name">Ваше имя</label>
+            <span className="name-row">
+              <input
+                id="player-name"
+                maxLength={20}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                ref={nameRef}
+                required
+              />
+              <button
+                type="button"
+                className={`dice-btn${diceBusy ? " dice-btn--spin" : ""}`}
+                onClick={rollName}
+                disabled={diceBusy}
+                aria-label="Случайное имя"
+                title="Случайное имя"
+              >
+                🎲
+              </button>
+            </span>
+          </div>
           {/* вход из двух шагов: на форме только PIN, имя и случайный аватар (тап — перегенерация) */}
           <button
             type="button"
