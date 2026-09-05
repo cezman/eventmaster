@@ -51,6 +51,7 @@ const ADD_ITEMS = [
   { type: "activity", icon: "🎯", name: "Активность", sub: "Нетчик, мозговой штурм, разминка", soon: true },
   { type: "rating", icon: "⭐", name: "Оценка", sub: "Шкала 1–10, среднее в реальном времени" },
   { type: "openended", icon: "💬", name: "Свободный ответ", sub: "Идеи и отзывы гостей лентой" },
+  { type: "wordcloud", icon: "☁️", name: "Облако слов", sub: "Слова гостей растут на проекторе" },
 ];
 
 // стартовый content новых блоков: редактор сразу открывается с валидными полями
@@ -59,6 +60,7 @@ const DEFAULT_CONTENT = {
   break: { duration: 5 },
   rating: { prompt: "", scale: 10, showAverage: true, labels: { low: "Плохо", mid: "Нормально", high: "Отлично" } },
   openended: { prompt: "", maxLength: 500, displayAs: "feed", filterProfanity: true, maxPerGuest: 3 },
+  wordcloud: { prompt: "", maxWordsPerGuest: 3, maxLength: 30, filterProfanity: true, suggestedWords: [], allowCustom: true, colorScheme: "brand" },
 };
 
 // подписи-близнецы для тоста с согласованием рода («Пауза добавлена»)
@@ -67,6 +69,7 @@ const ADDED_TOAST = {
   break: "Пауза добавлена",
   rating: "Блок оценки добавлен",
   openended: "Блок свободных ответов добавлен",
+  wordcloud: "Блок облака слов добавлен",
 };
 
 const STATUS = {
@@ -85,6 +88,7 @@ function blockTitle(b) {
   if (b.type === "break") return b.content.label || "Пауза";
   if (b.type === "rating") return b.content.prompt || "Оценка";
   if (b.type === "openended") return b.content.prompt || "Свободный ответ";
+  if (b.type === "wordcloud") return b.content.prompt || "Облако слов";
   return (BLOCK_TYPES[b.type] || {}).label || "Блок";
 }
 

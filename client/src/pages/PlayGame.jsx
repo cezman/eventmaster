@@ -72,6 +72,12 @@ export default function PlayGame() {
   const [openMyCount, setOpenMyCount] = useState(0);
   const [openError, setOpenError] = useState("");
   const [openSending, setOpenSending] = useState(false);
+  // EM-59: wordcloud — ввод слова, подсказки, лимит и счётчик облака
+  const [cloudText, setCloudText] = useState("");
+  const [cloudStats, setCloudStats] = useState(null); // {words,totalGuests}
+  const [cloudMyCount, setCloudMyCount] = useState(0);
+  const [cloudError, setCloudError] = useState("");
+  const [cloudSending, setCloudSending] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(null);
   const nameRef = useRef(null);
 
@@ -95,6 +101,10 @@ export default function PlayGame() {
     setOpenFeed(null);
     setOpenMyCount(0);
     setOpenError("");
+    setCloudText("");
+    setCloudStats(null);
+    setCloudMyCount(0);
+    setCloudError("");
     setKickedPin(saved);
     setKicked(true);
   };
@@ -133,6 +143,10 @@ export default function PlayGame() {
       setOpenFeed(null);
       setOpenMyCount(0);
       setOpenError("");
+      setCloudText("");
+      setCloudStats(null);
+      setCloudMyCount(0);
+      setCloudError("");
       setGameOver(false); // хост нажал «Играть снова» — экран «Игра завершена» больше не нужен
     };
     const onClosed = () => setClosed(true);
@@ -154,6 +168,11 @@ export default function PlayGame() {
       setOpenFeed(null);
       setOpenMyCount(0);
       setOpenError("");
+      // EM-59: сброс облака (иначе лимит прошлого блока блокирует ввод)
+      setCloudText("");
+      setCloudStats(null);
+      setCloudMyCount(0);
+      setCloudError("");
     };
     // EM-57: агрегат оценок — и снапшот при входе (state, с myValue), и каждый голос (update)
     const onRatingStats = (d) => {
@@ -171,6 +190,19 @@ export default function PlayGame() {
           ? { ...cur, responses: [...cur.responses, r], totalResponses: cur.totalResponses + 1 }
           : { kind: "openended", responses: [r], totalResponses: 1, totalGuests: 0 }
       );
+    // EM-59: облако — state при входе (с myCount), word — каждое новое слово
+    const onWordcloudState = (d) => {
+      setCloudStats({ words: d.words, totalSubmissions: d.totalSubmissions, totalGuests: d.totalGuests });
+      if (typeof d.myCount === "number") setCloudMyCount(d.myCount);
+    };
+    const onWordcloudWord = (w) =>
+      setCloudStats((cur) => {
+        const words = cur ? cur.words.map((x) => ({ ...x })) : [];
+        const found = words.find((x) => x.word === w.word);
+        if (found) found.count = w.count;
+        else words.push({ word: w.word, count: w.count });
+        return { words, totalGuests: cur?.totalGuests ?? 0 };
+      });
 
     socket.on("players", onPlayers);
     socket.on("question", onQuestion);
@@ -180,12 +212,14 @@ export default function PlayGame() {
     socket.on("game:lobby", onLobby);
     socket.on("game:closed", onClosed);
     socket.on("kicked", onKicked);
-    for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:openended", "block:transition"])
+    for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:openended", "block:wordcloud", "block:transition"])
       socket.on(ev, onBlock);
     socket.on("rating:state", onRatingStats);
     socket.on("rating:update", onRatingStats);
     socket.on("openended:state", onOpenendedState);
     socket.on("openended:response", onOpenendedResponse);
+    socket.on("wordcloud:state", onWordcloudState);
+    socket.on("wordcloud:word", onWordcloudWord);
     return () => {
       socket.off("players", onPlayers);
       socket.off("question", onQuestion);
@@ -195,12 +229,14 @@ export default function PlayGame() {
       socket.off("game:lobby", onLobby);
       socket.off("game:closed", onClosed);
       socket.off("kicked", onKicked);
-      for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:openended", "block:transition"])
+      for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:openended", "block:wordcloud", "block:transition"])
         socket.off(ev, onBlock);
       socket.off("rating:state", onRatingStats);
       socket.off("rating:update", onRatingStats);
       socket.off("openended:state", onOpenendedState);
       socket.off("openended:response", onOpenendedResponse);
+      socket.off("wordcloud:state", onWordcloudState);
+      socket.off("wordcloud:word", onWordcloudWord);
     };
   }, [socket]);
 
@@ -258,6 +294,27 @@ export default function PlayGame() {
       clearTimeout(timer);
       setRatingSending(false);
       if (res?.ok) setRatingSent(ratingChoice);
+    });
+  };
+
+  // EM-59: отправка слова в облако
+  const sendWord = () => {
+    if (cloudSending || !cloudText.trim()) return;
+    setCloudSending(true);
+    setCloudError("");
+    const timer = setTimeout(() => {
+      setCloudSending(false);
+      setCloudError("Не отправилось — проверьте связь и попробуйте снова");
+    }, 5000);
+    socket.emit("wordcloud:submit", { word: cloudText }, (res) => {
+      clearTimeout(timer);
+      setCloudSending(false);
+      if (res?.ok) {
+        setCloudMyCount((c) => c + 1);
+        setCloudText("");
+      } else {
+        setCloudError(res?.error || "Не отправилось");
+      }
     });
   };
 
@@ -599,6 +656,64 @@ export default function PlayGame() {
                 </p>
               ))}
             </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // EM-59: wordcloud — слово на телефоне: подсказки-чипы + инпут + лимит, мини-облако снизу
+  if (block && !question && !reveal && !final && block.blockType === "wordcloud") {
+    const maxWords = block.maxWordsPerGuest || 3;
+    const left = Math.max(0, maxWords - cloudMyCount);
+    const totalWords = cloudStats ? cloudStats.words.reduce((sum, w) => sum + w.count, 0) : 0;
+    const suggestions = Array.isArray(block.suggestedWords) ? block.suggestedWords : [];
+    return (
+      <div className="play-screen">
+        {reconnectOverlay}
+        <div className="play-openended">
+          <h2 className="q-text-sm">{block.prompt || "Ваше слово"}</h2>
+          {left > 0 ? (
+            <>
+              {suggestions.length > 0 && (
+                <div className="play-cloud-chips" role="group" aria-label="Подсказки">
+                  {suggestions.map((w) => (
+                    <button
+                      key={w}
+                      type="button"
+                      className="play-cloud-chip"
+                      aria-pressed={cloudText === w}
+                      onClick={() => setCloudText(w)}
+                    >
+                      {w}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <input
+                className="play-openended-input"
+                maxLength={block.maxLength || 30}
+                placeholder={block.allowCustom === false ? "Выберите из подсказок" : "Ваше слово…"}
+                value={cloudText}
+                onChange={(e) => setCloudText(e.target.value)}
+              />
+              {cloudError && (
+                <p className="play-openended-error" role="alert">{cloudError}</p>
+              )}
+              <button
+                className="btn btn-primary btn-xl btn-block"
+                disabled={cloudSending || !cloudText.trim() || (block.allowCustom === false && !suggestions.includes(cloudText.trim()))}
+                onClick={sendWord}
+              >
+                {cloudSending ? "Отправляем…" : "Отправить"}
+              </button>
+              <p className="muted small">Осталось {left} из {maxWords}</p>
+            </>
+          ) : (
+            <p className="play-openended-thanks">Все слова приняты ✅</p>
+          )}
+          {cloudStats && totalWords > 0 && (
+            <p className="muted small">В облаке уже {totalWords} {plural(totalWords, ["слово", "слова", "слов"])}</p>
           )}
         </div>
       </div>

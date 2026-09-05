@@ -5,8 +5,8 @@ import { authRequired } from "./auth.js";
 export const eventRoutes = Router();
 
 // сценарий = упорядоченные блоки, позиции 0..n-1 без дыр (спека §1.3)
-// rating — EM-57, openended — EM-58; wordcloud — EM-59
-const BLOCK_TYPES = ["quiz", "poll", "text", "image", "audio", "break", "activity", "rating", "openended"];
+// rating — EM-57, openended — EM-58, wordcloud — EM-59 (Волна 6 полная)
+const BLOCK_TYPES = ["quiz", "poll", "text", "image", "audio", "break", "activity", "rating", "openended", "wordcloud"];
 
 eventRoutes.use(authRequired);
 
@@ -84,6 +84,26 @@ function validateContent(type, content, hostId) {
       displayAs: content.displayAs === "cloud" ? "cloud" : "feed",
       filterProfanity: content.filterProfanity !== false,
       maxPerGuest: int(content.maxPerGuest, 1, 10, 3),
+    };
+  }
+  // облако слов (спека §1.2)
+  if (type === "wordcloud") {
+    const int = (v, min, max, def) =>
+      Math.min(max, Math.max(min, Number.isInteger(v) ? v : def));
+    const suggested = Array.isArray(content.suggestedWords)
+      ? content.suggestedWords
+          .filter((w) => typeof w === "string" && w.trim())
+          .map((w) => w.trim().slice(0, 30))
+          .slice(0, 10)
+      : [];
+    return {
+      prompt: typeof content.prompt === "string" ? content.prompt.slice(0, 200) : "",
+      maxWordsPerGuest: int(content.maxWordsPerGuest, 1, 10, 3),
+      maxLength: int(content.maxLength, 1, 30, 30),
+      filterProfanity: content.filterProfanity !== false,
+      suggestedWords: suggested,
+      allowCustom: content.allowCustom !== false,
+      colorScheme: content.colorScheme === "rainbow" ? "rainbow" : "brand",
     };
   }
   return content;

@@ -35,6 +35,11 @@ export default function BlockEditor({ eventId, block, onSaved, onClose, onPickQu
     mid: labels.mid || "",
     high: labels.high || "",
     maxLength: Number.isInteger(c.maxLength) && c.maxLength > 0 ? c.maxLength : 500,
+    wcMaxLength: Number.isInteger(c.maxLength) && c.maxLength > 0 ? c.maxLength : 30,
+    wcMaxPerGuest: Number.isInteger(c.maxWordsPerGuest) && c.maxWordsPerGuest > 0 ? c.maxWordsPerGuest : 3,
+    wcSuggested: Array.isArray(c.suggestedWords) ? c.suggestedWords.join(", ") : "",
+    wcAllowCustom: c.allowCustom !== false,
+    wcColorScheme: c.colorScheme === "rainbow" ? "rainbow" : "brand",
     displayAs: c.displayAs === "cloud" ? "cloud" : "feed",
     filterProfanity: c.filterProfanity !== false,
     maxPerGuest: Number.isInteger(c.maxPerGuest) && c.maxPerGuest > 0 ? c.maxPerGuest : 3,
@@ -83,7 +88,18 @@ export default function BlockEditor({ eventId, block, onSaved, onClose, onPickQu
                   filterProfanity: cur.filterProfanity,
                   maxPerGuest: Number(cur.maxPerGuest) > 0 ? Number(cur.maxPerGuest) : 3,
                 }
-              : { ...c, label: cur.label.trim(), duration: Number(cur.duration) > 0 ? Number(cur.duration) : 5 };
+              : block.type === "wordcloud"
+                ? {
+                    ...c,
+                    prompt: cur.prompt.trim(),
+                    maxLength: Number(cur.wcMaxLength) > 0 ? Number(cur.wcMaxLength) : 30,
+                    maxWordsPerGuest: Number(cur.wcMaxPerGuest) > 0 ? Number(cur.wcMaxPerGuest) : 3,
+                    filterProfanity: cur.filterProfanity,
+                    suggestedWords: cur.wcSuggested.split(",").map((w) => w.trim()).filter(Boolean).slice(0, 10),
+                    allowCustom: cur.wcAllowCustom,
+                    colorScheme: cur.wcColorScheme,
+                  }
+                : { ...c, label: cur.label.trim(), duration: Number(cur.duration) > 0 ? Number(cur.duration) : 5 };
       const d = await api(`/events/${eventId}/blocks/${block.id}`, { method: "PUT", token, body: { content } });
       savedRef.current = JSON.stringify(cur);
       if (liveRef.current) {
@@ -396,6 +412,105 @@ export default function BlockEditor({ eventId, block, onSaved, onClose, onPickQu
             />
             Фильтр нецензурных слов
           </label>
+        </>
+      )}
+      {block.type === "wordcloud" && (
+        <>
+          <label className="be-field">
+            Вопрос
+            <textarea
+              rows={2}
+              value={draft.prompt}
+              maxLength={200}
+              placeholder="Одним словом: что вы чувствуете?"
+              onChange={(e) => {
+                updateDraft({ prompt: e.target.value });
+                scheduleSave();
+              }}
+            />
+          </label>
+          <label className="be-field">
+            Подсказки (через запятую, до 10)
+            <input
+              value={draft.wcSuggested}
+              placeholder="Вдохновение, Радость, Любопытство, Энергия"
+              onChange={(e) => {
+                updateDraft({ wcSuggested: e.target.value });
+                scheduleSave();
+              }}
+            />
+          </label>
+          <div className="be-grid">
+            <label className="be-field be-field--num">
+              Слов на гостя
+              <input
+                type="number"
+                min={1}
+                max={10}
+                value={draft.wcMaxPerGuest}
+                onChange={(e) => {
+                  updateDraft({ wcMaxPerGuest: e.target.value });
+                  scheduleSave();
+                }}
+              />
+            </label>
+            <label className="be-field be-field--num">
+              Лимит символов
+              <input
+                type="number"
+                min={1}
+                max={30}
+                value={draft.wcMaxLength}
+                onChange={(e) => {
+                  updateDraft({ wcMaxLength: e.target.value });
+                  scheduleSave();
+                }}
+              />
+            </label>
+          </div>
+          <label className="be-check">
+            <input
+              type="checkbox"
+              checked={draft.filterProfanity}
+              onChange={(e) => {
+                updateDraft({ filterProfanity: e.target.checked });
+                scheduleSave();
+              }}
+            />
+            Фильтр нецензурных слов
+          </label>
+          <label className="be-check">
+            <input
+              type="checkbox"
+              checked={draft.wcAllowCustom}
+              onChange={(e) => {
+                updateDraft({ wcAllowCustom: e.target.checked });
+                scheduleSave();
+              }}
+            />
+            Свои слова (не только подсказки)
+          </label>
+          <div className="be-field">
+            Палитра облака
+            <div className="be-seg" role="group" aria-label="Палитра облака">
+              {[
+                ["brand", "Фирменная"],
+                ["rainbow", "Разноцветная"],
+              ].map(([val, name]) => (
+                <button
+                  key={val}
+                  type="button"
+                  aria-pressed={draft.wcColorScheme === val}
+                  onClick={() => {
+                    updateDraft({ wcColorScheme: val });
+                    scheduleSave();
+                  }}
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+          </div>
         </>
       )}
       <div className="be-actions">

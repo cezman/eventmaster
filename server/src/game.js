@@ -350,6 +350,7 @@ function ratingStats(game) {
 // снапшот активности (пере)подключившемуся: телефон получает свой myValue,
 // зал и пульт — агрегат без него; событие <kind>:state по конвенции спек
 function activityStatePayload(game, token) {
+  if (!game.activity) return null;
   if (game.activity?.kind === "rating") {
     const stats = ratingStats(game);
     const myValue = token ? game.activity.values.get(token)?.value ?? null : undefined;
@@ -364,6 +365,25 @@ function activityStatePayload(game, token) {
         kind: "openended",
         responses: a.responses.map(({ id, text, guestName }) => ({ id, text, guestName })),
         totalResponses: a.responses.length,
+        totalGuests: game.players.size,
+        myCount: token ? a.byToken.get(token) || 0 : undefined,
+      },
+    };
+  }
+  // EM-59: облако — топ-100 слов по частоте (спека §1.4); показываем display —
+  // вариант первого ввода, а не нормализованный ключ дедупликации
+  if (game.activity?.kind === "wordcloud") {
+    const a = game.activity;
+    const words = [...a.words.entries()]
+      .map(([key, info]) => ({ word: info.display || key, count: info.count }))
+      .sort((x, y) => y.count - x.count)
+      .slice(0, 100);
+    return {
+      event: "wordcloud:state",
+      payload: {
+        kind: "wordcloud",
+        words,
+        totalSubmissions: [...a.byToken.values()].reduce((s, n) => s + n, 0),
         totalGuests: game.players.size,
         myCount: token ? a.byToken.get(token) || 0 : undefined,
       },
@@ -450,6 +470,24 @@ function executeBlock(io, game, index) {
         maxPerGuest: Math.min(10, Math.max(1, Number.isInteger(block.content.maxPerGuest) ? block.content.maxPerGuest : 3)),
       };
       game.activity = { kind: "openended", responses: [], byToken: new Map(), nextId: 1 };
+      break;
+    }
+    case "wordcloud": {
+      // Волна 6 (EM-59, спека активностей §1): облако слов на проекторе
+      event = "block:wordcloud";
+      const suggested = Array.isArray(block.content.suggestedWords)
+        ? block.content.suggestedWords.slice(0, 10).map((w) => str(w, 30))
+        : [];
+      extra = {
+        prompt: str(block.content.prompt, 200),
+        maxLength: Math.min(30, Math.max(1, Number.isInteger(block.content.maxLength) ? block.content.maxLength : 30)),
+        maxWordsPerGuest: Math.min(10, Math.max(1, Number.isInteger(block.content.maxWordsPerGuest) ? block.content.maxWordsPerGuest : 3)),
+        filterProfanity: block.content.filterProfanity !== false,
+        suggestedWords: suggested,
+        allowCustom: block.content.allowCustom !== false,
+        colorScheme: block.content.colorScheme === "rainbow" ? "rainbow" : "brand",
+      };
+      game.activity = { kind: "wordcloud", words: new Map(), byToken: new Map() };
       break;
     }
     default:
@@ -905,6 +943,45 @@ export function registerGameHandlers(io) {
         text: response.text,
         guestName: response.guestName,
       });
+      ack({ ok: true });
+    });
+
+    // Волна 6 (EM-59): слово в облако. Дедуп по нормализованной форме (регистр/ё),
+    // очки +1 за каждое принятое слово в пределах лимита (спека §1.5)
+    socket.on("wordcloud:submit", ({ word } = {}, ack = () => {}) => {
+      const pin = socket.data.gamePin;
+      const game = pin && games.get(pin);
+      if (!game || game.state !== "block" || game.activity?.kind !== "wordcloud")
+        return ack({ error: "Слова сейчас не принимаются" });
+      const p = game.players.get(socket.id);
+      if (!p) return ack({ error: "Вы не в игре" });
+      const now = Date.now();
+      if (now - (p.lastWordcloudSubmit || 0) < 300) return ack({ error: "Слишком часто" });
+      const a = game.activity;
+      const used = a.byToken.get(p.token) || 0;
+      const maxLength = game.currentBlock?.payload?.maxLength || 30;
+      const maxWordsPerGuest = game.currentBlock?.payload?.maxWordsPerGuest || 3;
+      if (used >= maxWordsPerGuest) return ack({ error: "Лимит слов исчерпан" });
+      const raw = typeof word === "string" ? word.trim().slice(0, maxLength) : "";
+      if (!raw) return ack({ error: "Введите слово" });
+      p.lastWordcloudSubmit = now;
+      const filterProfanity = game.currentBlock?.payload?.filterProfanity !== false;
+      if (filterProfanity && containsProfanity(raw))
+        return ack({ error: "Такие слова лучше не показывать — переформулируйте" });
+      if (game.currentBlock?.payload?.allowCustom === false) {
+        const suggestions = (game.currentBlock?.payload?.suggestedWords || []).map((w) =>
+          String(w).toLowerCase().replace(/ё/g, "е")
+        );
+        if (!suggestions.includes(raw.toLowerCase().replace(/ё/g, "е")))
+          return ack({ error: "Выберите слово из подсказок" });
+      }
+      const key = raw.toLowerCase().replace(/ё/g, "е");
+      const prev = a.words.get(key);
+      const count = (prev?.count || 0) + 1;
+      a.words.set(key, { count, display: prev?.display || raw });
+      a.byToken.set(p.token, used + 1);
+      addBlockScore(game, p.token, p.name, p.avatar, 1);
+      io.to(`game:${pin}`).emit("wordcloud:word", { word: prev?.display || raw, count, guestName: p.name });
       ack({ ok: true });
     });
 
