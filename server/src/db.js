@@ -146,7 +146,36 @@ if (blocksDdl && !blocksDdl.sql.includes("'rating'")) {
       CREATE TABLE scenario_blocks_new (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
-        type TEXT NOT NULL CHECK (type IN ('quiz', 'poll', 'text', 'image', 'audio', 'break', 'activity', 'rating', 'openended', 'wordcloud')),
+        type TEXT NOT NULL CHECK (type IN ('quiz', 'poll', 'text', 'image', 'audio', 'break', 'activity', 'rating', 'openended', 'wordcloud', 'video')),
+        position INTEGER NOT NULL,
+        content TEXT NOT NULL DEFAULT '{}',
+        settings TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      INSERT INTO scenario_blocks_new SELECT id, event_id, type, position, content, settings, created_at FROM scenario_blocks;
+      DROP TABLE scenario_blocks;
+      ALTER TABLE scenario_blocks_new RENAME TO scenario_blocks;
+    `);
+    db.exec("COMMIT");
+  } catch (e) {
+    db.exec("ROLLBACK");
+    throw e;
+  } finally {
+    db.exec("PRAGMA foreign_keys = ON");
+  }
+}
+
+// EM-67: видео-блок — тот же паттерн пересоздания, если в DDL ещё нет 'video'
+const blocksDdlVideo = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'scenario_blocks'").get();
+if (blocksDdlVideo && !blocksDdlVideo.sql.includes("'video'")) {
+  db.exec("PRAGMA foreign_keys = OFF");
+  db.exec("BEGIN");
+  try {
+    db.exec(`
+      CREATE TABLE scenario_blocks_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+        type TEXT NOT NULL CHECK (type IN ('quiz', 'poll', 'text', 'image', 'audio', 'break', 'activity', 'rating', 'openended', 'wordcloud', 'video')),
         position INTEGER NOT NULL,
         content TEXT NOT NULL DEFAULT '{}',
         settings TEXT NOT NULL DEFAULT '{}',

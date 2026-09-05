@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { db } from "./db.js";
 import { verifyToken } from "./auth.js";
 import { containsProfanity } from "./profanity.js";
+import { parseVideoEmbed } from "./video.js";
 
 const games = new Map(); // pin -> game
 
@@ -425,6 +426,8 @@ function executeBlock(io, game, index) {
   game.currentBlockId = block.id ?? null;
   // активность живёт только пока идёт её блок; предыдущая гасится при любом переходе
   game.activity = null;
+  // то же для видео-состояния (EM-67): control-состояние прошлого блока не тянется дальше
+  game.videoState = null;
   const str = (v, cap) => String(v ?? "").slice(0, cap);
 
   if (block.type === "quiz" || block.type === "poll") return startQuizBlock(io, game, block);
@@ -491,6 +494,20 @@ function executeBlock(io, game, index) {
         colorScheme: block.content.colorScheme === "rainbow" ? "rainbow" : "brand",
       };
       game.activity = { kind: "wordcloud", words: new Map(), byToken: new Map() };
+      break;
+    }
+    case "video": {
+      // EM-67 (мини-спека): ролик на экране зала, ▶/⏸/громкость с пульта;
+      // состояние управления реплеится при подключении зала/пульта
+      event = "block:video";
+      const source = ["file", "youtube", "vk", "rutube"].includes(block.content.source) ? block.content.source : "file";
+      extra = {
+        source,
+        url: str(block.content.url, 500),
+        embedUrl: source === "file" ? null : parseVideoEmbed(source, block.content.url),
+        title: str(block.content.title, 200),
+      };
+      game.videoState = { playing: false, volume: 0.8, position: 0, startedAt: null };
       break;
     }
     default:
@@ -593,8 +610,21 @@ function startEvent(io, game) {
 
 // переподключившемуся посреди неигрового блока досылаем текущий блок
 function replayBlock(socket, game) {
-  if (game.state === "block" && game.currentBlock)
+  if (game.state === "block" && game.currentBlock) {
     socket.emit(game.currentBlock.event, game.currentBlock.payload);
+    // видео: подключившийся зал/пульт встаёт на текущую позицию (мини-спека EM-67 §5)
+    if (game.currentBlock.payload.blockType === "video" && game.videoState)
+      socket.emit("video:state", videoStateForRoom(game.videoState));
+  }
+}
+
+// позиция воспроизведения: на паузе зафиксированная, при игре — вычисленная из startedAt
+function videoStateForRoom(st) {
+  return {
+    playing: !!st.playing,
+    volume: Number.isFinite(st.volume) ? st.volume : 0.8,
+    position: st.playing && st.startedAt ? Math.max(0, (Date.now() - st.startedAt) / 1000) : st.position || 0,
+  };
 }
 
 // фабрика партий: одиночный квиз (EM-46) и мероприятие (EM-55) отличаются только
@@ -1070,6 +1100,36 @@ export function registerGameHandlers(io) {
       if (game.blockIndex < 0 || !["block", "question", "reveal"].includes(game.state)) return;
       stopRevealTimer(game);
       advanceBlock(io, game);
+    });
+
+    // EM-67: управление видео на зале (▶/⏸/громкость/сначала) — только хост и
+    // только в активном video-блоке; состояние уходит всей комнате и реплеится
+    socket.on("host:video-control", ({ action, value } = {}, ack = () => {}) => {
+      const game = hostGame(socket);
+      if (!game || game.state !== "block" || game.currentBlock?.payload?.blockType !== "video")
+        return ack({ error: "Видео-блок сейчас не активен" });
+      const st = game.videoState;
+      if (action === "play") {
+        if (!st.playing) {
+          st.startedAt = Date.now() - (st.position || 0) * 1000;
+          st.playing = true;
+        }
+      } else if (action === "pause") {
+        if (st.playing) {
+          st.position = (Date.now() - st.startedAt) / 1000;
+          st.playing = false;
+        }
+      } else if (action === "volume") {
+        st.volume = Math.min(1, Math.max(0, Number(value) || 0));
+      } else if (action === "restart") {
+        st.position = 0;
+        st.startedAt = Date.now();
+        st.playing = true;
+      } else {
+        return ack({ error: "Неизвестное действие" });
+      }
+      io.to(`game:${game.pin}`).emit("video:state", videoStateForRoom(st));
+      ack({ ok: true, playing: st.playing, volume: st.volume });
     });
 
     socket.on("host:play-again", () => {
