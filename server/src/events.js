@@ -169,15 +169,15 @@ function cloneQuizForBlock(hostId, quizId) {
     .run(hostId, src.title, src.type, src.settings || "{}", src.id);
   const copyId = Number(copy.lastInsertRowid);
   const questions = db
-    .prepare("SELECT id, text, position, time_limit, points, mode FROM questions WHERE quiz_id = ? ORDER BY position")
+    .prepare("SELECT id, text, position, time_limit, points, mode, image FROM questions WHERE quiz_id = ? ORDER BY position")
     .all(src.id);
   const insQuestion = db.prepare(
-    "INSERT INTO questions (quiz_id, text, position, time_limit, points, mode) VALUES (?, ?, ?, ?, ?, ?)"
+    "INSERT INTO questions (quiz_id, text, position, time_limit, points, mode, image) VALUES (?, ?, ?, ?, ?, ?, ?)"
   );
   const insAnswer = db.prepare("INSERT INTO answers (question_id, text, is_correct, position) VALUES (?, ?, ?, ?)");
   const srcAnswers = db.prepare("SELECT text, is_correct, position FROM answers WHERE question_id = ? ORDER BY position");
   for (const q of questions) {
-    const res = insQuestion.run(copyId, q.text, q.position, q.time_limit, q.points, q.mode);
+    const res = insQuestion.run(copyId, q.text, q.position, q.time_limit, q.points, q.mode, q.image || "");
     for (const a of srcAnswers.all(q.id)) insAnswer.run(Number(res.lastInsertRowid), a.text, a.is_correct, a.position);
   }
   return copyId;

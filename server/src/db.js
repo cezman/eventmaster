@@ -57,6 +57,12 @@ try {
 } catch {
   // колонка уже есть
 }
+// EM-68: картинка вопроса (url /media или внешний), показывается на зале и телефоне
+try {
+  db.exec("ALTER TABLE questions ADD COLUMN image TEXT NOT NULL DEFAULT ''");
+} catch {
+  // колонка уже есть
+}
 // профиль ведущего (EM-11): имя/фамилия для лобби игроков, аватар — JSON BigHead
 for (const col of ["name", "surname", "avatar"]) {
   try {

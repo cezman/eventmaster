@@ -17,6 +17,8 @@ export function QuestionView({ question, index, total }) {
         {question.time_limit || 20}
       </span>
       <h2 className="q-text-sm">{question.text || "Текст вопроса…"}</h2>
+      {/* EM-68: картинка вопроса в предпросмотре — как увидит игрок */}
+      {question.image && <img className="q-image-sm" src={question.image} alt="" />}
       {/* раскладка как у настоящего телефона 390px (≤480 → одна колонка) */}
       <div className="preview-answers">
         {answers.map((a, i) => (

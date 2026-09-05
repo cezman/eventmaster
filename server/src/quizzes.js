@@ -20,7 +20,7 @@ function loadFullQuiz(id, hostId) {
   const quiz = db.prepare("SELECT * FROM quizzes WHERE id = ? AND host_id = ?").get(id, hostId);
   if (!quiz) return null;
   const questions = db
-    .prepare("SELECT id, text, position, time_limit, points, mode FROM questions WHERE quiz_id = ? ORDER BY position")
+    .prepare("SELECT id, text, position, time_limit, points, mode, image FROM questions WHERE quiz_id = ? ORDER BY position")
     .all(id);
   const answersStmt = db.prepare(
     "SELECT id, text, is_correct, position FROM answers WHERE question_id = ? ORDER BY position"
@@ -30,6 +30,7 @@ function loadFullQuiz(id, hostId) {
     settings: parseSettings(quiz.settings),
     questions: questions.map((q) => ({
       text: q.text,
+      image: q.image || "",
       time_limit: q.time_limit,
       points: q.points,
       mode: q.mode || "choice",
@@ -66,13 +67,16 @@ function saveQuestions(quizId, questions) {
     const timeLimit = Math.min(120, Math.max(5, Number(q.time_limit) || 20));
     const pointsRaw = Math.round(Number(q.points));
     const points = Number.isFinite(pointsRaw) ? Math.min(100000, Math.max(1, pointsRaw)) : 1;
+    // EM-68: картинка вопроса — url /media или внешний, длина согласована с payload зал/телефона
+    const image = typeof q.image === "string" ? q.image.trim().slice(0, 500) : "";
     answers.forEach((a, ai) => {
       aStmt.run(Number(qRes.lastInsertRowid), a.text.trim(), a.is_correct ? 1 : 0, ai);
     });
-    db.prepare("UPDATE questions SET time_limit = ?, points = ?, mode = ? WHERE id = ?").run(
+    db.prepare("UPDATE questions SET time_limit = ?, points = ?, mode = ?, image = ? WHERE id = ?").run(
       timeLimit,
       points,
       mode,
+      image,
       Number(qRes.lastInsertRowid)
     );
   });

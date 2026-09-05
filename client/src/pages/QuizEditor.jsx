@@ -7,6 +7,7 @@ import AppHeader from "../components/AppHeader";
 import ConfirmDialog from "../components/ConfirmDialog";
 import QuestionPreviewModal from "../components/QuestionPreviewModal";
 import { useToast } from "../components/Toast";
+import { MediaField } from "../components/MediaField";
 import { QuizIcon, PollIcon, ClockIcon, TrophyIcon, CheckIcon } from "../components/icons";
 
 const ANSWER_COLORS = ["🔴", "🔵", "🟡", "🟢"];
@@ -14,6 +15,7 @@ const ANSWER_COLORS = ["🔴", "🔵", "🟡", "🟢"];
 function emptyQuestion() {
   return {
     text: "",
+    image: "",
     time_limit: 20,
     points: 1,
     answers: [
@@ -460,6 +462,14 @@ export default function QuizEditor() {
               placeholder="Текст вопроса"
               value={q.text}
               onChange={(e) => patchQuestion(qi, { text: e.target.value })}
+            />
+            {/* EM-68: картинка вопроса — видят зал и телефон (телефон тоже, решение владельца) */}
+            <MediaField
+              id={`q-image-${qi}`}
+              label="Картинка к вопросу (необязательно)"
+              kind="image"
+              value={q.image || ""}
+              onUrl={(url) => patchQuestion(qi, { image: url })}
             />
             {quiz.type === "quiz" && (
               <div className="answers-hint">Нажмите кружок, чтобы отметить верный ответ</div>
