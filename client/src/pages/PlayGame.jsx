@@ -61,6 +61,11 @@ export default function PlayGame() {
   const [reveal, setReveal] = useState(null);
   const [final, setFinal] = useState(null);
   const [block, setBlock] = useState(null); // EM-55: неигровой блок сценария
+  // EM-57: rating-блок — интерактивная оценка на телефоне
+  const [ratingChoice, setRatingChoice] = useState(null); // выбранное на слайдере (до отправки)
+  const [ratingSent, setRatingSent] = useState(null); // отправленная оценка (myValue)
+  const [ratingStats, setRatingStats] = useState(null); // live-агрегат сервера
+  const [ratingSending, setRatingSending] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(null);
   const nameRef = useRef(null);
 
@@ -77,6 +82,9 @@ export default function PlayGame() {
     setBlock(null);
     setSubmitted(null);
     setSecondsLeft(null);
+    setRatingChoice(null);
+    setRatingSent(null);
+    setRatingStats(null);
     setKickedPin(saved);
     setKicked(true);
   };
@@ -108,6 +116,9 @@ export default function PlayGame() {
       setBlock(null);
       setSubmitted(null);
       setSecondsLeft(null);
+      setRatingChoice(null);
+      setRatingSent(null);
+      setRatingStats(null);
       setGameOver(false); // хост нажал «Играть снова» — экран «Игра завершена» больше не нужен
     };
     const onClosed = () => setClosed(true);
@@ -120,6 +131,15 @@ export default function PlayGame() {
       setFinal(null);
       setSubmitted(null);
       setSecondsLeft(null);
+      // EM-57: локальное состояние оценки гасим — live-агрегат придёт следом (state/update)
+      setRatingChoice(null);
+      setRatingSent(null);
+      setRatingStats(null);
+    };
+    // EM-57: агрегат оценок — и снапшот при входе (state, с myValue), и каждый голос (update)
+    const onRatingStats = (d) => {
+      setRatingStats(d);
+      if (d.myValue != null) setRatingSent(d.myValue);
     };
 
     socket.on("players", onPlayers);
@@ -130,8 +150,10 @@ export default function PlayGame() {
     socket.on("game:lobby", onLobby);
     socket.on("game:closed", onClosed);
     socket.on("kicked", onKicked);
-    for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:transition"])
+    for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:transition"])
       socket.on(ev, onBlock);
+    socket.on("rating:state", onRatingStats);
+    socket.on("rating:update", onRatingStats);
     return () => {
       socket.off("players", onPlayers);
       socket.off("question", onQuestion);
@@ -141,8 +163,10 @@ export default function PlayGame() {
       socket.off("game:lobby", onLobby);
       socket.off("game:closed", onClosed);
       socket.off("kicked", onKicked);
-      for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:transition"])
+      for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:transition"])
         socket.off(ev, onBlock);
+      socket.off("rating:state", onRatingStats);
+      socket.off("rating:update", onRatingStats);
     };
   }, [socket]);
 
@@ -189,6 +213,19 @@ export default function PlayGame() {
   };
 
   const react = (emoji) => socket.emit("player:reaction", { emoji });
+
+  // EM-57: отправка оценки rating-блока; при ошибке кнопка просто снова активна.
+  // Таймаут — если сокет умер и ack не придёт никогда, кнопка не зависнет в «Отправляем…»
+  const sendRating = () => {
+    if (ratingSending || ratingChoice == null) return;
+    setRatingSending(true);
+    const timer = setTimeout(() => setRatingSending(false), 5000);
+    socket.emit("rating:submit", { value: ratingChoice }, (res) => {
+      clearTimeout(timer);
+      setRatingSending(false);
+      if (res?.ok) setRatingSent(ratingChoice);
+    });
+  };
 
   // восстановление по токену: и на монтировании страницы, и на «connect» — при тёплом
   // переподключении транспорта (свернул браузер, умер TCP) сокет получает новый id,
@@ -385,6 +422,71 @@ export default function PlayGame() {
               <b>{p.score}</b>
             </div>
           ))}
+        </div>
+      </div>
+    );
+  }
+
+  // EM-57: rating — единственный из неигровых блоков интерактивен на телефоне:
+  // слайдер 1–scale, крупная цифра, подписи шкалы, после отправки — live-среднее
+  if (block && !question && !reveal && !final && block.blockType === "rating") {
+    const scale = block.scale || 10;
+    const labels = block.labels || {};
+    const choice = ratingChoice ?? Math.round(scale / 2);
+    return (
+      <div className="play-screen">
+        {reconnectOverlay}
+        <div className="play-rating">
+          <h2 className="q-text-sm">{block.prompt || "Ваша оценка"}</h2>
+          {ratingSent == null ? (
+            <>
+              <div className="play-rating-value" aria-hidden="true">{choice}</div>
+              <input
+                className="play-rating-slider"
+                type="range"
+                min="1"
+                max={scale}
+                step="1"
+                value={choice}
+                aria-label={`Оценка от 1 до ${scale}`}
+                onChange={(e) => setRatingChoice(Number(e.target.value))}
+              />
+              {(labels.low || labels.mid || labels.high) && (
+                <div className="play-rating-labels" aria-hidden="true">
+                  <span>{labels.low}</span>
+                  <span>{labels.mid}</span>
+                  <span>{labels.high}</span>
+                </div>
+              )}
+              <button
+                className="btn btn-primary btn-xl btn-block"
+                disabled={ratingSending}
+                onClick={sendRating}
+              >
+                {ratingSending ? "Отправляем…" : "Отправить"}
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="play-rating-value play-rating-value--sent" aria-hidden="true">{ratingSent}</div>
+              <p className="play-rating-caption">Ваша оценка</p>
+              {block.showAverage !== false && ratingStats && ratingStats.totalResponses > 0 && (
+                <p className="muted">Среднее: {ratingStats.average.toFixed(1)}</p>
+              )}
+              <button
+                className="btn btn-outline btn-block"
+                onClick={() => {
+                  setRatingChoice(ratingSent);
+                  setRatingSent(null);
+                }}
+              >
+                Изменить оценку
+              </button>
+            </>
+          )}
+          {ratingStats && ratingStats.totalResponses > 0 && (
+            <p className="muted small">Оценок: {ratingStats.totalResponses}</p>
+          )}
         </div>
       </div>
     );

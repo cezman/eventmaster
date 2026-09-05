@@ -273,6 +273,8 @@ function blockTitle(block) {
       return String(block.content.caption || "").trim() || "Изображение";
     case "audio":
       return String(block.content.title || "").trim() || "Музыка";
+    case "rating":
+      return String(block.content.prompt || "").trim() || "Оценка";
     default:
       return String(block.content.title || "").trim() || "Блок";
   }
@@ -325,6 +327,34 @@ function flushBlockScores(game) {
   game.blockScores.clear();
 }
 
+// === Волна 6 (EM-57): активности. Статистика рейтинга (спека §5.3) ===
+function ratingStats(game) {
+  const scale = game.currentBlock?.payload?.scale || 10;
+  const distribution = Array.from({ length: scale }, () => 0);
+  let sum = 0;
+  let n = 0;
+  for (const { value } of game.activity.values.values()) {
+    distribution[value - 1] += 1;
+    sum += value;
+    n += 1;
+  }
+  return {
+    average: n ? Math.round((sum / n) * 10) / 10 : 0,
+    distribution,
+    totalResponses: n,
+    totalGuests: game.players.size,
+  };
+}
+
+// снапшот активности (пере)подключившемуся: телефон получает свой myValue,
+// зал и пульт — агрегат без него; событие <kind>:state по конвенции спек
+function sendActivityState(socket, game, token) {
+  if (game.state !== "block" || game.activity?.kind !== "rating") return;
+  const stats = ratingStats(game);
+  const myValue = token ? game.activity.values.get(token)?.value ?? null : undefined;
+  socket.emit("rating:state", { kind: "rating", ...stats, myValue });
+}
+
 // единый контекст блока в пейлоадах block:* — пульт и зал рисуют прогресс (§4.5)
 function blockPayload(game, block, extra) {
   return {
@@ -340,6 +370,8 @@ function executeBlock(io, game, index) {
   const block = game.scenario[index];
   game.blockIndex = index;
   game.currentBlockId = block.id ?? null;
+  // активность живёт только пока идёт её блок; предыдущая гасится при любом переходе
+  game.activity = null;
   const str = (v, cap) => String(v ?? "").slice(0, cap);
 
   if (block.type === "quiz" || block.type === "poll") return startQuizBlock(io, game, block);
@@ -365,6 +397,19 @@ function executeBlock(io, game, index) {
       event = "block:activity";
       extra = { type: str(block.content.type, 50), title: str(block.content.title, 200), description: str(block.content.description, 2000) };
       break;
+    case "rating": {
+      // Волна 6 (EM-57, спека активностей §5): оценка 1–scale, среднее в реальном времени
+      event = "block:rating";
+      const labels = block.content.labels && typeof block.content.labels === "object" ? block.content.labels : {};
+      extra = {
+        prompt: str(block.content.prompt, 200),
+        scale: Math.min(10, Math.max(2, Number.isInteger(block.content.scale) ? block.content.scale : 10)),
+        showAverage: block.content.showAverage !== false,
+        labels: { low: str(labels.low, 40), mid: str(labels.mid, 40), high: str(labels.high, 40) },
+      };
+      game.activity = { kind: "rating", values: new Map() };
+      break;
+    }
     default:
       event = "block:text";
       extra = {
@@ -415,6 +460,9 @@ function advanceBlock(io, game) {
   if (games.get(game.pin) !== game) return;
   flushBlockScores(game);
   stopBlockTimers(game);
+  // гасим активность сразу: в 2с-окне transition state ещё «block», и голос,
+  // прилетевший в этот момент, ушёл бы в очки следующего блока
+  game.activity = null;
   const next = game.blockIndex + 1;
   if (next >= game.scenario.length) return finishEvent(io, game);
   game.blockIndex = next;
@@ -439,6 +487,7 @@ function advanceBlock(io, game) {
 function finishEvent(io, game) {
   flushBlockScores(game);
   stopBlockTimers(game);
+  game.activity = null;
   game.state = "finished";
   game.eventFinished = true;
   try {
@@ -479,6 +528,7 @@ function newGame({ pin, hostId, host, title, type, quizId, quiz }) {
     eventFinished: false,
     currentBlockId: null,
     currentBlock: null,
+    activity: null, // Волна 6: живое состояние activity-блока (rating: values по токенам)
     title,
     type,
     hostId,
@@ -612,6 +662,7 @@ export function registerGameHandlers(io) {
       if (game.state === "finished")
         socket.emit("finished", { leaderboard: leaderboard(game), players: playersList(game) });
       replayBlock(socket, game);
+      sendActivityState(socket, game);
     });
 
     // EM-36: пульт ведущего подключается к ИДУЩЕЙ игре по PIN (второе устройство).
@@ -671,6 +722,7 @@ export function registerGameHandlers(io) {
           if (game.state === "finished")
             socket.emit("finished", { leaderboard: leaderboard(game), players: playersList(game) });
           replayBlock(socket, game);
+          sendActivityState(socket, game, p.token);
           return;
         }
       }
@@ -717,6 +769,7 @@ export function registerGameHandlers(io) {
         reveal(io, game);
       }
       replayBlock(socket, game);
+      sendActivityState(socket, game, player.token);
     });
 
     socket.on("player:answer", ({ choice } = {}) => {
@@ -748,6 +801,30 @@ export function registerGameHandlers(io) {
       if (now - p.lastReaction < 700) return; // антиспам
       p.lastReaction = now;
       io.to(`game:${pin}`).emit("reaction", { name: p.name, avatar: p.avatar, color: p.color, emoji });
+    });
+
+    // Волна 6 (EM-57): оценка гостя в rating-блоке. Перезаголосование обновляет
+    // значение без второй порции очков — участие в блоке оплачивается один раз (§5.5)
+    socket.on("rating:submit", ({ value } = {}, ack = () => {}) => {
+      const pin = socket.data.gamePin;
+      const game = pin && games.get(pin);
+      if (!game || game.state !== "block" || game.activity?.kind !== "rating")
+        return ack({ error: "Оценка сейчас не принимается" });
+      const p = game.players.get(socket.id);
+      if (!p) return ack({ error: "Вы не в игре" });
+      const v = value;
+      const scale = game.currentBlock?.payload?.scale || 10;
+      if (typeof v !== "number" || !Number.isInteger(v) || v < 1 || v > scale)
+        return ack({ error: `Оценка — целое число от 1 до ${scale}` });
+      // антиспам: каждый спам-голос рассылал бы rating:update всей комнате
+      const now = Date.now();
+      if (now - (p.lastRatingSubmit || 0) < 300) return ack({ error: "Слишком часто" });
+      p.lastRatingSubmit = now;
+      const first = !game.activity.values.has(p.token);
+      game.activity.values.set(p.token, { value: v, name: p.name, avatar: p.avatar });
+      if (first) addBlockScore(game, p.token, p.name, p.avatar, 1);
+      io.to(`game:${pin}`).emit("rating:update", ratingStats(game));
+      ack({ ok: true });
     });
 
     // кастомизация в лобби: игрок меняет аватар/цвет имени без повторного входа
@@ -852,6 +929,7 @@ export function registerGameHandlers(io) {
         game.blockIndex = -1;
         game.currentBlockId = null;
         game.currentBlock = null;
+        game.activity = null;
         game.eventFinished = false;
         game.quiz = null;
         game.title = game.eventTitle;
@@ -1024,6 +1102,7 @@ function attachHost(io, socket, game) {
   if (game.state === "finished")
     socket.emit("finished", { leaderboard: leaderboard(game), players: playersList(game) });
   replayBlock(socket, game);
+  sendActivityState(socket, game);
 }
 
 function snapshotForHost(game) {

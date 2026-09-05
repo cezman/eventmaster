@@ -48,6 +48,8 @@ export default function HostPanel() {
   const [audioVolume, setAudioVolume] = useState(0.8);
   const [activityStarted, setActivityStarted] = useState(false);
   const [activitySec, setActivitySec] = useState(0);
+  // EM-57: live-статистика rating-блока (rating:state/update)
+  const [ratingStats, setRatingStats] = useState(null);
   const breakTimer = useBreakCountdown(block);
 
   // EM-46: сервер сам подключает пульт к живой партии своего квиза, а при её
@@ -114,9 +116,12 @@ export default function HostPanel() {
       setBlock(payload);
       setQuestion(null);
       setReveal(null);
+      setRatingStats(null);
       if (payload.blockTotal != null) setProgress({ index: payload.blockIndex, total: payload.blockTotal });
     };
     const onCount = (d) => setAnswered(d.answered);
+    // EM-57: агрегат оценок — и снапшот при подключении (state), и каждый голос (update)
+    const onRatingStats = (d) => setRatingStats(d);
     const onClosed = () => navigate("/dashboard");
     // зал открыли в новой вкладке или закрыли — лаунчпад лобби переключается (EM-48)
     const onScreenPresence = (d) => setScreenOpen(!!d.open);
@@ -130,9 +135,11 @@ export default function HostPanel() {
     // срабатывает дважды, это идемпотентно; вешаем оба ради совместимости поверхностей
     socket.on("finished", onFinished);
     socket.on("event:finished", onFinished);
-    for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:transition"])
+    for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:transition"])
       socket.on(ev, onBlock);
     socket.on("answer-count", onCount);
+    socket.on("rating:state", onRatingStats);
+    socket.on("rating:update", onRatingStats);
     socket.on("game:closed", onClosed);
     return () => {
       socket.off("connect", claim);
@@ -144,9 +151,11 @@ export default function HostPanel() {
       socket.off("reveal", onReveal);
       socket.off("finished", onFinished);
       socket.off("event:finished", onFinished);
-      for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:transition"])
+      for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:transition"])
         socket.off(ev, onBlock);
       socket.off("answer-count", onCount);
+      socket.off("rating:state", onRatingStats);
+      socket.off("rating:update", onRatingStats);
       socket.off("game:closed", onClosed);
     };
   }, [socket, token, quizId, eventId, navigate, claim]);
@@ -491,6 +500,39 @@ export default function HostPanel() {
                     </div>
                   )}
                 </>
+              )}
+              {/* EM-57: rating — промпт, среднее, мини-распределение, счётчик */}
+              {block.blockType === "rating" && (
+                <div className="panel-rating">
+                  <h2 className="panel-counter">{block.prompt || "Оценка"}</h2>
+                  {block.showAverage !== false && ratingStats && (
+                    <div className="panel-rating-avg">{ratingStats.average.toFixed(1)}</div>
+                  )}
+                  {ratingStats ? (
+                    <>
+                      <div className="panel-rating-bars">
+                        {ratingStats.distribution.map((n, i) => (
+                          <div className="panel-rating-row" key={i}>
+                            <span className="panel-rating-num">{i + 1}</span>
+                            <span className="panel-rating-bar">
+                              <i
+                                style={{
+                                  width: `${ratingStats.totalResponses ? Math.round((n / ratingStats.totalResponses) * 100) : 0}%`,
+                                }}
+                              />
+                            </span>
+                            <span className="panel-rating-count">{n}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="muted">
+                        Ответили: {ratingStats.totalResponses} / {ratingStats.totalGuests}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="muted">Ждём первые оценки…</p>
+                  )}
+                </div>
               )}
               <div className="panel-main-action">
                 {/* активность: «Начать» запускает секундомер, дальше главное действие — «Далее →» */}

@@ -119,13 +119,45 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS scenario_blocks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
-    type TEXT NOT NULL CHECK (type IN ('quiz', 'poll', 'text', 'image', 'audio', 'break', 'activity')),
+    type TEXT NOT NULL CHECK (type IN ('quiz', 'poll', 'text', 'image', 'audio', 'break', 'activity', 'rating', 'openended', 'wordcloud')),
     position INTEGER NOT NULL,
     content TEXT NOT NULL DEFAULT '{}',
     settings TEXT NOT NULL DEFAULT '{}',
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 `);
+
+// Волна 6 (EM-57): активности rating/openended/wordcloud. SQLite не альтерит CHECK —
+// пересоздаём таблицу, если в её DDL ещё нет новых типов. event_scores ссылается на
+// scenario_blocks каскадом, поэтому на время пересоздания FK выключены (иначе DROP
+// снёс бы уже набранные очки мероприятий).
+const blocksDdl = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'scenario_blocks'").get();
+if (blocksDdl && !blocksDdl.sql.includes("'rating'")) {
+  db.exec("PRAGMA foreign_keys = OFF");
+  db.exec("BEGIN");
+  try {
+    db.exec(`
+      CREATE TABLE scenario_blocks_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+        type TEXT NOT NULL CHECK (type IN ('quiz', 'poll', 'text', 'image', 'audio', 'break', 'activity', 'rating', 'openended', 'wordcloud')),
+        position INTEGER NOT NULL,
+        content TEXT NOT NULL DEFAULT '{}',
+        settings TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      INSERT INTO scenario_blocks_new SELECT id, event_id, type, position, content, settings, created_at FROM scenario_blocks;
+      DROP TABLE scenario_blocks;
+      ALTER TABLE scenario_blocks_new RENAME TO scenario_blocks;
+    `);
+    db.exec("COMMIT");
+  } catch (e) {
+    db.exec("ROLLBACK");
+    throw e;
+  } finally {
+    db.exec("PRAGMA foreign_keys = ON");
+  }
+}
 
 // кросс-блочные очки мероприятия (EM-55, Гэп 3): player_id — join-токен игрока
 // (стабилен при reconnect), block_id — ссылка на блок сценария;
