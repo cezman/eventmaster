@@ -81,6 +81,7 @@ export default function PlayGame() {
   const [cloudSending, setCloudSending] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(null);
   const nameRef = useRef(null);
+  const playerJoinedRef = useRef(false); // EM-71: живая ли сессия (для rejoin после обрыва)
 
   // кик: чистим сессию игрока и запоминаем PIN — форма больше не пустит в эту партию
   const handleKicked = (pinSaved) => {
@@ -107,6 +108,7 @@ export default function PlayGame() {
     setCloudMyCount(0);
     setCloudError("");
     setKickedPin(saved);
+    playerJoinedRef.current = false;
     setKicked(true);
   };
 
@@ -249,13 +251,17 @@ export default function PlayGame() {
   }, [secondsLeft]);
 
   const myName = (sessionStorage.getItem("playerName") || "").trim();
-  // EM-45: оверлей переподключения — только пока игрок в партии
-  const reconnect = useReconnectStatus(socket, joined);
+  // EM-45: оверлей переподключения — только пока игрок в партии и игра ещё не доиграна
+  // (на финале данные не нужны; EM-71, принятая правка ревью)
+  const reconnect = useReconnectStatus(socket, joined && !final);
   const reconnectOverlay = (
     <ReconnectOverlay
       state={reconnect.state}
       secondsLeft={reconnect.secondsLeft}
-      onRetry={() => navigate("/play")}
+      retryLabel="Переподключить"
+      onRetry={() => {
+        if (socket.disconnected) socket.connect();
+      }}
       onHome={() => navigate("/")}
     />
   );
@@ -342,17 +348,21 @@ export default function PlayGame() {
 
   // восстановление по токену: и на монтировании страницы, и на «connect» — при тёплом
   // переподключении транспорта (свернул браузер, умер TCP) сокет получает новый id,
-  // повторный player:join по токену возвращает игрока в комнату (сервер идемпотентен)
+  // повторный player:join по токену возвращает игрока в комнату (сервер идемпотентен).
+  // EM-71: вход через форму оставляет URL без :pin — после обрыва берём сохранённый PIN.
+  // НО только как восстановление живой сессии (playerJoinedRef): автологин по savedPin
+  // на монтировании «/play» подменял бы собой форму входа в другую партию (нашёл ревью)
   useEffect(() => {
-    const rejoin = () => {
+    const rejoin = (allowSavedPin) => {
       const token = sessionStorage.getItem("playerToken");
       const savedPin = sessionStorage.getItem("playerPin");
       const savedName = (sessionStorage.getItem("playerName") || "").trim();
-      if (!pinParam || !token || savedPin !== pinParam || !savedName) return;
+      const pin = pinParam || (allowSavedPin ? savedPin : "");
+      if (!pin || !token || !savedName || (pinParam && savedPin !== pinParam)) return;
       socket.emit(
         "player:join",
         {
-          pin: pinParam,
+          pin,
           name: savedName,
           avatar: sessionStorage.getItem("playerAvatar"),
           color: Number(sessionStorage.getItem("playerColor") ?? 0),
@@ -364,15 +374,17 @@ export default function PlayGame() {
           if (!res || res.error) return; // тихо остаёмся на форме входа
           setHostName(res.hostName || "");
           setHostAvatar(parseAvatar(res.hostAvatar || ""));
+          playerJoinedRef.current = true;
           setJoined(true);
         }
       );
     };
-    // если сокет уже подключён, «connect» не прилетит — rejoin сразу;
-    // иначе его сделает обработчик «connect» (единственный emit на каждое соединение)
-    if (socket.connected) rejoin();
-    socket.on("connect", rejoin);
-    return () => socket.off("connect", rejoin);
+    // если сокет уже подключён, «connect» не прилетит — rejoin сразу (только по :pin из URL);
+    // при живой сессии «connect» после обрыва берёт и сохранённый PIN
+    if (socket.connected) rejoin(false);
+    const onConnect = () => rejoin(playerJoinedRef.current);
+    socket.on("connect", onConnect);
+    return () => socket.off("connect", onConnect);
   }, [socket, pinParam]);
 
   // 🎲 EM-69: сервер подбирает ник, свободный в партии с этим PIN (без PIN — просто случайный)
@@ -415,6 +427,7 @@ export default function PlayGame() {
         sessionStorage.setItem("playerName", cleanName);
         sessionStorage.setItem("playerAvatar", JSON.stringify(avatar));
         sessionStorage.setItem("playerColor", String(color));
+        playerJoinedRef.current = true;
         sessionStorage.setItem("playerPin", cleanPin);
         sessionStorage.setItem("playerToken", res.token);
         setHostName(res.hostName || "");

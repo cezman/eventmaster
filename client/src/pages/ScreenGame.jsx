@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { getSocket } from "../socket";
+import ReconnectOverlay, { useReconnectStatus } from "../components/ReconnectOverlay";
 import AudienceView from "../components/AudienceView";
 import Logo from "../components/Logo";
 import { ExpandIcon } from "../components/icons";
@@ -51,6 +52,21 @@ export default function ScreenGame() {
   const embedRef = useRef(null);
   const ytPosRef = useRef(0);
   const ytPlayingRef = useRef(false);
+  const navigate = useNavigate();
+  // EM-71: оверлей переподключения на зале — тот же, что у телефона и пульта (бриф С4).
+  // Ретрай форсирует попытку: после «connect» доведёт screen:join (см. «connect» → join)
+  const reconnect = useReconnectStatus(socket, status === "live");
+  const reconnectOverlay = (
+    <ReconnectOverlay
+      state={reconnect.state}
+      secondsLeft={reconnect.secondsLeft}
+      retryLabel="Переподключить"
+      onRetry={() => {
+        if (socket.disconnected) socket.connect();
+      }}
+      onHome={() => navigate("/")}
+    />
+  );
   // EM-56: отсчёт паузы на BreakScreen
   const breakTimer = useBreakCountdown(block);
 
@@ -283,6 +299,7 @@ export default function ScreenGame() {
   if (block && !question && !reveal && !final) {
     return (
       <div className="screen-page">
+        {reconnectOverlay}
         <header className="screen-header">
           <Logo>{game.title}</Logo>
           <div className="screen-header-actions">
@@ -502,6 +519,7 @@ export default function ScreenGame() {
 
   return (
     <div className="screen-page">
+      {reconnectOverlay}
       <header className="screen-header">
         <Logo>{game.title}</Logo>
         <div className="screen-header-actions">
