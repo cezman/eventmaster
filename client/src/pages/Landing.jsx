@@ -146,23 +146,25 @@ export default function Landing() {
             )}
             <form className="guest-join" onSubmit={join}>
               <span className="guest-label">Гость?</span>
-              <input
-                className="pin-input"
-                placeholder="PIN игры"
-                aria-label="PIN игры"
-                inputMode="numeric"
-                autoComplete="off"
-                /* maxLength с запасом: чтобы вставка «482 913» с пробелом не резалась до санитизации */
-                maxLength={10}
-                value={pin}
-                onChange={(e) => {
-                  setPin(e.target.value.replace(/\D/g, "").slice(0, 6));
-                  setPinHint(false);
-                }}
-              />
-              <button className="btn btn-primary" type="submit">
-                Играть
-              </button>
+              <div className="join-field">
+                <input
+                  className="pin-input"
+                  placeholder="PIN игры"
+                  aria-label="PIN игры"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  /* maxLength с запасом: чтобы вставка «482 913» с пробелом не резалась до санитизации */
+                  maxLength={10}
+                  value={pin}
+                  onChange={(e) => {
+                    setPin(e.target.value.replace(/\D/g, "").slice(0, 6));
+                    setPinHint(false);
+                  }}
+                />
+                <button className="btn btn-primary" type="submit">
+                  Играть
+                </button>
+              </div>
             </form>
             {pinHint && (
               <p className="join-hint" role="status">
