@@ -13,6 +13,7 @@ import { quizRoutes } from "./quizzes.js";
 import { eventRoutes } from "./events.js";
 import { resultRoutes } from "./results.js";
 import { adminRoutes } from "./admin.js";
+import { mediaApi, mediaFiles } from "./media.js";
 import { registerGameHandlers } from "./game.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -58,6 +59,10 @@ app.use("/api/quizzes", quizRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/results", resultRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/media", mediaApi);
+// раздача загрузок — как статика, без JWT: зал/телефон тянут <img>/<audio> без заголовков
+app.use("/media", mediaFiles);
+app.use("/media", (req, res) => res.status(404).json({ error: "Файл не найден" }));
 
 // в продакшене раздаём собранный клиент
 const dist = path.join(__dirname, "..", "..", "client", "dist");

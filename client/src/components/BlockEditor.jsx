@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { api } from "../api";
+import { api, uploadMedia } from "../api";
 import { useToast } from "./Toast";
 
 const LAYOUTS = [
@@ -7,6 +7,92 @@ const LAYOUTS = [
   ["left", "Слева"],
   ["image-right", "Картинка справа"],
 ];
+
+// поле «ссылка + загрузка файла» (спека §3.5): файл уходит в POST /api/media,
+// в content храним короткий url вида /media/<uuid>.<ext>; превью сразу под полем
+const MEDIA_KINDS = {
+  image: {
+    accept: ".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif",
+    hint: "JPG, PNG, WebP или GIF, до 10 МБ",
+    mbs: 10,
+    ok: (file) => (file.type ? file.type.startsWith("image/") : /\.(jpe?g|png|webp|gif)$/i.test(file.name)),
+    mimeByExt: { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif" },
+    wrong: "Поддерживаются JPG, PNG, WebP и GIF",
+  },
+  audio: {
+    accept: ".mp3,.ogg,.wav,.m4a,audio/mpeg,audio/ogg,audio/wav,audio/mp4",
+    hint: "MP3, WAV, OGG или M4A, до 25 МБ",
+    mbs: 25,
+    ok: (file) => (file.type ? file.type.startsWith("audio/") : /\.(mp3|ogg|wav|m4a)$/i.test(file.name)),
+    mimeByExt: { mp3: "audio/mpeg", ogg: "audio/ogg", wav: "audio/wav", m4a: "audio/mp4" },
+    wrong: "Поддерживаются MP3, WAV, OGG и M4A",
+  },
+};
+
+function MediaField({ id, label, kind, value, onUrl }) {
+  const showToast = useToast();
+  const token = localStorage.getItem("token");
+  const fileRef = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const spec = MEDIA_KINDS[kind];
+
+  const pick = async (file) => {
+    if (!file) return;
+    if (!spec.ok(file)) {
+      showToast(spec.wrong, "error");
+      return;
+    }
+    if (file.size > spec.mbs * 1024 * 1024) {
+      showToast(`Файл больше ${spec.mbs} МБ — выберите поменьше`, "error");
+      return;
+    }
+    setBusy(true);
+    try {
+      // у части файлов (m4a и др.) браузер отдаёт пустой type — добираем MIME по расширению
+      const ext = file.name.split(".").pop().toLowerCase();
+      const mime = file.type || spec.mimeByExt[ext];
+      const d = await uploadMedia(file, token, mime);
+      onUrl(d.url);
+    } catch (e) {
+      showToast(`Не удалось загрузить файл: ${e.message}`, "error");
+    }
+    setBusy(false);
+  };
+
+  return (
+    <div className="be-field">
+      <label htmlFor={id}>{label}</label>
+      <div className="be-upload">
+        <input
+          id={id}
+          type="url"
+          value={value}
+          placeholder="или вставьте ссылку"
+          onChange={(e) => onUrl(e.target.value)}
+        />
+        <input
+          ref={fileRef}
+          type="file"
+          accept={spec.accept}
+          hidden
+          onChange={(e) => {
+            pick(e.target.files[0]);
+            e.target.value = ""; // повторный выбор того же файла тоже сработает
+          }}
+        />
+        <button type="button" className="btn btn-outline btn-sm" disabled={busy} onClick={() => fileRef.current.click()}>
+          {busy ? "Загружаю…" : "Загрузить"}
+        </button>
+      </div>
+      {kind === "image" && value ? (
+        <img className="be-thumb" src={value} alt="" />
+      ) : kind === "audio" && value ? (
+        <audio className="be-audio" controls preload="none" src={value} />
+      ) : null}
+      <span className="be-hint be-hint--field">{spec.hint}</span>
+    </div>
+  );
+}
 
 // EM-54 (спека §3.5): inline-редактор блока сценария. text/break/rating — поля content,
 // quiz/poll — только выбор квиза (пикер и создание живут в EventPage).
@@ -43,6 +129,13 @@ export default function BlockEditor({ eventId, block, onSaved, onClose, onPickQu
     displayAs: c.displayAs === "cloud" ? "cloud" : "feed",
     filterProfanity: c.filterProfanity !== false,
     maxPerGuest: Number.isInteger(c.maxPerGuest) && c.maxPerGuest > 0 ? c.maxPerGuest : 3,
+    // rich-блоки (EM-66): url общий у image/audio, title — у audio/activity (блок всегда одного типа)
+    url: c.url || "",
+    caption: c.caption || "",
+    fullscreen: c.fullscreen === true,
+    title: c.title || "",
+    aType: ["standup", "brainstorm", "other"].includes(c.type) ? c.type : "other",
+    description: c.description || "",
   });
   const [draft, setDraftState] = useState(draftRef.current);
   const savedRef = useRef(JSON.stringify(draftRef.current));
@@ -99,7 +192,13 @@ export default function BlockEditor({ eventId, block, onSaved, onClose, onPickQu
                     allowCustom: cur.wcAllowCustom,
                     colorScheme: cur.wcColorScheme,
                   }
-                : { ...c, label: cur.label.trim(), duration: Number(cur.duration) > 0 ? Number(cur.duration) : 5 };
+                  : block.type === "image"
+                    ? { ...c, url: cur.url.trim(), caption: cur.caption.trim(), fullscreen: cur.fullscreen }
+                    : block.type === "audio"
+                      ? { ...c, url: cur.url.trim(), title: cur.title.trim() }
+                      : block.type === "activity"
+                        ? { ...c, type: cur.aType, title: cur.title.trim(), description: cur.description }
+                        : { ...c, label: cur.label.trim(), duration: Number(cur.duration) > 0 ? Number(cur.duration) : 5 };
       const d = await api(`/events/${eventId}/blocks/${block.id}`, { method: "PUT", token, body: { content } });
       savedRef.current = JSON.stringify(cur);
       if (liveRef.current) {
@@ -207,18 +306,16 @@ export default function BlockEditor({ eventId, block, onSaved, onClose, onPickQu
               ))}
             </div>
           </div>
-          <label className="be-field">
-            Картинка (ссылка, необязательно)
-            <input
-              type="url"
-              value={draft.imageUrl}
-              placeholder="https://…"
-              onChange={(e) => {
-                updateDraft({ imageUrl: e.target.value });
-                scheduleSave();
-              }}
-            />
-          </label>
+          <MediaField
+            id="be-text-image"
+            label="Картинка (необязательно)"
+            kind="image"
+            value={draft.imageUrl}
+            onUrl={(url) => {
+              updateDraft({ imageUrl: url });
+              scheduleSave();
+            }}
+          />
         </>
       )}
       {block.type === "break" && (
@@ -511,6 +608,120 @@ export default function BlockEditor({ eventId, block, onSaved, onClose, onPickQu
               ))}
             </div>
           </div>
+        </>
+      )}
+      {block.type === "image" && (
+        <>
+          <MediaField
+            id="be-image-url"
+            label="Картинка"
+            kind="image"
+            value={draft.url}
+            onUrl={(url) => {
+              updateDraft({ url });
+              scheduleSave();
+            }}
+          />
+          <label className="be-field">
+            Подпись
+            <input
+              value={draft.caption}
+              maxLength={300}
+              placeholder="Например: Правила игры"
+              onChange={(e) => {
+                updateDraft({ caption: e.target.value });
+                scheduleSave();
+              }}
+            />
+          </label>
+          <label className="be-check">
+            <input
+              type="checkbox"
+              checked={draft.fullscreen}
+              onChange={(e) => {
+                updateDraft({ fullscreen: e.target.checked });
+                scheduleSave();
+              }}
+            />
+            Показать на весь экран
+          </label>
+        </>
+      )}
+      {block.type === "audio" && (
+        <>
+          <MediaField
+            id="be-audio-url"
+            label="Аудиофайл"
+            kind="audio"
+            value={draft.url}
+            onUrl={(url) => {
+              updateDraft({ url });
+              scheduleSave();
+            }}
+          />
+          <label className="be-field">
+            Название
+            <input
+              value={draft.title}
+              maxLength={200}
+              placeholder="Фоновая музыка"
+              onChange={(e) => {
+                updateDraft({ title: e.target.value });
+                scheduleSave();
+              }}
+            />
+          </label>
+        </>
+      )}
+      {block.type === "activity" && (
+        <>
+          <div className="be-field">
+            Тип активности
+            <div className="be-seg" role="group" aria-label="Тип активности">
+              {[
+                ["standup", "Разминка"],
+                ["brainstorm", "Мозговой штурм"],
+                ["other", "Другое"],
+              ].map(([val, name]) => (
+                <button
+                  key={val}
+                  type="button"
+                  aria-pressed={draft.aType === val}
+                  onClick={() => {
+                    updateDraft({ aType: val });
+                    scheduleSave();
+                  }}
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+          </div>
+          <label className="be-field">
+            Название
+            <input
+              value={draft.title}
+              maxLength={200}
+              placeholder="Например: Знакомство"
+              onChange={(e) => {
+                updateDraft({ title: e.target.value });
+                scheduleSave();
+              }}
+            />
+          </label>
+          <label className="be-field">
+            Инструкция гостям
+            <textarea
+              rows={3}
+              value={draft.description}
+              maxLength={2000}
+              placeholder="Что нужно сделать"
+              onChange={(e) => {
+                updateDraft({ description: e.target.value });
+                scheduleSave();
+              }}
+            />
+          </label>
         </>
       )}
       <div className="be-actions">

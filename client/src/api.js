@@ -13,3 +13,19 @@ export async function api(path, { method = "GET", body, token } = {}) {
   if (!res.ok) throw new Error(data.error || "Что-то пошло не так");
   return data;
 }
+
+// загрузка файла в /api/media (EM-66): тело запроса — сам файл, Content-Type — его MIME.
+// Отдельно от api(), которая умеет только JSON; contentType — для файлов без MIME от браузера
+export async function uploadMedia(file, token, contentType) {
+  const res = await fetch(`${API}/media`, {
+    method: "POST",
+    headers: {
+      "Content-Type": contentType || file.type || "application/octet-stream",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: file,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Не удалось загрузить файл");
+  return data;
+}

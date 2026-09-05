@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // на Render база живёт на примонтированном диске (DATA_DIR=/data), локально — в server/data
-const dataDir = process.env.DATA_DIR || path.join(__dirname, "..", "data");
+export const dataDir = process.env.DATA_DIR || path.join(__dirname, "..", "data");
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
 export const db = new DatabaseSync(path.join(dataDir, "app.db"));
