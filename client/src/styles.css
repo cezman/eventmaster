@@ -2270,6 +2270,50 @@ input:focus {
 .play-card .pin-input {
   width: 100%;
 }
+/* EM-69: имя и 🎲 одним рядом; кнопка белая, как инпуты карточки */
+.name-row {
+  display: flex;
+  gap: 8px;
+}
+.name-row input {
+  flex: 1;
+  min-width: 0;
+}
+.dice-btn {
+  flex: none;
+  width: 48px;
+  min-height: 44px; /* тач-таргет: ряд stretch поднимет и инпут */
+  border: 1.5px solid #cfd7e6;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dice-btn:hover {
+  border-color: var(--primary);
+}
+.dice-btn:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+/* «кубик катится», пока сервер подбирает свободный ник */
+.dice-btn--spin {
+  animation: dice-spin 0.7s linear infinite;
+}
+@keyframes dice-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dice-btn--spin {
+    animation: none;
+  }
+}
 .q-text-sm {
   font-size: clamp(20px, 3.5vw, 30px);
   max-width: 700px;
