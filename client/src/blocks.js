@@ -13,6 +13,7 @@ export const BLOCK_TYPES = {
   rating: { icon: "⭐", label: "Оценка" },
   openended: { icon: "💬", label: "Ответы" },
   wordcloud: { icon: "☁️", label: "Облако слов" },
+  video: { icon: "🎬", label: "Видео" },
 };
 
 // человекочитаемое название текущего блока из payload block:*;
@@ -31,6 +32,8 @@ export function blockDisplayTitle(b) {
       return b.title || "Музыка";
     case "activity":
       return b.title || "Активность";
+    case "video":
+      return b.title || "Видео";
     case "rating":
       return b.prompt || "Оценка";
     case "openended":

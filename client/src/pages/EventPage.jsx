@@ -40,6 +40,7 @@ const BLOCK_TYPES = {
   rating: { icon: "⭐", label: "Оценка" },
   openended: { icon: "💬", label: "Свободный ответ" },
   wordcloud: { icon: "☁️", label: "Облако слов" },
+  video: { icon: "🎬", label: "Видео" },
 };
 
 const ADD_ITEMS = [
@@ -48,6 +49,7 @@ const ADD_ITEMS = [
   { type: "image", icon: "🖼️", name: "Изображение", sub: "Полноэкранная картинка на проекторе" },
   { type: "audio", icon: "🎵", name: "Музыка", sub: "Фоновый трек во время паузы" },
   { type: "break", icon: "☕", name: "Пауза", sub: "Перерыв с обратным отсчётом" },
+  { type: "video", icon: "🎬", name: "Видео", sub: "Ролик на большом экране — файл или ссылка" },
   { type: "activity", icon: "🎯", name: "Активность", sub: "Нетворкинг, мозговой штурм, разминка" },
   { type: "rating", icon: "⭐", name: "Оценка", sub: "Шкала 1–10, среднее в реальном времени" },
   { type: "openended", icon: "💬", name: "Свободный ответ", sub: "Идеи и отзывы гостей лентой" },
@@ -64,6 +66,7 @@ const DEFAULT_CONTENT = {
   image: { url: "", caption: "", fullscreen: false },
   audio: { url: "", title: "", autoplay: false },
   activity: { type: "standup", title: "", description: "" },
+  video: { source: "file", url: "", title: "" },
 };
 
 // подписи-близнецы для тоста с согласованием рода («Пауза добавлена»)
@@ -76,6 +79,7 @@ const ADDED_TOAST = {
   image: "Картинка добавлена",
   audio: "Музыка добавлена",
   activity: "Активность добавлена",
+  video: "Видео-блок добавлен",
 };
 
 const STATUS = {

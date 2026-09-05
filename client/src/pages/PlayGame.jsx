@@ -212,7 +212,7 @@ export default function PlayGame() {
     socket.on("game:lobby", onLobby);
     socket.on("game:closed", onClosed);
     socket.on("kicked", onKicked);
-    for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:openended", "block:wordcloud", "block:transition"])
+    for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:openended", "block:wordcloud", "block:video", "block:transition"])
       socket.on(ev, onBlock);
     socket.on("rating:state", onRatingStats);
     socket.on("rating:update", onRatingStats);
@@ -229,7 +229,7 @@ export default function PlayGame() {
       socket.off("game:lobby", onLobby);
       socket.off("game:closed", onClosed);
       socket.off("kicked", onKicked);
-      for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:openended", "block:wordcloud", "block:transition"])
+      for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:openended", "block:wordcloud", "block:video", "block:transition"])
         socket.off(ev, onBlock);
       socket.off("rating:state", onRatingStats);
       socket.off("rating:update", onRatingStats);

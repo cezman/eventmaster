@@ -27,6 +27,15 @@ const MEDIA_KINDS = {
     mimeByExt: { mp3: "audio/mpeg", ogg: "audio/ogg", wav: "audio/wav", m4a: "audio/mp4" },
     wrong: "Поддерживаются MP3, WAV, OGG и M4A",
   },
+  video: {
+    accept: "video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov",
+    hint: "MP4, WebM или MOV, до 200 МБ",
+    mbs: 200,
+    endpoint: "/media/video", // стриминговый маршрут: тело не буферизуем в памяти
+    ok: (file) => (file.type ? file.type.startsWith("video/") : /\.(mp4|webm|mov)$/i.test(file.name)),
+    mimeByExt: { mp4: "video/mp4", webm: "video/webm", mov: "video/quicktime" },
+    wrong: "Поддерживаются MP4, WebM и MOV",
+  },
 };
 
 function MediaField({ id, label, kind, value, onUrl }) {
@@ -51,7 +60,7 @@ function MediaField({ id, label, kind, value, onUrl }) {
       // у части файлов (m4a и др.) браузер отдаёт пустой type — добираем MIME по расширению
       const ext = file.name.split(".").pop().toLowerCase();
       const mime = file.type || spec.mimeByExt[ext];
-      const d = await uploadMedia(file, token, mime);
+      const d = await uploadMedia(file, token, mime, spec.endpoint);
       onUrl(d.url);
     } catch (e) {
       showToast(`Не удалось загрузить файл: ${e.message}`, "error");
@@ -88,6 +97,8 @@ function MediaField({ id, label, kind, value, onUrl }) {
         <img className="be-thumb" src={value} alt="" />
       ) : kind === "audio" && value ? (
         <audio className="be-audio" controls preload="none" src={value} />
+      ) : kind === "video" && value ? (
+        <video className="be-video" controls preload="metadata" src={value} />
       ) : null}
       <span className="be-hint be-hint--field">{spec.hint}</span>
     </div>
@@ -136,6 +147,7 @@ export default function BlockEditor({ eventId, block, onSaved, onClose, onPickQu
     title: c.title || "",
     aType: ["standup", "brainstorm", "other"].includes(c.type) ? c.type : "other",
     description: c.description || "",
+    vSource: ["file", "youtube", "vk", "rutube"].includes(c.source) ? c.source : "file",
   });
   const [draft, setDraftState] = useState(draftRef.current);
   const savedRef = useRef(JSON.stringify(draftRef.current));
@@ -196,9 +208,11 @@ export default function BlockEditor({ eventId, block, onSaved, onClose, onPickQu
                     ? { ...c, url: cur.url.trim(), caption: cur.caption.trim(), fullscreen: cur.fullscreen }
                     : block.type === "audio"
                       ? { ...c, url: cur.url.trim(), title: cur.title.trim() }
-                      : block.type === "activity"
-                        ? { ...c, type: cur.aType, title: cur.title.trim(), description: cur.description }
-                        : { ...c, label: cur.label.trim(), duration: Number(cur.duration) > 0 ? Number(cur.duration) : 5 };
+                  : block.type === "activity"
+                    ? { ...c, type: cur.aType, title: cur.title.trim(), description: cur.description }
+                    : block.type === "video"
+                      ? { ...c, source: cur.vSource, url: cur.url.trim(), title: cur.title.trim() }
+                      : { ...c, label: cur.label.trim(), duration: Number(cur.duration) > 0 ? Number(cur.duration) : 5 };
       const d = await api(`/events/${eventId}/blocks/${block.id}`, { method: "PUT", token, body: { content } });
       savedRef.current = JSON.stringify(cur);
       if (liveRef.current) {
@@ -718,6 +732,73 @@ export default function BlockEditor({ eventId, block, onSaved, onClose, onPickQu
               placeholder="Что нужно сделать"
               onChange={(e) => {
                 updateDraft({ description: e.target.value });
+                scheduleSave();
+              }}
+            />
+          </label>
+        </>
+      )}
+      {block.type === "video" && (
+        <>
+          <div className="be-field">
+            Источник видео
+            <div className="be-seg" role="group" aria-label="Источник видео">
+              {[
+                ["file", "Файл"],
+                ["youtube", "YouTube"],
+                ["vk", "VK"],
+                ["rutube", "Rutube"],
+              ].map(([val, name]) => (
+                <button
+                  key={val}
+                  type="button"
+                  aria-pressed={draft.vSource === val}
+                  onClick={() => {
+                    // смена источника сбрасывает url: ссылка youtube не должна сохраниться как файл
+                    if (draft.vSource !== val) updateDraft({ vSource: val, url: "" });
+                    scheduleSave();
+                  }}
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+          </div>
+          {draft.vSource === "file" ? (
+            <MediaField
+              id="be-video-url"
+              label="Видеофайл"
+              kind="video"
+              value={draft.url}
+              onUrl={(url) => {
+                updateDraft({ url });
+                scheduleSave();
+              }}
+            />
+          ) : (
+            <div className="be-field">
+              <label htmlFor="be-video-link">Ссылка на видео</label>
+              <input
+                id="be-video-link"
+                type="url"
+                value={draft.url}
+                placeholder="https://…"
+                onChange={(e) => {
+                  updateDraft({ url: e.target.value });
+                  scheduleSave();
+                }}
+              />
+              <span className="be-hint be-hint--field">Ссылку на страницу видео можно взять из адресной строки</span>
+            </div>
+          )}
+          <label className="be-field">
+            Название
+            <input
+              value={draft.title}
+              maxLength={200}
+              placeholder="Например: Ролик с прошлогоднего тимбилдинга"
+              onChange={(e) => {
+                updateDraft({ title: e.target.value });
                 scheduleSave();
               }}
             />
