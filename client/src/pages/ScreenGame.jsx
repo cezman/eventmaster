@@ -8,6 +8,7 @@ import confetti from "canvas-confetti";
 import { BLOCK_TYPES, mmss } from "../blocks";
 import { plural } from "../plural";
 import useBreakCountdown from "../useBreakCountdown";
+import WordCloudDisplay from "../components/WordCloudDisplay";
 
 const RING_CIRC = 2 * Math.PI * 34; // длина окружности ring-таймера (r=34, как в AudienceView)
 
@@ -41,6 +42,8 @@ export default function ScreenGame() {
   const [ratingStats, setRatingStats] = useState(null);
   // EM-58: лента свободных ответов (openended:state/response)
   const [openended, setOpenended] = useState(null);
+  // EM-59: облако слов (wordcloud:state/word)
+  const [cloud, setCloud] = useState(null);
   // EM-56: отсчёт паузы на BreakScreen
   const breakTimer = useBreakCountdown(block);
 
@@ -111,6 +114,7 @@ export default function ScreenGame() {
       setSecondsLeft(null);
       setRatingStats(null);
       setOpenended(null);
+      setCloud(null);
     };
     // EM-57: агрегат оценок — и снапшот при подключении (state), и каждый голос (update)
     const onRatingStats = (d) => setRatingStats(d);
@@ -120,6 +124,16 @@ export default function ScreenGame() {
       setOpenended((cur) =>
         cur ? { ...cur, responses: [...cur.responses, r], totalResponses: cur.totalResponses + 1 } : { kind: "openended", responses: [r], totalResponses: 1, totalGuests: 0 }
       );
+    // EM-59: облако — state при подключении/старте, word — каждое новое слово
+    const onWordcloudState = (d) => setCloud(d);
+    const onWordcloudWord = (w) =>
+      setCloud((cur) => {
+        const words = cur ? cur.words.map((x) => ({ ...x })) : [];
+        const found = words.find((x) => x.word === w.word);
+        if (found) found.count = w.count;
+        else words.push({ word: w.word, count: w.count });
+        return { kind: "wordcloud", words, totalGuests: cur?.totalGuests ?? 0 };
+      });
 
     socket.on("players", onPlayers);
     socket.on("question", onQuestion);
@@ -134,7 +148,9 @@ export default function ScreenGame() {
     socket.on("rating:update", onRatingStats);
     socket.on("openended:state", onOpenendedState);
     socket.on("openended:response", onOpenendedResponse);
-    for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:openended", "block:transition"])
+    socket.on("wordcloud:state", onWordcloudState);
+    socket.on("wordcloud:word", onWordcloudWord);
+    for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:openended", "block:wordcloud", "block:transition"])
       socket.on(ev, onBlock);
     return () => {
       socket.off("connect", join);
@@ -151,7 +167,9 @@ export default function ScreenGame() {
       socket.off("rating:update", onRatingStats);
       socket.off("openended:state", onOpenendedState);
       socket.off("openended:response", onOpenendedResponse);
-      for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:openended", "block:transition"])
+      socket.off("wordcloud:state", onWordcloudState);
+      socket.off("wordcloud:word", onWordcloudWord);
+      for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:openended", "block:wordcloud", "block:transition"])
         socket.off(ev, onBlock);
     };
   }, [socket, pinParam]);
@@ -292,6 +310,21 @@ export default function ScreenGame() {
               <div className="screen-block-emoji" aria-hidden="true">🎵</div>
               <h1>{block.title || "Музыка"}</h1>
               <div className="audio-bars" aria-hidden="true"><i /><i /><i /><i /><i /></div>
+            </div>
+          ) : block.blockType === "wordcloud" ? (
+            // WordCloudDisplay (спека активностей §1.3): облако растёт в реальном времени
+            <div className="screen-block screen-block--cloud" key={`b${block.blockIndex}`}>
+              <h1>{block.prompt || "Ваши слова"}</h1>
+              {cloud && cloud.words.length > 0 ? (
+                <WordCloudDisplay words={cloud.words} colorScheme={block.colorScheme || "brand"} />
+              ) : (
+                <p className="screen-block-body">Отправляйте слова с телефона</p>
+              )}
+              <p className="screen-openended-count">
+                {cloud
+                  ? `${cloud.words.reduce((s, w) => s + w.count, 0)} ${plural(cloud.words.reduce((s, w) => s + w.count, 0), ["слово", "слова", "слов"])} от ${cloud.totalGuests} ${cloud.totalGuests === 1 ? "гостя" : "гостей"}`
+                  : "Собираем слова…"}
+              </p>
             </div>
           ) : block.blockType === "openended" ? (
             // OpenEndedScreen (спека активностей §7.4): промпт + лента последних 5

@@ -3859,3 +3859,62 @@ input:focus {
   font-size: 14px;
   overflow-wrap: anywhere;
 }
+
+/* ---------- EM-59: word cloud (спека активностей §1) ---------- */
+/* SVG-облако: вьюбокс 1200×600, слова анимируются только при появлении (key=слово) */
+.wc-svg {
+  width: 100%;
+  height: auto;
+  max-height: 62vh;
+}
+.wc-word {
+  font-weight: 700;
+  animation: wc-in 0.3s ease backwards;
+  paint-order: stroke;
+}
+.wc-word--big {
+  fill: var(--primary);
+  opacity: 1;
+}
+.wc-word--mid {
+  fill: var(--primary);
+  opacity: 0.75;
+}
+.wc-word--small {
+  fill: var(--primary);
+  opacity: 0.55;
+}
+@keyframes wc-in {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+}
+.screen-block--cloud .wc-svg {
+  margin-top: 8px;
+}
+
+/* телефон: чипы подсказок */
+.play-cloud-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+.play-cloud-chip {
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-alt);
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.play-cloud-chip[aria-pressed="true"] {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}

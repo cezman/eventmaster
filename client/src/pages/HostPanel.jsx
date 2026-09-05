@@ -11,6 +11,7 @@ import ReconnectOverlay, { useReconnectStatus } from "../components/ReconnectOve
 import { useToast } from "../components/Toast";
 import { BLOCK_TYPES, blockDisplayTitle, mmss } from "../blocks";
 import { plural } from "../plural";
+import WordCloudDisplay from "../components/WordCloudDisplay";
 import useBreakCountdown from "../useBreakCountdown";
 
 // EM-36: пульт ведущего — управление идущей игрой. Зал (/screen/<pin>) показывает,
@@ -53,6 +54,8 @@ export default function HostPanel() {
   const [ratingStats, setRatingStats] = useState(null);
   // EM-58: лента свободных ответов (openended:state/response)
   const [openended, setOpenended] = useState(null);
+  // EM-59: облако слов (wordcloud:state/word)
+  const [cloud, setCloud] = useState(null);
   const breakTimer = useBreakCountdown(block);
 
   // EM-46: сервер сам подключает пульт к живой партии своего квиза, а при её
@@ -120,6 +123,7 @@ export default function HostPanel() {
       setQuestion(null);
       setReveal(null);
       setRatingStats(null);
+      setCloud(null);
       setOpenended(null);
       if (payload.blockTotal != null) setProgress({ index: payload.blockIndex, total: payload.blockTotal });
     };
@@ -128,6 +132,15 @@ export default function HostPanel() {
     const onRatingStats = (d) => setRatingStats(d);
     // EM-58: лента ответов — state при подключении, response — каждый новый ответ
     const onOpenendedState = (d) => setOpenended(d);
+    const onWordcloudState = (d) => setCloud(d);
+    const onWordcloudWord = (w) =>
+      setCloud((cur) => {
+        const words = cur ? cur.words.map((x) => ({ ...x })) : [];
+        const found = words.find((x) => x.word === w.word);
+        if (found) found.count = w.count;
+        else words.push({ word: w.word, count: w.count });
+        return { kind: "wordcloud", words, totalGuests: cur?.totalGuests ?? 0 };
+      });
     const onOpenendedResponse = (r) =>
       setOpenended((cur) =>
         cur
@@ -147,13 +160,15 @@ export default function HostPanel() {
     // срабатывает дважды, это идемпотентно; вешаем оба ради совместимости поверхностей
     socket.on("finished", onFinished);
     socket.on("event:finished", onFinished);
-    for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:openended", "block:transition"])
+    for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:openended", "block:wordcloud", "block:transition"])
       socket.on(ev, onBlock);
     socket.on("answer-count", onCount);
     socket.on("rating:state", onRatingStats);
     socket.on("rating:update", onRatingStats);
     socket.on("openended:state", onOpenendedState);
     socket.on("openended:response", onOpenendedResponse);
+    socket.on("wordcloud:state", onWordcloudState);
+    socket.on("wordcloud:word", onWordcloudWord);
     socket.on("game:closed", onClosed);
     return () => {
       socket.off("connect", claim);
@@ -165,13 +180,15 @@ export default function HostPanel() {
       socket.off("reveal", onReveal);
       socket.off("finished", onFinished);
       socket.off("event:finished", onFinished);
-      for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:openended", "block:transition"])
+      for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:openended", "block:wordcloud", "block:transition"])
         socket.off(ev, onBlock);
       socket.off("answer-count", onCount);
       socket.off("rating:state", onRatingStats);
       socket.off("rating:update", onRatingStats);
       socket.off("openended:state", onOpenendedState);
       socket.off("openended:response", onOpenendedResponse);
+      socket.off("wordcloud:state", onWordcloudState);
+      socket.off("wordcloud:word", onWordcloudWord);
       socket.off("game:closed", onClosed);
     };
   }, [socket, token, quizId, eventId, navigate, claim]);
@@ -548,6 +565,21 @@ export default function HostPanel() {
                   ) : (
                     <p className="muted">Ждём первые оценки…</p>
                   )}
+                </div>
+              )}
+              {/* EM-59: wordcloud — промпт, мини-облако, счётчик */}
+              {block.blockType === "wordcloud" && (
+                <div className="panel-openended">
+                  <h2 className="panel-counter">{block.prompt || "Облако слов"}</h2>
+                  {cloud && cloud.words.length > 0 ? (
+                    <WordCloudDisplay words={cloud.words} colorScheme={block.colorScheme || "brand"} />
+                  ) : (
+                    <p className="muted">Ждём первые слова…</p>
+                  )}
+                  <p className="muted">
+                    Слов: {cloud ? cloud.words.reduce((s, w) => s + w.count, 0) : 0} от{" "}
+                    {cloud?.totalGuests ?? 0} {(cloud?.totalGuests ?? 0) === 1 ? "гостя" : "гостей"}
+                  </p>
                 </div>
               )}
               {/* EM-58: openended — промпт, лента последних ответов, счётчик */}
