@@ -108,8 +108,90 @@ mediaApi.use((err, req, res, next) => {
   next(err);
 });
 
+// видео (мини-спека EM-67): тело льём потоком на диск — 200 МБ в памяти на
+// 512-МБ инстансе выдавили бы сокет-игры; обрыв клиента удаляет .part
+const VIDEO_KINDS = {
+  mp4: { ext: ".mp4", mime: "video/mp4" },
+  webm: { ext: ".webm", mime: "video/webm" },
+  mov: { ext: ".mov", mime: "video/quicktime" },
+};
+const DECLARED_VIDEO = { "video/mp4": "mp4", "video/webm": "webm", "video/quicktime": "mov", "video/x-quicktime": "mov" };
+const VIDEO_LIMIT = 200 * 1024 * 1024;
+
+// mp4/mov — ftyp-бокс на смещении 4 (бренд M4A — это аудио, не видео);
+// webm — EBML-заголовок с DocType "webm" (mkv/matroska не пропускаем)
+function sniffVideo(head) {
+  const tag = (from, to) => head.slice(from, to).toString("latin1");
+  if (tag(4, 8) === "ftyp") return !tag(8, 12).startsWith("M4A");
+  return head[0] === 0x1a && head[1] === 0x45 && head[2] === 0xdf && head[3] === 0xa3 && head.includes("webm");
+}
+
+mediaApi.post("/video", authRequired, (req, res) => {
+  const kind = DECLARED_VIDEO[String(req.headers["content-type"] || "").split(";")[0].trim().toLowerCase()];
+  if (!kind) return res.status(400).json({ error: "Формат не поддерживается: MP4, WebM или MOV" });
+  const length = Number(req.headers["content-length"]);
+  if (Number.isFinite(length) && length > VIDEO_LIMIT)
+    return res.status(400).json({ error: "Файл больше 200 МБ" });
+
+  const finalName = `${randomUUID()}${VIDEO_KINDS[kind].ext}`;
+  const tmp = path.join(uploadsDir, `${finalName}.part`);
+  let finished = false;
+  let received = 0;
+  const out = fs.createWriteStream(tmp);
+  const cleanup = () => fs.promises.unlink(tmp).catch(() => {});
+  const abort = () => {
+    if (finished) return;
+    finished = true;
+    req.unpipe(out);
+    req.resume();
+    out.destroy();
+    cleanup();
+  };
+
+  req.on("data", (chunk) => {
+    received += chunk.length;
+    if (received > VIDEO_LIMIT) {
+      abort();
+      res.status(400).json({ error: "Файл больше 200 МБ" });
+    }
+  });
+  req.on("aborted", abort);
+  req.on("error", abort);
+  // ENOSPC/EACCES на записи — ошибка потока без обработчика роняет процесс с живыми играми
+  out.on("error", () => {
+    if (finished) return;
+    finished = true;
+    req.unpipe(out);
+    req.resume();
+    cleanup();
+    if (!res.headersSent) res.status(500).json({ error: "Не удалось сохранить файл" });
+  });
+
+  req.pipe(out);
+  out.on("finish", async () => {
+    if (finished) return;
+    finished = true;
+    try {
+      const fh = await fs.promises.open(tmp, "r");
+      const head = Buffer.alloc(128);
+      await fh.read(head, 0, 128, 0);
+      await fh.close();
+      if (!sniffVideo(head)) {
+        await cleanup();
+        return res.status(400).json({ error: "Содержимое файла не похоже на видео MP4/WebM/MOV" });
+      }
+      await fs.promises.rename(tmp, path.join(uploadsDir, finalName));
+      res.json({ url: `/media/${finalName}`, mime: VIDEO_KINDS[kind].mime, size: received });
+    } catch (e) {
+      cleanup();
+      console.error("video upload failed:", e.message);
+      if (!res.headersSent) res.status(500).json({ error: "Не удалось сохранить файл" });
+    }
+  });
+});
+
 // имя только нашего формата — uuid + известное расширение, путь из запроса не собирается
-const NAME_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp|gif|mp3|ogg|wav|m4a)$/;
+const NAME_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp|gif|mp3|ogg|wav|m4a|mp4|webm|mov)$/;
 mediaFiles.get("/:name", async (req, res) => {
   const name = String(req.params.name || "");
   if (!NAME_RE.test(name)) return res.status(404).json({ error: "Файл не найден" });

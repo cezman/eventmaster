@@ -1,12 +1,13 @@
 import { Router } from "express";
 import { db } from "./db.js";
 import { authRequired } from "./auth.js";
+import { parseVideoEmbed } from "./video.js";
 
 export const eventRoutes = Router();
 
 // сценарий = упорядоченные блоки, позиции 0..n-1 без дыр (спека §1.3)
-// rating — EM-57, openended — EM-58, wordcloud — EM-59 (Волна 6 полная)
-const BLOCK_TYPES = ["quiz", "poll", "text", "image", "audio", "break", "activity", "rating", "openended", "wordcloud"];
+// rating — EM-57, openended — EM-58, wordcloud — EM-59 (Волна 6 полная); video — EM-67
+const BLOCK_TYPES = ["quiz", "poll", "text", "image", "audio", "break", "activity", "rating", "openended", "wordcloud", "video"];
 
 eventRoutes.use(authRequired);
 
@@ -133,6 +134,15 @@ function validateContent(type, content, hostId) {
       description: str(content.description, 2000),
       ...(timer ? { timer } : {}),
     };
+  }
+  // видео-блок (мини-спека EM-67): url опционален, но нераспознанная ссылка
+  // отклоняется — зал бы показал битый iframe
+  if (type === "video") {
+    const source = ["file", "youtube", "vk", "rutube"].includes(content.source) ? content.source : "file";
+    const url = str(content.url, 500);
+    if (source !== "file" && url && !parseVideoEmbed(source, url))
+      throw new Error("Ссылка не распознана: поддерживаются YouTube, VK и Rutube, или загрузите файл");
+    return { source, url, title: str(content.title, 200) };
   }
   return content;
 }

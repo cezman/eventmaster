@@ -56,6 +56,8 @@ export default function HostPanel() {
   const [openended, setOpenended] = useState(null);
   // EM-59: облако слов (wordcloud:state/word)
   const [cloud, setCloud] = useState(null);
+  // EM-67: состояние видео на зале (video:state) — единый источник и для второго пульта
+  const [videoState, setVideoState] = useState(null);
   const breakTimer = useBreakCountdown(block);
 
   // EM-46: сервер сам подключает пульт к живой партии своего квиза, а при её
@@ -125,6 +127,7 @@ export default function HostPanel() {
       setRatingStats(null);
       setCloud(null);
       setOpenended(null);
+      setVideoState(null); // новый блок — прежнее видео-состояние невалидно
       if (payload.blockTotal != null) setProgress({ index: payload.blockIndex, total: payload.blockTotal });
     };
     const onCount = (d) => setAnswered(d.answered);
@@ -133,6 +136,8 @@ export default function HostPanel() {
     // EM-58: лента ответов — state при подключении, response — каждый новый ответ
     const onOpenendedState = (d) => setOpenended(d);
     const onWordcloudState = (d) => setCloud(d);
+    // EM-67: состояние видео зала — и контрол-рассылки, и реплей при подключении пульта
+    const onVideoState = (s) => setVideoState(s);
     const onWordcloudWord = (w) =>
       setCloud((cur) => {
         const words = cur ? cur.words.map((x) => ({ ...x })) : [];
@@ -160,8 +165,9 @@ export default function HostPanel() {
     // срабатывает дважды, это идемпотентно; вешаем оба ради совместимости поверхностей
     socket.on("finished", onFinished);
     socket.on("event:finished", onFinished);
-    for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:openended", "block:wordcloud", "block:transition"])
+    for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:openended", "block:wordcloud", "block:video", "block:transition"])
       socket.on(ev, onBlock);
+    socket.on("video:state", onVideoState);
     socket.on("answer-count", onCount);
     socket.on("rating:state", onRatingStats);
     socket.on("rating:update", onRatingStats);
@@ -180,8 +186,9 @@ export default function HostPanel() {
       socket.off("reveal", onReveal);
       socket.off("finished", onFinished);
       socket.off("event:finished", onFinished);
-      for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:openended", "block:wordcloud", "block:transition"])
+      for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:openended", "block:wordcloud", "block:video", "block:transition"])
         socket.off(ev, onBlock);
+      socket.off("video:state", onVideoState);
       socket.off("answer-count", onCount);
       socket.off("rating:state", onRatingStats);
       socket.off("rating:update", onRatingStats);
@@ -248,6 +255,12 @@ export default function HostPanel() {
   );
 
   const hostAction = (event) => () => socket.emit(event);
+
+  // EM-67: ▶/⏸/«Сначала»/громкость для видео на зале; истина — video:state от сервера
+  const hostVideoControl = (action, value) =>
+    socket.emit("host:video-control", { action, value }, (res) => {
+      if (res?.error) showToast(res.error, "error");
+    });
 
   const kickPlayer = (p) => {
     socket.emit("kick-player", { playerId: p.id }, (res) => {
@@ -531,6 +544,38 @@ export default function HostPanel() {
                     <div className="panel-timer" role="timer">
                       <span className="panel-timer-digit">{mmss(activitySec)}</span>
                     </div>
+                  )}
+                </>
+              )}
+              {block.blockType === "video" && (
+                <>
+                  <h2 className="panel-counter">{block.title || "Видео"}</h2>
+                  {block.source === "file" || block.source === "youtube" ? (
+                    <div className="panel-audio">
+                      <button
+                        className="btn btn-outline"
+                        onClick={() => hostVideoControl(videoState?.playing ? "pause" : "play")}
+                        aria-label={videoState?.playing ? "Пауза" : "Играть"}
+                      >
+                        {videoState?.playing ? "⏸" : "▶"}
+                      </button>
+                      <button className="btn btn-outline panel-btn-wide" onClick={() => hostVideoControl("restart")}>
+                        Сначала
+                      </button>
+                      <label className="panel-audio-volume">
+                        Громкость
+                        <input
+                          type="range"
+                          min="0"
+                          max="1"
+                          step="0.05"
+                          value={videoState?.volume ?? 0.8}
+                          onChange={(e) => hostVideoControl("volume", Number(e.target.value))}
+                        />
+                      </label>
+                    </div>
+                  ) : (
+                    <p className="muted">Видео открывается на экране зала — управление кнопками его плеера.</p>
                   )}
                 </>
               )}

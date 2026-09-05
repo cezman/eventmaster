@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { getSocket } from "../socket";
 import AudienceView from "../components/AudienceView";
@@ -44,8 +44,43 @@ export default function ScreenGame() {
   const [openended, setOpenended] = useState(null);
   // EM-59: облако слов (wordcloud:state/word)
   const [cloud, setCloud] = useState(null);
+  // EM-67: видео-блок — состояние управления с пульта и фолбэк autoplay-политики
+  const [videoState, setVideoState] = useState(null);
+  const [videoBlocked, setVideoBlocked] = useState(false);
+  const videoRef = useRef(null);
+  const embedRef = useRef(null);
+  const ytPosRef = useRef(0);
+  const ytPlayingRef = useRef(false);
   // EM-56: отсчёт паузы на BreakScreen
   const breakTimer = useBreakCountdown(block);
+
+  // EM-67: применяем состояние пульта к видео зала; YouTube — postMessage в iframe API.
+  // seek для embed — только на переходах play/pause и рестарте (иначе volume-команда
+  // во время игры утащила бы позицию вперёд)
+  useEffect(() => {
+    if (!videoState || block?.blockType !== "video") return;
+    if (block.source === "file") {
+      const v = videoRef.current;
+      if (!v) return;
+      if (Number.isFinite(videoState.position) && Math.abs((v.currentTime || 0) - videoState.position) > 1.5)
+        v.currentTime = videoState.position;
+      if (Number.isFinite(videoState.volume)) v.volume = videoState.volume;
+      if (videoState.playing) v.play().catch(() => setVideoBlocked(true));
+      else v.pause();
+    } else if (block.source === "youtube" && embedRef.current?.contentWindow) {
+      const cmd = (func, args = []) =>
+        embedRef.current.contentWindow.postMessage(JSON.stringify({ event: "command", func, args }), "https://www.youtube.com");
+      cmd("setVolume", [Math.round((videoState.volume ?? 0.8) * 100)]);
+      const transition = ytPlayingRef.current !== videoState.playing;
+      const restart = videoState.playing && (videoState.position || 0) < 1;
+      if (transition || restart || Math.abs(ytPosRef.current - (videoState.position || 0)) > 30) {
+        ytPosRef.current = videoState.position || 0;
+        cmd("seekTo", [ytPosRef.current, true]);
+      }
+      cmd(videoState.playing ? "playVideo" : "pauseVideo");
+      ytPlayingRef.current = videoState.playing;
+    }
+  }, [videoState, block]);
 
   useEffect(() => {
     const join = () => {
@@ -115,7 +150,15 @@ export default function ScreenGame() {
       setRatingStats(null);
       setOpenended(null);
       setCloud(null);
+      if (payload.blockType === "video") {
+        // новый video-блок: чистое состояние, фолбэк autoplay сброшен
+        setVideoState(null);
+        setVideoBlocked(false);
+        ytPosRef.current = 0;
+      }
     };
+    // EM-67: состояние управления видео (контролы пульта и реплей при подключении)
+    const onVideoState = (s) => setVideoState(s);
     // EM-57: агрегат оценок — и снапшот при подключении (state), и каждый голос (update)
     const onRatingStats = (d) => setRatingStats(d);
     // EM-58: лента ответов — state при подключении, response — каждый новый ответ
@@ -150,9 +193,9 @@ export default function ScreenGame() {
     socket.on("openended:response", onOpenendedResponse);
     socket.on("wordcloud:state", onWordcloudState);
     socket.on("wordcloud:word", onWordcloudWord);
-    for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:openended", "block:wordcloud", "block:transition"])
+    for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:openended", "block:wordcloud", "block:video", "block:transition"])
       socket.on(ev, onBlock);
-    return () => {
+    socket.on("video:state", onVideoState);    return () => {
       socket.off("connect", join);
       socket.off("players", onPlayers);
       socket.off("question", onQuestion);
@@ -169,8 +212,9 @@ export default function ScreenGame() {
       socket.off("openended:response", onOpenendedResponse);
       socket.off("wordcloud:state", onWordcloudState);
       socket.off("wordcloud:word", onWordcloudWord);
-      for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:openended", "block:wordcloud", "block:transition"])
+      for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:openended", "block:wordcloud", "block:video", "block:transition"])
         socket.off(ev, onBlock);
+      socket.off("video:state", onVideoState);
     };
   }, [socket, pinParam]);
 
@@ -310,6 +354,59 @@ export default function ScreenGame() {
               <div className="screen-block-emoji" aria-hidden="true">🎵</div>
               <h1>{block.title || "Музыка"}</h1>
               <div className="audio-bars" aria-hidden="true"><i /><i /><i /><i /><i /></div>
+            </div>
+          ) : block.blockType === "video" ? (
+            // EM-67 (мини-спека §3): ролик играет на зале, управление с пульта;
+            // оверлей разблокировки — фолбэк autoplay-политики браузера, не элемент ведущего
+            <div className="screen-block screen-block--video" key={`b${block.blockIndex}`}>
+              {block.source === "file" && !block.url ? (
+                // пустой блок (автосейв допускает) — тихая карточка вместо чёрного плеера
+                <>
+                  <div className="screen-block-emoji" aria-hidden="true">🎬</div>
+                  <h1>{block.title || "Видео"}</h1>
+                </>
+              ) : block.source === "file" ? (
+                <div className="screen-video-wrap">
+                  <video
+                    ref={videoRef}
+                    className="screen-video"
+                    src={block.url || undefined}
+                    preload="auto"
+                    playsInline
+                  />
+                  {videoBlocked && (
+                    <button
+                      type="button"
+                      className="screen-video-unlock"
+                      onClick={() => {
+                        setVideoBlocked(false);
+                        videoRef.current?.play()?.catch(() => setVideoBlocked(true));
+                      }}
+                    >
+                      ▶ Нажмите, чтобы включить видео
+                    </button>
+                  )}
+                </div>
+              ) : block.embedUrl ? (
+                <div className="screen-video-wrap">
+                  <iframe
+                    ref={embedRef}
+                    className="screen-video"
+                    src={block.embedUrl}
+                    title={block.title || "Видео"}
+                    allow="autoplay; fullscreen; picture-in-picture; encrypted-media; screen-wake-lock"
+                    allowFullScreen
+                    // iframe догрузился — повторяем команды, ушедшие в пустое окно до загрузки
+                    onLoad={() => setVideoState((s) => (s ? { ...s } : s))}
+                  />
+                </div>
+              ) : (
+                <>
+                  <div className="screen-block-emoji" aria-hidden="true">🎬</div>
+                  <h1>{block.title || "Видео"}</h1>
+                </>
+              )}
+              {block.title && <p className="screen-block-body">{block.title}</p>}
             </div>
           ) : block.blockType === "wordcloud" ? (
             // WordCloudDisplay (спека активностей §1.3): облако растёт в реальном времени

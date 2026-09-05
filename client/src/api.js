@@ -15,9 +15,10 @@ export async function api(path, { method = "GET", body, token } = {}) {
 }
 
 // загрузка файла в /api/media (EM-66): тело запроса — сам файл, Content-Type — его MIME.
-// Отдельно от api(), которая умеет только JSON; contentType — для файлов без MIME от браузера
-export async function uploadMedia(file, token, contentType) {
-  const res = await fetch(`${API}/media`, {
+// Отдельно от api(), которая умеет только JSON; contentType — для файлов без MIME от
+// браузера; endpoint — маршрут загрузки: видео идёт на /media/video (стрим на диск, EM-67)
+export async function uploadMedia(file, token, contentType, endpoint = "/media") {
+  const res = await fetch(`${API}${endpoint}`, {
     method: "POST",
     headers: {
       "Content-Type": contentType || file.type || "application/octet-stream",
