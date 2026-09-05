@@ -66,12 +66,13 @@ function loadQuiz(quizId) {
   const quiz = db.prepare("SELECT id, title, type, settings FROM quizzes WHERE id = ?").get(quizId);
   if (!quiz) return null;
   const questions = db
-    .prepare("SELECT id, text, position, time_limit, points, mode FROM questions WHERE quiz_id = ? ORDER BY position")
+    .prepare("SELECT id, text, position, time_limit, points, mode, image FROM questions WHERE quiz_id = ? ORDER BY position")
     .all(quiz.id);
   if (!questions.length) return null;
   const answersStmt = db.prepare("SELECT text, is_correct FROM answers WHERE question_id = ? ORDER BY position");
   const fullQuestions = questions.map((q) => ({
     text: q.text,
+    image: q.image || "",
     time_limit: q.time_limit,
     points: q.points,
     mode: q.mode === "tf" ? "tf" : "choice",
@@ -90,6 +91,8 @@ function questionForRoom(game) {
     total: game.quiz.questions.length,
     type: game.type,
     text: q.text,
+    // EM-68: картинка вопроса на зал/пульт/телефон
+    image: q.image || "",
     timeLimit: q.time_limit || 20,
     mode: q.mode || "choice",
     showLiveResults: !!game.quiz.showLiveResults,

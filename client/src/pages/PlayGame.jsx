@@ -766,6 +766,8 @@ export default function PlayGame() {
           <span className="timer-digit">{secondsLeft != null && secondsLeft >= 0 ? secondsLeft : "…"}</span>
         </div>
         <h2 className="q-text-sm">{question.text}</h2>
+        {/* EM-68: картинка вопроса — телефон тоже, решение владельца */}
+        {question.image && <img className="q-image-sm" src={question.image} alt="" />}
         {submitted == null ? (
           <div className="play-answers">
             {question.mode === "tf"
@@ -800,6 +802,7 @@ export default function PlayGame() {
       <div className="play-screen">
         {reconnectOverlay}
         {question && <h2 className="q-text-sm">{question.text}</h2>}
+        {question?.image && <img className="q-image-sm" src={question.image} alt="" />}
         {question?.type === "quiz" ? (
           <div className={`reveal-card ${reveal.myCorrect ? "ok" : timedOut ? "timeout" : "bad"}`}>
             <span className="reveal-mark" aria-hidden="true">

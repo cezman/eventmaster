@@ -252,6 +252,8 @@ export default function AudienceView({ game, question, reveal, final, answered, 
             <span className="timer-digit">{secondsLeft != null && secondsLeft >= 0 ? secondsLeft : "…"}</span>
           </div>
           <h1 className="q-text">{question.text}</h1>
+          {/* EM-68: картинка вопроса на проекторе */}
+          {question.image && <img className="q-image-screen" src={question.image} alt="" />}
           <div className="answers-grid big">
             {question.answers.map((a, i) => {
               const total = Math.max(1, counts.reduce((s, c) => s + c, 0));

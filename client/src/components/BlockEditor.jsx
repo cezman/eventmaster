@@ -1,98 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
-import { api, uploadMedia } from "../api";
+import { api } from "../api";
 import { useToast } from "./Toast";
+import { MediaField } from "./MediaField";
 
 const LAYOUTS = [
   ["center", "По центру"],
   ["left", "Слева"],
   ["image-right", "Картинка справа"],
 ];
-
-// поле «ссылка + загрузка файла» (спека §3.5): файл уходит в POST /api/media,
-// в content храним короткий url вида /media/<uuid>.<ext>; превью сразу под полем
-const MEDIA_KINDS = {
-  image: {
-    accept: ".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif",
-    hint: "JPG, PNG, WebP или GIF, до 10 МБ",
-    mbs: 10,
-    ok: (file) => (file.type ? file.type.startsWith("image/") : /\.(jpe?g|png|webp|gif)$/i.test(file.name)),
-    mimeByExt: { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif" },
-    wrong: "Поддерживаются JPG, PNG, WebP и GIF",
-  },
-  audio: {
-    accept: ".mp3,.ogg,.wav,.m4a,audio/mpeg,audio/ogg,audio/wav,audio/mp4",
-    hint: "MP3, WAV, OGG или M4A, до 25 МБ",
-    mbs: 25,
-    ok: (file) => (file.type ? file.type.startsWith("audio/") : /\.(mp3|ogg|wav|m4a)$/i.test(file.name)),
-    mimeByExt: { mp3: "audio/mpeg", ogg: "audio/ogg", wav: "audio/wav", m4a: "audio/mp4" },
-    wrong: "Поддерживаются MP3, WAV, OGG и M4A",
-  },
-};
-
-function MediaField({ id, label, kind, value, onUrl }) {
-  const showToast = useToast();
-  const token = localStorage.getItem("token");
-  const fileRef = useRef(null);
-  const [busy, setBusy] = useState(false);
-  const spec = MEDIA_KINDS[kind];
-
-  const pick = async (file) => {
-    if (!file) return;
-    if (!spec.ok(file)) {
-      showToast(spec.wrong, "error");
-      return;
-    }
-    if (file.size > spec.mbs * 1024 * 1024) {
-      showToast(`Файл больше ${spec.mbs} МБ — выберите поменьше`, "error");
-      return;
-    }
-    setBusy(true);
-    try {
-      // у части файлов (m4a и др.) браузер отдаёт пустой type — добираем MIME по расширению
-      const ext = file.name.split(".").pop().toLowerCase();
-      const mime = file.type || spec.mimeByExt[ext];
-      const d = await uploadMedia(file, token, mime);
-      onUrl(d.url);
-    } catch (e) {
-      showToast(`Не удалось загрузить файл: ${e.message}`, "error");
-    }
-    setBusy(false);
-  };
-
-  return (
-    <div className="be-field">
-      <label htmlFor={id}>{label}</label>
-      <div className="be-upload">
-        <input
-          id={id}
-          type="url"
-          value={value}
-          placeholder="или вставьте ссылку"
-          onChange={(e) => onUrl(e.target.value)}
-        />
-        <input
-          ref={fileRef}
-          type="file"
-          accept={spec.accept}
-          hidden
-          onChange={(e) => {
-            pick(e.target.files[0]);
-            e.target.value = ""; // повторный выбор того же файла тоже сработает
-          }}
-        />
-        <button type="button" className="btn btn-outline btn-sm" disabled={busy} onClick={() => fileRef.current.click()}>
-          {busy ? "Загружаю…" : "Загрузить"}
-        </button>
-      </div>
-      {kind === "image" && value ? (
-        <img className="be-thumb" src={value} alt="" />
-      ) : kind === "audio" && value ? (
-        <audio className="be-audio" controls preload="none" src={value} />
-      ) : null}
-      <span className="be-hint be-hint--field">{spec.hint}</span>
-    </div>
-  );
-}
 
 // EM-54 (спека §3.5): inline-редактор блока сценария. text/break/rating — поля content,
 // quiz/poll — только выбор квиза (пикер и создание живут в EventPage).
