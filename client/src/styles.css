@@ -176,10 +176,6 @@ input:focus {
 .spacer {
   flex: 1;
 }
-.accent {
-  color: var(--highlight);
-}
-
 .sr-only {
   position: absolute;
   width: 1px;
@@ -329,27 +325,288 @@ input:focus {
   color: var(--on-bg);
 }
 .landing-main {
-  max-width: 1100px;
+  max-width: 1160px;
   margin: 0 auto;
-  padding: 40px 0 60px;
+  padding: 24px 0 80px;
+}
+
+/* герой: слева текст и CTA, справа — живой кадр продукта */
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 500px);
+  gap: 48px;
+  align-items: center;
+  padding-top: 24px;
+}
+.hero-copy h1 {
+  font-size: clamp(30px, 3.4vw, 44px);
+  line-height: 1.16;
+  margin: 0 0 16px;
+}
+.hero-copy .subtitle {
+  color: var(--muted-on-bg);
+  font-size: 17px;
+  line-height: 1.55;
+  max-width: 520px;
+  margin: 0 0 28px;
+}
+.guest-join {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+.guest-label {
+  color: var(--muted-on-bg);
+  font-size: 15px;
+}
+.guest-join .pin-input {
+  width: 176px;
+  font-size: 15px;
+  letter-spacing: 4px;
+  padding-left: 4px;
+}
+.guest-join .pin-input::placeholder {
+  letter-spacing: normal;
+  font-family: "Manrope", system-ui, sans-serif;
+  font-weight: 500;
+}
+.join-hint {
+  margin: 10px 0 0;
+  color: var(--muted-on-bg);
+  font-size: 14px;
+}
+.hero-visual {
+  position: relative;
+}
+.screen-mock {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 20px 22px 24px;
+  box-shadow: var(--card-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.screen-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.live-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--chip-bg);
+  border: 1px solid var(--chip-border);
+  border-radius: 999px;
+  padding: 5px 12px;
+}
+.live-chip::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c3);
+  animation: live-pulse 2s ease-in-out infinite;
+}
+@keyframes live-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+.screen-guests {
+  color: var(--muted-on-bg);
+  font-size: 14px;
+}
+.screen-pin-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.screen-pin-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--muted-on-bg);
+}
+.screen-pin-value {
+  font-family: "Unbounded", "Manrope", system-ui, sans-serif;
+  font-size: clamp(26px, 2.6vw, 36px);
+  font-weight: 700;
+  letter-spacing: 3px;
+  line-height: 1.2;
+}
+.screen-qr {
+  width: 74px;
+  height: 74px;
+  flex-shrink: 0;
+  background: #fff;
+  color: var(--ink); /* модули QR всегда тёмные — на белой плитке в обеих темах */
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px;
+}
+.screen-qr rect {
+  fill: currentColor; /* модули красим явно: дефолтный чёрный fill не зависит от темы */
+}
+.screen-q {
+  font-size: 18px;
+  font-weight: 700;
+}
+.screen-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* телефон перекрывает правый угол карточки — бары и цифры кончаются до него */
+  padding-right: 136px;
+}
+.screen-bar {
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr) 24px;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+}
+.screen-bar-label {
+  color: var(--muted-on-bg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.screen-bar-track {
+  height: 14px;
+  border-radius: 7px;
+  background: var(--chip-bg);
+  overflow: hidden;
+}
+.screen-bar-fill {
+  display: block;
+  height: 100%;
+  width: var(--w);
+  border-radius: 7px;
+  animation: bar-grow 0.8s ease-out backwards;
+}
+.screen-bar-fill.c0 { background: var(--c0); }
+.screen-bar-fill.c1 { background: var(--c1); }
+.screen-bar-fill.c2 { background: var(--c2); }
+.screen-bar-fill.c3 { background: var(--c3); }
+.screen-bar-n {
+  color: var(--muted-on-bg);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+@keyframes bar-grow {
+  from {
+    width: 0;
+  }
+}
+
+/* телефон гостя перекрывает угол экрана */
+.phone-mock {
+  position: absolute;
+  right: -24px;
+  bottom: -36px;
+  width: 170px;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 22px;
+  padding: 8px;
+  box-shadow: var(--card-shadow);
+}
+.phone-screen {
+  background: var(--bg2);
+  border-radius: 15px;
+  padding: 14px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.phone-q {
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: center;
+  padding: 0 2px;
+}
+.phone-answers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.phone-answer {
+  border-radius: 9px;
+  padding: 12px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
   text-align: center;
 }
-.landing-main h1 {
-  font-size: clamp(30px, 5vw, 52px);
-  margin: 24px 0 10px;
+.phone-answer.c0 { background: var(--c0); }
+.phone-answer.c1 { background: var(--c1); }
+.phone-answer.c2 { background: var(--c2); }
+.phone-answer.c3 { background: var(--c3); }
+.phone-answer.chosen {
+  outline: 2px solid #fff;
+  outline-offset: 1px;
 }
-.subtitle {
-  color: var(--muted-on-bg);
-  font-size: clamp(16px, 2vw, 18px);
-  max-width: 640px;
-  margin: 0 auto 30px;
+
+/* шаги подключения: нумерация оправдана — это реальная последовательность */
+.steps {
+  margin-top: 76px;
 }
-.join-form {
+.steps h2 {
+  font-size: 24px;
+  margin: 0 0 24px;
+}
+.steps-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 36px;
+}
+.steps-list li {
   display: flex;
-  gap: 12px;
-  justify-content: center;
-  margin-bottom: 50px;
-  flex-wrap: wrap;
+  gap: 14px;
+  align-items: flex-start;
+}
+.step-num {
+  font-family: "Unbounded", "Manrope", system-ui, sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--primary-text);
+  padding-top: 3px;
+}
+.steps-list h3 {
+  font-size: 16px;
+  margin: 0 0 6px;
+}
+.steps-list p {
+  margin: 0;
+  color: var(--muted-on-bg);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.soon-note {
+  margin: 60px 0 0;
+  color: var(--muted-on-bg);
+  font-size: 14px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .screen-bar-fill,
+  .live-chip::before {
+    animation: none;
+  }
 }
 .pin-input {
   width: 220px;
@@ -359,38 +616,6 @@ input:focus {
   letter-spacing: 6px;
   padding-left: 6px;
   font-weight: 700;
-}
-.features {
-  /* ровная сетка 3×2 — без «дырок» в последнем ряду */
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 18px;
-  text-align: left;
-}
-.feature-card {
-  background: var(--chip-bg);
-  border: 1px solid var(--chip-border);
-  border-radius: 16px;
-  padding: 22px;
-  color: var(--on-bg);
-}
-.feature-card.placeholder {
-  opacity: 0.65;
-}
-.feature-icon svg {
-  width: 36px;
-  height: 36px;
-}
-.feature-icon {
-  color: var(--on-bg);
-}
-.feature-card h2 {
-  margin: 10px 0 6px;
-}
-.feature-card p {
-  margin: 0 0 12px;
-  color: var(--muted-on-bg);
-  font-size: 14px;
 }
 
 /* ---------- Auth ---------- */
@@ -2496,18 +2721,37 @@ input:focus {
 }
 
 /* ---------- Адаптив ---------- */
+/* герой в одну колонку: текст, под ним кадр продукта */
+@media (max-width: 1120px) {
+  .hero {
+    grid-template-columns: 1fr;
+    gap: 44px;
+    padding-top: 8px;
+  }
+  .hero-visual {
+    max-width: 560px;
+    margin-inline: auto;
+  }
+}
 /* планшет/узкий ноутбук (EM-44, спека §6.8): брейкпоинт 1024 */
 @media (max-width: 1024px) {
-  .features {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
   .host-lobby {
     grid-template-columns: 1fr;
   }
 }
 @media (max-width: 760px) {
-  .features {
+  .steps-list {
     grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .phone-mock {
+    position: static;
+    margin: 18px auto 0;
+    width: 160px;
+  }
+  /* телефон под карточкой, без перекрытия — бары на всю ширину */
+  .screen-bars {
+    padding-right: 0;
   }
   .answers-grid {
     grid-template-columns: 1fr;
