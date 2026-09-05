@@ -10,6 +10,7 @@ import ConfirmDialog from "../components/ConfirmDialog";
 import ReconnectOverlay, { useReconnectStatus } from "../components/ReconnectOverlay";
 import { useToast } from "../components/Toast";
 import { BLOCK_TYPES, blockDisplayTitle, mmss } from "../blocks";
+import { plural } from "../plural";
 import useBreakCountdown from "../useBreakCountdown";
 
 // EM-36: пульт ведущего — управление идущей игрой. Зал (/screen/<pin>) показывает,
@@ -566,7 +567,10 @@ export default function HostPanel() {
                     <p className="muted">Ждём ответы гостей…</p>
                   )}
                   <p className="muted">
-                    Ответов: {openended?.totalResponses || 0} / {openended?.totalGuests ?? 0}
+                    {/* M — гости, а не лимит ответов: maxPerGuest>1 делает N > M валидным.
+                        «от N» требует родительный падеж: «гостя» (M=1) / «гостей» (M≥2) */}
+                    Ответов: {openended?.totalResponses || 0} от {openended?.totalGuests ?? 0}{" "}
+                    {(openended?.totalGuests ?? 0) === 1 ? "гостя" : "гостей"}
                   </p>
                 </div>
               )}
