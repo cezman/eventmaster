@@ -8,7 +8,7 @@ const LAYOUTS = [
   ["image-right", "Картинка справа"],
 ];
 
-// EM-54 (спека §3.5): inline-редактор блока сценария. text/break — поля content,
+// EM-54 (спека §3.5): inline-редактор блока сценария. text/break/rating — поля content,
 // quiz/poll — только выбор квиза (пикер и создание живут в EventPage).
 // Автосейв как в QuizEditor — debounce 5с после последней правки; «Сохранить» сохраняет и сворачивает,
 // «Отмена» отбрасывает несохранённое (уже автосохранённое не откатываем).
@@ -19,6 +19,7 @@ export default function BlockEditor({ eventId, block, onSaved, onClose, onPickQu
   const token = localStorage.getItem("token");
   const isQuiz = block.type === "quiz" || block.type === "poll";
   const c = block.content || {};
+  const labels = c.labels && typeof c.labels === "object" ? c.labels : {};
 
   const draftRef = useRef({
     heading: c.heading || "",
@@ -27,6 +28,12 @@ export default function BlockEditor({ eventId, block, onSaved, onClose, onPickQu
     imageUrl: c.imageUrl || "",
     label: c.label || "",
     duration: Number(c.duration) > 0 ? Number(c.duration) : 5,
+    prompt: c.prompt || "",
+    scale: c.scale === 5 || c.scale === 10 ? c.scale : 10,
+    showAverage: c.showAverage !== false,
+    low: labels.low || "",
+    mid: labels.mid || "",
+    high: labels.high || "",
   });
   const [draft, setDraftState] = useState(draftRef.current);
   const savedRef = useRef(JSON.stringify(draftRef.current));
@@ -55,7 +62,15 @@ export default function BlockEditor({ eventId, block, onSaved, onClose, onPickQu
       const content =
         block.type === "text"
           ? { ...c, heading: cur.heading.trim(), body: cur.body, layout: cur.layout, imageUrl: cur.imageUrl.trim() }
-          : { ...c, label: cur.label.trim(), duration: Number(cur.duration) > 0 ? Number(cur.duration) : 5 };
+          : block.type === "rating"
+            ? {
+                ...c,
+                prompt: cur.prompt.trim(),
+                scale: cur.scale,
+                showAverage: cur.showAverage,
+                labels: { low: cur.low.trim(), mid: cur.mid.trim(), high: cur.high.trim() },
+              }
+            : { ...c, label: cur.label.trim(), duration: Number(cur.duration) > 0 ? Number(cur.duration) : 5 };
       const d = await api(`/events/${eventId}/blocks/${block.id}`, { method: "PUT", token, body: { content } });
       savedRef.current = JSON.stringify(cur);
       if (liveRef.current) {
@@ -205,6 +220,90 @@ export default function BlockEditor({ eventId, block, onSaved, onClose, onPickQu
             />
           </label>
         </div>
+      )}
+      {block.type === "rating" && (
+        <>
+          <label className="be-field">
+            Вопрос оценки
+            <textarea
+              rows={2}
+              value={draft.prompt}
+              maxLength={200}
+              placeholder="Оцените эту сессию"
+              onChange={(e) => {
+                updateDraft({ prompt: e.target.value });
+                scheduleSave();
+              }}
+            />
+          </label>
+          <div className="be-field">
+            Шкала
+            <div className="be-seg" role="group" aria-label="Шкала оценки">
+              {[5, 10].map((val) => (
+                <button
+                  key={val}
+                  type="button"
+                  aria-pressed={draft.scale === val}
+                  onClick={() => {
+                    updateDraft({ scale: val });
+                    scheduleSave();
+                  }}
+                >
+                  1–{val}
+                </button>
+              ))}
+            </div>
+          </div>
+          <label className="be-check">
+            <input
+              type="checkbox"
+              checked={draft.showAverage}
+              onChange={(e) => {
+                updateDraft({ showAverage: e.target.checked });
+                scheduleSave();
+              }}
+            />
+            Показывать среднее гостям
+          </label>
+          <div className="be-grid be-grid--3">
+            <label className="be-field">
+              Подпись «1»
+              <input
+                value={draft.low}
+                maxLength={40}
+                placeholder="Плохо"
+                onChange={(e) => {
+                  updateDraft({ low: e.target.value });
+                  scheduleSave();
+                }}
+              />
+            </label>
+            <label className="be-field">
+              Середина
+              <input
+                value={draft.mid}
+                maxLength={40}
+                placeholder="Нормально"
+                onChange={(e) => {
+                  updateDraft({ mid: e.target.value });
+                  scheduleSave();
+                }}
+              />
+            </label>
+            <label className="be-field">
+              Подпись «{draft.scale}»
+              <input
+                value={draft.high}
+                maxLength={40}
+                placeholder="Отлично"
+                onChange={(e) => {
+                  updateDraft({ high: e.target.value });
+                  scheduleSave();
+                }}
+              />
+            </label>
+          </div>
+        </>
       )}
       <div className="be-actions">
         <button className="btn btn-ghost btn-sm" disabled={saving} onClick={onClose}>

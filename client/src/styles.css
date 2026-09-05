@@ -3504,3 +3504,223 @@ input:focus {
     margin: -10px -12px;
   }
 }
+
+/* ---------- EM-57: rating-блок активности (спека активностей §5) ---------- */
+/* зал: среднее — герой экрана, Unbounded как вся крупная цифра айдентики;
+   распределение — горизонтальные бары с числом шкалы слева */
+.screen-rating {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: min(640px, 92vw);
+}
+.screen-rating-avg {
+  font-family: "Unbounded", "Manrope", system-ui, sans-serif;
+  font-size: clamp(64px, 11vw, 112px);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--primary-text);
+}
+.screen-rating-caption {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--muted-on-bg);
+}
+.screen-rating-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  margin-top: 8px;
+}
+.screen-rating-row {
+  display: grid;
+  grid-template-columns: 28px 1fr 32px;
+  align-items: center;
+  gap: 10px;
+}
+.screen-rating-num {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--muted-on-bg);
+  text-align: right;
+}
+.screen-rating-bar {
+  height: 18px;
+  border-radius: 9px;
+  background: var(--chip-bg);
+  overflow: hidden;
+}
+.screen-rating-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 9px;
+  background: var(--primary);
+  /* width обновляется мгновенно: заливка обязана согласоваться с числами в тот же кадр
+     (анимированная ширина с задержками оставляла зал в промежуточном состоянии);
+     анимируется только появление/гашение нулевых баров */
+  transition: opacity 0.25s ease;
+}
+.screen-rating-count {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* пульт: та же сетка, компактнее; среднее рядом с промптом */
+.panel-rating {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+.panel-rating .panel-counter {
+  margin: 0;
+}
+.panel-rating-avg {
+  font-family: "Unbounded", "Manrope", system-ui, sans-serif;
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--primary-text);
+}
+.panel-rating-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.panel-rating-row {
+  display: grid;
+  grid-template-columns: 24px 1fr 28px;
+  align-items: center;
+  gap: 8px;
+}
+.panel-rating-num {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: right;
+}
+.panel-rating-bar {
+  height: 10px;
+  border-radius: 5px;
+  background: var(--chip-bg);
+  overflow: hidden;
+}
+.panel-rating-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 5px;
+  background: var(--primary);
+  transition: width 0.4s ease;
+}
+.panel-rating-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.panel-rating .muted {
+  margin: 2px 0 0;
+}
+
+/* телефон: слайдер оценки, крупная цифра выбранного значения */
+.play-rating {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  text-align: center;
+}
+.play-rating .q-text-sm {
+  margin: 0;
+}
+.play-rating-value {
+  font-family: "Unbounded", "Manrope", system-ui, sans-serif;
+  font-size: 72px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--primary-text);
+}
+.play-rating-value--sent {
+  font-size: 56px;
+}
+.play-rating-caption {
+  margin: -6px 0 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.play-rating-slider {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  height: 44px; /* тач-таргет слайдера, сам трек тоньше */
+  background: transparent;
+  cursor: pointer;
+}
+.play-rating-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--chip-bg);
+}
+.play-rating-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 26px;
+  height: 26px;
+  margin-top: -10px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 3px solid var(--card);
+}
+.play-rating-slider::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--chip-bg);
+}
+.play-rating-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 3px solid var(--card);
+}
+.play-rating-labels {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.play-rating .btn-block {
+  width: 100%;
+}
+
+/* редактор блока: чекбокс-настройка и три подписи шкалы в ряд */
+.be-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text);
+  cursor: pointer;
+}
+.be-check input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
+}
+.be-grid--3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+@media (max-width: 640px) {
+  .be-grid--3 {
+    grid-template-columns: 1fr;
+  }
+}

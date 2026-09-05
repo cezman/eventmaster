@@ -37,6 +37,9 @@ const BLOCK_TYPES = {
   audio: { icon: "🎵", label: "Музыка" },
   break: { icon: "☕", label: "Пауза" },
   activity: { icon: "🎯", label: "Активность" },
+  rating: { icon: "⭐", label: "Оценка" },
+  openended: { icon: "💬", label: "Свободный ответ" },
+  wordcloud: { icon: "☁️", label: "Облако слов" },
 };
 
 const ADD_ITEMS = [
@@ -46,7 +49,22 @@ const ADD_ITEMS = [
   { type: "audio", icon: "🎵", name: "Музыка", sub: "Фоновый трек во время паузы", soon: true },
   { type: "break", icon: "☕", name: "Пауза", sub: "Перерыв с обратным отсчётом" },
   { type: "activity", icon: "🎯", name: "Активность", sub: "Нетчик, мозговой штурм, разминка", soon: true },
+  { type: "rating", icon: "⭐", name: "Оценка", sub: "Шкала 1–10, среднее в реальном времени" },
 ];
+
+// стартовый content новых блоков: редактор сразу открывается с валидными полями
+const DEFAULT_CONTENT = {
+  text: { layout: "center" },
+  break: { duration: 5 },
+  rating: { prompt: "", scale: 10, showAverage: true, labels: { low: "Плохо", mid: "Нормально", high: "Отлично" } },
+};
+
+// подписи-близнецы для тоста с согласованием рода («Пауза добавлена»)
+const ADDED_TOAST = {
+  text: "Текстовый блок добавлен",
+  break: "Пауза добавлена",
+  rating: "Блок оценки добавлен",
+};
 
 const STATUS = {
   draft: { label: "Черновик", cls: "badge-muted" },
@@ -62,6 +80,7 @@ function blockTitle(b) {
   }
   if (b.type === "text") return b.content.heading || "Текст";
   if (b.type === "break") return b.content.label || "Пауза";
+  if (b.type === "rating") return b.content.prompt || "Оценка";
   return (BLOCK_TYPES[b.type] || {}).label || "Блок";
 }
 
@@ -392,14 +411,13 @@ export default function EventPage() {
     if (busy) return;
     setBusy(true);
     try {
-      const content = type === "text" ? { layout: "center" } : { duration: 5 };
-      const d = await api(`/events/${id}/blocks`, { method: "POST", token, body: { type, content } });
+      const d = await api(`/events/${id}/blocks`, { method: "POST", token, body: { type, content: DEFAULT_CONTENT[type] || {} } });
       afterBlocks(d);
       // новый блок добавлен в конец — открываем у него редактор
       const known = new Set(blocks.map((b) => b.id));
       const created = d.blocks.find((b) => !known.has(b.id));
       if (created) setEditorId(created.id);
-      showToast(type === "text" ? "Текстовый блок добавлен" : "Пауза добавлена", "ok");
+      showToast(ADDED_TOAST[type] || `${(ADD_ITEMS.find((i) => i.type === type) || {}).name || "Блок"} добавлен`, "ok");
     } catch (e) {
       showToast(`Не удалось добавить блок: ${e.message}`, "error");
     }

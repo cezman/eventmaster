@@ -36,6 +36,8 @@ export default function ScreenGame() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   // EM-55: текущий неигровой блок сценария (переход/текст/пауза/…)
   const [block, setBlock] = useState(null);
+  // EM-57: live-статистика rating-блока (rating:state/update)
+  const [ratingStats, setRatingStats] = useState(null);
   // EM-56: отсчёт паузы на BreakScreen
   const breakTimer = useBreakCountdown(block);
 
@@ -104,7 +106,10 @@ export default function ScreenGame() {
       setReveal(null);
       setFinal(null);
       setSecondsLeft(null);
+      setRatingStats(null);
     };
+    // EM-57: агрегат оценок — и снапшот при подключении (state), и каждый голос (update)
+    const onRatingStats = (d) => setRatingStats(d);
 
     socket.on("players", onPlayers);
     socket.on("question", onQuestion);
@@ -115,7 +120,9 @@ export default function ScreenGame() {
     socket.on("reaction", onReaction);
     socket.on("game:lobby", onLobby);
     socket.on("game:closed", onClosed);
-    for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:transition"])
+    socket.on("rating:state", onRatingStats);
+    socket.on("rating:update", onRatingStats);
+    for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:transition"])
       socket.on(ev, onBlock);
     return () => {
       socket.off("connect", join);
@@ -128,7 +135,9 @@ export default function ScreenGame() {
       socket.off("reaction", onReaction);
       socket.off("game:lobby", onLobby);
       socket.off("game:closed", onClosed);
-      for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:transition"])
+      socket.off("rating:state", onRatingStats);
+      socket.off("rating:update", onRatingStats);
+      for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:transition"])
         socket.off(ev, onBlock);
     };
   }, [socket, pinParam]);
@@ -269,6 +278,49 @@ export default function ScreenGame() {
               <div className="screen-block-emoji" aria-hidden="true">🎵</div>
               <h1>{block.title || "Музыка"}</h1>
               <div className="audio-bars" aria-hidden="true"><i /><i /><i /><i /><i /></div>
+            </div>
+          ) : block.blockType === "rating" ? (
+            // RatingScreen (спека активностей §5.4): промпт + среднее крупно + распределение
+            <div className="screen-block" key={`b${block.blockIndex}`}>
+              <h1>{block.prompt || "Оцените"}</h1>
+              <div className="screen-rating">
+                {block.showAverage !== false && (
+                  <>
+                    {/* без aria-live: среднее обновляется на каждый голос, скринридер бы захлёбался */}
+                    <div className="screen-rating-avg">
+                      {ratingStats && ratingStats.totalResponses > 0 ? ratingStats.average.toFixed(1) : "—"}
+                    </div>
+                    <p className="screen-rating-caption">средняя оценка</p>
+                  </>
+                )}
+                <div className="screen-rating-bars">
+                  {(ratingStats?.distribution ||
+                    Array.from({ length: block.scale || 10 }, () => 0)).map((n, i) => {
+                      const pct = ratingStats && ratingStats.totalResponses ? Math.round((n / ratingStats.totalResponses) * 100) : 0;
+                      return (
+                        <div className="screen-rating-row" key={i}>
+                          <span className="screen-rating-num">{i + 1}</span>
+                          <span className="screen-rating-bar">
+                            <i
+                              style={{
+                                width: `${pct}%`,
+                                opacity: pct === 0 ? 0 : 1,
+                              }}
+                            />
+                          </span>
+                          <span className="screen-rating-count">{n}</span>
+                        </div>
+                      );
+                    })}
+                </div>
+                <p className="screen-block-body">
+                  {ratingStats && ratingStats.totalGuests > 0
+                    ? `${ratingStats.totalResponses} из ${ratingStats.totalGuests} гостей`
+                    : ratingStats
+                      ? "Пока нет оценок"
+                      : "Оценивайте на телефоне"}
+                </p>
+              </div>
             </div>
           ) : (
             <div className="screen-block" key={`b${block.blockIndex}`}>

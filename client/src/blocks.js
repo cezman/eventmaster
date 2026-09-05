@@ -10,6 +10,9 @@ export const BLOCK_TYPES = {
   audio: { icon: "🎵", label: "Музыка" },
   break: { icon: "☕", label: "Перерыв" },
   activity: { icon: "🎯", label: "Активность" },
+  rating: { icon: "⭐", label: "Оценка" },
+  openended: { icon: "💬", label: "Ответы" },
+  wordcloud: { icon: "☁️", label: "Облако слов" },
 };
 
 // человекочитаемое название текущего блока из payload block:*;
@@ -28,6 +31,12 @@ export function blockDisplayTitle(b) {
       return b.title || "Музыка";
     case "activity":
       return b.title || "Активность";
+    case "rating":
+      return b.prompt || "Оценка";
+    case "openended":
+      return b.prompt || "Свободный ответ";
+    case "wordcloud":
+      return b.prompt || "Облако слов";
     default:
       return "";
   }
