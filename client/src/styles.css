@@ -350,56 +350,21 @@ input:focus {
   max-width: 520px;
   margin: 0 0 28px;
 }
-.guest-join {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 22px;
-  flex-wrap: wrap;
-}
-.guest-label {
-  color: var(--muted-on-bg);
+.guest-link {
+  display: block; /* под CTA, не в строку с ним */
+  width: fit-content;
+  margin: 6px 0 0;
+  padding: 8px 0; /* тач-таргет ~44px */
   font-size: 15px;
-}
-/* поле и кнопка — один цельный контрол: склеены, одна высота, общий фокус-ринг */
-.join-field {
-  display: flex;
-  background: #fff;
-  border-radius: 10px;
-  transition: box-shadow 0.15s;
-}
-.join-field:focus-within {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
-}
-.join-field .pin-input {
-  width: 150px;
-  height: 48px;
-  border: none;
-  border-radius: 10px 0 0 10px;
-  padding: 0 12px 0 14px;
-  font-size: 15px;
-  letter-spacing: 4px;
-  text-align: center;
-}
-.join-field .pin-input:focus {
-  box-shadow: none; /* ринг даёт focus-within на .join-field */
-}
-.join-field .pin-input::placeholder {
-  letter-spacing: normal;
-  font-family: "Manrope", system-ui, sans-serif;
-  font-weight: 500;
-}
-.join-field .btn {
-  display: inline-flex;
-  align-items: center;
-  height: 48px;
-  padding: 0 20px;
-  border-radius: 0 10px 10px 0;
-}
-.join-hint {
-  margin: 10px 0 0;
   color: var(--muted-on-bg);
-  font-size: 14px;
+  text-decoration: none;
+}
+.guest-link span {
+  color: var(--primary-text);
+  font-weight: 600;
+}
+.guest-link:hover span {
+  text-decoration: underline;
 }
 .hero-visual {
   position: relative;
@@ -619,11 +584,6 @@ input:focus {
   color: var(--muted-on-bg);
   font-size: 14px;
   line-height: 1.5;
-}
-.soon-note {
-  margin: 60px 0 0;
-  color: var(--muted-on-bg);
-  font-size: 14px;
 }
 
 @media (prefers-reduced-motion: reduce) {

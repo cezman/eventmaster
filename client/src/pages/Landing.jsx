@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import React from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../auth";
 import Logo from "../components/Logo";
 import ThemeToggle from "../components/ThemeToggle";
@@ -92,17 +92,6 @@ function PhoneMock() {
 
 export default function Landing() {
   const { user } = useAuth();
-  const navigate = useNavigate();
-  const [pin, setPin] = useState("");
-  const [pinHint, setPinHint] = useState(false);
-
-  const join = (e) => {
-    e.preventDefault();
-    const clean = pin.replace(/\D/g, "");
-    if (clean.length === 6) navigate(`/play/${clean}`);
-    /* кнопка живая всегда: вместо серого disabled — подсказка */
-    else setPinHint(true);
-  };
 
   return (
     <div className="landing">
@@ -144,33 +133,10 @@ export default function Landing() {
                 Создать игру
               </Link>
             )}
-            <form className="guest-join" onSubmit={join}>
-              <span className="guest-label">Гость?</span>
-              <div className="join-field">
-                <input
-                  className="pin-input"
-                  placeholder="PIN игры"
-                  aria-label="PIN игры"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  /* maxLength с запасом: чтобы вставка «482 913» с пробелом не резалась до санитизации */
-                  maxLength={10}
-                  value={pin}
-                  onChange={(e) => {
-                    setPin(e.target.value.replace(/\D/g, "").slice(0, 6));
-                    setPinHint(false);
-                  }}
-                />
-                <button className="btn btn-primary" type="submit">
-                  Играть
-                </button>
-              </div>
-            </form>
-            {pinHint && (
-              <p className="join-hint" role="status">
-                Введите 6-значный PIN с экрана зала
-              </p>
-            )}
+            {/* гостевой вход — на отдельной странице игрока: там PIN, имя и аватар */}
+            <Link className="guest-link" to="/play">
+              Гость? <span>Войти по PIN-коду</span>
+            </Link>
           </div>
           <div className="hero-visual">
             <ScreenMock />
@@ -204,8 +170,6 @@ export default function Landing() {
             </li>
           </ol>
         </section>
-
-        <p className="soon-note">Дальше делаем: игры на реакцию, вопросы с картинками и видео, статистика мероприятий.</p>
       </main>
     </div>
   );
