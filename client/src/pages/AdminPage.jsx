@@ -78,7 +78,7 @@ export default function AdminPage() {
     <div className="page">
       <AppHeader />
       <div className="subnav">
-        <Link to="/dashboard" className="btn btn-outline">
+        <Link to="/dashboard">
           ← В кабинет
         </Link>
       </div>

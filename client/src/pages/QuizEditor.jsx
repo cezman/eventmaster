@@ -319,7 +319,7 @@ export default function QuizEditor() {
         }}
       />
       <div className="subnav">
-        <Link to="/dashboard" className="btn btn-outline" onClick={tryLeave("/dashboard")}>
+        <Link to="/dashboard" onClick={tryLeave("/dashboard")}>
           ← К списку
         </Link>
         <span className="badge">
