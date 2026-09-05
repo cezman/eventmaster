@@ -3724,3 +3724,138 @@ input:focus {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- EM-58: openended-блок (спека активностей §7) ---------- */
+/* зал: лента последних ответов с fade-in, имя приглушено */
+.screen-openended-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(880px, 90vw);
+  margin-top: 8px;
+}
+.screen-openended-item {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 18px;
+  border-radius: 14px;
+  background: var(--chip-bg);
+  animation: screen-fade 0.3s ease backwards;
+}
+.screen-openended-text {
+  font-size: 20px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.screen-openended-name {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--muted-on-bg);
+}
+.screen-openended-count {
+  margin: 6px 0 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--muted-on-bg);
+}
+
+/* пульт: компактная лента последних ответов, свежие сверху */
+.panel-openended {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+.panel-openended .panel-counter {
+  margin: 0;
+}
+.panel-openended-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.panel-openended-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--surface-alt);
+}
+.panel-openended-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.panel-openended-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.panel-openended .muted {
+  margin: 0;
+}
+
+/* телефон: textarea + счётчик остатка, лента чужих ответов снизу */
+.play-openended {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  width: 100%;
+  text-align: center;
+}
+.play-openended .q-text-sm {
+  margin: 0;
+}
+.play-openended-input {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
+  color: var(--ink);
+  font-size: 16px; /* 16px, чтобы iOS не зумил при фокусе */
+  line-height: 1.4;
+  resize: none;
+}
+.play-openended-input:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+  border-color: transparent;
+}
+.play-openended-error {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--bad);
+}
+.play-openended-thanks {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+.play-openended-others {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+  text-align: left;
+}
+.play-openended-others .muted {
+  margin: 0;
+}
+.play-openended-other {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--surface-alt);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}

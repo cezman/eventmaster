@@ -10,6 +10,7 @@ import ConfirmDialog from "../components/ConfirmDialog";
 import ReconnectOverlay, { useReconnectStatus } from "../components/ReconnectOverlay";
 import { useToast } from "../components/Toast";
 import { BLOCK_TYPES, blockDisplayTitle, mmss } from "../blocks";
+import { plural } from "../plural";
 import useBreakCountdown from "../useBreakCountdown";
 
 // EM-36: пульт ведущего — управление идущей игрой. Зал (/screen/<pin>) показывает,
@@ -50,6 +51,8 @@ export default function HostPanel() {
   const [activitySec, setActivitySec] = useState(0);
   // EM-57: live-статистика rating-блока (rating:state/update)
   const [ratingStats, setRatingStats] = useState(null);
+  // EM-58: лента свободных ответов (openended:state/response)
+  const [openended, setOpenended] = useState(null);
   const breakTimer = useBreakCountdown(block);
 
   // EM-46: сервер сам подключает пульт к живой партии своего квиза, а при её
@@ -117,11 +120,20 @@ export default function HostPanel() {
       setQuestion(null);
       setReveal(null);
       setRatingStats(null);
+      setOpenended(null);
       if (payload.blockTotal != null) setProgress({ index: payload.blockIndex, total: payload.blockTotal });
     };
     const onCount = (d) => setAnswered(d.answered);
     // EM-57: агрегат оценок — и снапшот при подключении (state), и каждый голос (update)
     const onRatingStats = (d) => setRatingStats(d);
+    // EM-58: лента ответов — state при подключении, response — каждый новый ответ
+    const onOpenendedState = (d) => setOpenended(d);
+    const onOpenendedResponse = (r) =>
+      setOpenended((cur) =>
+        cur
+          ? { ...cur, responses: [...cur.responses, r], totalResponses: cur.totalResponses + 1 }
+          : { kind: "openended", responses: [r], totalResponses: 1, totalGuests: game?.players?.length || 0 }
+      );
     const onClosed = () => navigate("/dashboard");
     // зал открыли в новой вкладке или закрыли — лаунчпад лобби переключается (EM-48)
     const onScreenPresence = (d) => setScreenOpen(!!d.open);
@@ -135,11 +147,13 @@ export default function HostPanel() {
     // срабатывает дважды, это идемпотентно; вешаем оба ради совместимости поверхностей
     socket.on("finished", onFinished);
     socket.on("event:finished", onFinished);
-    for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:transition"])
+    for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:openended", "block:transition"])
       socket.on(ev, onBlock);
     socket.on("answer-count", onCount);
     socket.on("rating:state", onRatingStats);
     socket.on("rating:update", onRatingStats);
+    socket.on("openended:state", onOpenendedState);
+    socket.on("openended:response", onOpenendedResponse);
     socket.on("game:closed", onClosed);
     return () => {
       socket.off("connect", claim);
@@ -151,11 +165,13 @@ export default function HostPanel() {
       socket.off("reveal", onReveal);
       socket.off("finished", onFinished);
       socket.off("event:finished", onFinished);
-      for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:transition"])
+      for (const ev of ["block:text", "block:image", "block:audio", "block:break", "block:activity", "block:rating", "block:openended", "block:transition"])
         socket.off(ev, onBlock);
       socket.off("answer-count", onCount);
       socket.off("rating:state", onRatingStats);
       socket.off("rating:update", onRatingStats);
+      socket.off("openended:state", onOpenendedState);
+      socket.off("openended:response", onOpenendedResponse);
       socket.off("game:closed", onClosed);
     };
   }, [socket, token, quizId, eventId, navigate, claim]);
@@ -532,6 +548,30 @@ export default function HostPanel() {
                   ) : (
                     <p className="muted">Ждём первые оценки…</p>
                   )}
+                </div>
+              )}
+              {/* EM-58: openended — промпт, лента последних ответов, счётчик */}
+              {block.blockType === "openended" && (
+                <div className="panel-openended">
+                  <h2 className="panel-counter">{block.prompt || "Свободные ответы"}</h2>
+                  {openended && openended.responses.length > 0 ? (
+                    <div className="panel-openended-list">
+                      {[...openended.responses].slice(-8).reverse().map((r) => (
+                        <div className="panel-openended-item" key={r.id}>
+                          <p className="panel-openended-text">{r.text}</p>
+                          <span className="panel-openended-name">{r.guestName}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="muted">Ждём ответы гостей…</p>
+                  )}
+                  <p className="muted">
+                    {/* M — гости, а не лимит ответов: maxPerGuest>1 делает N > M валидным.
+                        «от N» требует родительный падеж: «гостя» (M=1) / «гостей» (M≥2) */}
+                    Ответов: {openended?.totalResponses || 0} от {openended?.totalGuests ?? 0}{" "}
+                    {(openended?.totalGuests ?? 0) === 1 ? "гостя" : "гостей"}
+                  </p>
                 </div>
               )}
               <div className="panel-main-action">

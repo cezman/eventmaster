@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { db } from "./db.js";
 import { verifyToken } from "./auth.js";
+import { containsProfanity } from "./profanity.js";
 
 const games = new Map(); // pin -> game
 
@@ -348,11 +349,40 @@ function ratingStats(game) {
 
 // снапшот активности (пере)подключившемуся: телефон получает свой myValue,
 // зал и пульт — агрегат без него; событие <kind>:state по конвенции спек
+function activityStatePayload(game, token) {
+  if (game.activity?.kind === "rating") {
+    const stats = ratingStats(game);
+    const myValue = token ? game.activity.values.get(token)?.value ?? null : undefined;
+    return { event: "rating:state", payload: { kind: "rating", ...stats, myValue } };
+  }
+  // EM-58: лента свободных ответов — без авторских меток сверх имени
+  if (game.activity?.kind === "openended") {
+    const a = game.activity;
+    return {
+      event: "openended:state",
+      payload: {
+        kind: "openended",
+        responses: a.responses.map(({ id, text, guestName }) => ({ id, text, guestName })),
+        totalResponses: a.responses.length,
+        totalGuests: game.players.size,
+        myCount: token ? a.byToken.get(token) || 0 : undefined,
+      },
+    };
+  }
+  return null;
+}
+
 function sendActivityState(socket, game, token) {
-  if (game.state !== "block" || game.activity?.kind !== "rating") return;
-  const stats = ratingStats(game);
-  const myValue = token ? game.activity.values.get(token)?.value ?? null : undefined;
-  socket.emit("rating:state", { kind: "rating", ...stats, myValue });
+  if (game.state !== "block") return;
+  const st = activityStatePayload(game, token);
+  if (st) socket.emit(st.event, st.payload);
+}
+
+// нулевая база активности всей комнате сразу при старте блока — зал и пульт
+// не ждут первого голоса, чтобы узнать totalGuests/пустое состояние
+function broadcastActivityState(io, game) {
+  const st = activityStatePayload(game);
+  if (st) io.to(`game:${game.pin}`).emit(st.event, st.payload);
 }
 
 // единый контекст блока в пейлоадах block:* — пульт и зал рисуют прогресс (§4.5)
@@ -410,6 +440,18 @@ function executeBlock(io, game, index) {
       game.activity = { kind: "rating", values: new Map() };
       break;
     }
+    case "openended": {
+      // Волна 6 (EM-58, спека активностей §7): свободный ввод, лента ответов
+      event = "block:openended";
+      extra = {
+        prompt: str(block.content.prompt, 200),
+        maxLength: Math.min(500, Math.max(1, Number.isInteger(block.content.maxLength) ? block.content.maxLength : 500)),
+        filterProfanity: block.content.filterProfanity !== false,
+        maxPerGuest: Math.min(10, Math.max(1, Number.isInteger(block.content.maxPerGuest) ? block.content.maxPerGuest : 3)),
+      };
+      game.activity = { kind: "openended", responses: [], byToken: new Map(), nextId: 1 };
+      break;
+    }
     default:
       event = "block:text";
       extra = {
@@ -424,6 +466,8 @@ function executeBlock(io, game, index) {
   const payload = blockPayload(game, block, extra);
   game.currentBlock = { event, payload };
   io.to(`game:${game.pin}`).emit(event, payload);
+  // нулевая база активности сразу — totalGuests и пустые состояния известны до первого голоса
+  if (game.activity) broadcastActivityState(io, game);
   // пауза с таймером переходит сама; duration 0/нет — ждём ведущего
   if (block.type === "break" && extra.duration > 0) {
     game.blockTimer = setTimeout(() => {
@@ -723,6 +767,7 @@ export function registerGameHandlers(io) {
             socket.emit("finished", { leaderboard: leaderboard(game), players: playersList(game) });
           replayBlock(socket, game);
           sendActivityState(socket, game, p.token);
+          broadcastActivityState(io, game); // totalGuests у зала/пульта обновляется при входе
           return;
         }
       }
@@ -770,6 +815,7 @@ export function registerGameHandlers(io) {
       }
       replayBlock(socket, game);
       sendActivityState(socket, game, player.token);
+      broadcastActivityState(io, game); // totalGuests у зала/пульта обновляется при входе
     });
 
     socket.on("player:answer", ({ choice } = {}) => {
@@ -824,6 +870,41 @@ export function registerGameHandlers(io) {
       game.activity.values.set(p.token, { value: v, name: p.name, avatar: p.avatar });
       if (first) addBlockScore(game, p.token, p.name, p.avatar, 1);
       io.to(`game:${pin}`).emit("rating:update", ratingStats(game));
+      ack({ ok: true });
+    });
+
+    // Волна 6 (EM-58): свободный ответ гостя. Очки +1 за каждый принятый ответ
+    // (спека §7.5), лимит maxPerGuest на гостя; нецензурное — отклоняем целиком
+    socket.on("openended:submit", ({ text } = {}, ack = () => {}) => {
+      const pin = socket.data.gamePin;
+      const game = pin && games.get(pin);
+      if (!game || game.state !== "block" || game.activity?.kind !== "openended")
+        return ack({ error: "Ответы сейчас не принимаются" });
+      const p = game.players.get(socket.id);
+      if (!p) return ack({ error: "Вы не в игре" });
+      const now = Date.now();
+      if (now - (p.lastOpenendedSubmit || 0) < 300) return ack({ error: "Слишком часто" });
+      const a = game.activity;
+      const used = a.byToken.get(p.token) || 0;
+      const maxLength = game.currentBlock?.payload?.maxLength || 500;
+      const maxPerGuest = game.currentBlock?.payload?.maxPerGuest || 3;
+      if (used >= maxPerGuest) return ack({ error: "Лимит ответов исчерпан" });
+      const raw = typeof text === "string" ? text.trim() : "";
+      if (!raw) return ack({ error: "Введите текст" });
+      if (raw.length > maxLength) return ack({ error: `Максимум ${maxLength} символов` });
+      p.lastOpenendedSubmit = now;
+      const filterProfanity = game.currentBlock?.payload?.filterProfanity !== false;
+      if (filterProfanity && containsProfanity(raw))
+        return ack({ error: "Такие слова лучше не показывать — переформулируйте" });
+      const response = { id: a.nextId++, text: raw, guestName: p.name };
+      a.responses.push(response);
+      a.byToken.set(p.token, used + 1);
+      addBlockScore(game, p.token, p.name, p.avatar, 1);
+      io.to(`game:${pin}`).emit("openended:response", {
+        id: response.id,
+        text: response.text,
+        guestName: response.guestName,
+      });
       ack({ ok: true });
     });
 

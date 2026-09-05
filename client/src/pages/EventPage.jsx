@@ -50,6 +50,7 @@ const ADD_ITEMS = [
   { type: "break", icon: "☕", name: "Пауза", sub: "Перерыв с обратным отсчётом" },
   { type: "activity", icon: "🎯", name: "Активность", sub: "Нетчик, мозговой штурм, разминка", soon: true },
   { type: "rating", icon: "⭐", name: "Оценка", sub: "Шкала 1–10, среднее в реальном времени" },
+  { type: "openended", icon: "💬", name: "Свободный ответ", sub: "Идеи и отзывы гостей лентой" },
 ];
 
 // стартовый content новых блоков: редактор сразу открывается с валидными полями
@@ -57,6 +58,7 @@ const DEFAULT_CONTENT = {
   text: { layout: "center" },
   break: { duration: 5 },
   rating: { prompt: "", scale: 10, showAverage: true, labels: { low: "Плохо", mid: "Нормально", high: "Отлично" } },
+  openended: { prompt: "", maxLength: 500, displayAs: "feed", filterProfanity: true, maxPerGuest: 3 },
 };
 
 // подписи-близнецы для тоста с согласованием рода («Пауза добавлена»)
@@ -64,6 +66,7 @@ const ADDED_TOAST = {
   text: "Текстовый блок добавлен",
   break: "Пауза добавлена",
   rating: "Блок оценки добавлен",
+  openended: "Блок свободных ответов добавлен",
 };
 
 const STATUS = {
@@ -81,6 +84,7 @@ function blockTitle(b) {
   if (b.type === "text") return b.content.heading || "Текст";
   if (b.type === "break") return b.content.label || "Пауза";
   if (b.type === "rating") return b.content.prompt || "Оценка";
+  if (b.type === "openended") return b.content.prompt || "Свободный ответ";
   return (BLOCK_TYPES[b.type] || {}).label || "Блок";
 }
 

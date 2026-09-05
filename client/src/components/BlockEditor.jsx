@@ -34,6 +34,10 @@ export default function BlockEditor({ eventId, block, onSaved, onClose, onPickQu
     low: labels.low || "",
     mid: labels.mid || "",
     high: labels.high || "",
+    maxLength: Number.isInteger(c.maxLength) && c.maxLength > 0 ? c.maxLength : 500,
+    displayAs: c.displayAs === "cloud" ? "cloud" : "feed",
+    filterProfanity: c.filterProfanity !== false,
+    maxPerGuest: Number.isInteger(c.maxPerGuest) && c.maxPerGuest > 0 ? c.maxPerGuest : 3,
   });
   const [draft, setDraftState] = useState(draftRef.current);
   const savedRef = useRef(JSON.stringify(draftRef.current));
@@ -70,7 +74,16 @@ export default function BlockEditor({ eventId, block, onSaved, onClose, onPickQu
                 showAverage: cur.showAverage,
                 labels: { low: cur.low.trim(), mid: cur.mid.trim(), high: cur.high.trim() },
               }
-            : { ...c, label: cur.label.trim(), duration: Number(cur.duration) > 0 ? Number(cur.duration) : 5 };
+            : block.type === "openended"
+              ? {
+                  ...c,
+                  prompt: cur.prompt.trim(),
+                  maxLength: Number(cur.maxLength) > 0 ? Number(cur.maxLength) : 500,
+                  displayAs: cur.displayAs,
+                  filterProfanity: cur.filterProfanity,
+                  maxPerGuest: Number(cur.maxPerGuest) > 0 ? Number(cur.maxPerGuest) : 3,
+                }
+              : { ...c, label: cur.label.trim(), duration: Number(cur.duration) > 0 ? Number(cur.duration) : 5 };
       const d = await api(`/events/${eventId}/blocks/${block.id}`, { method: "PUT", token, body: { content } });
       savedRef.current = JSON.stringify(cur);
       if (liveRef.current) {
@@ -303,6 +316,86 @@ export default function BlockEditor({ eventId, block, onSaved, onClose, onPickQu
               />
             </label>
           </div>
+        </>
+      )}
+      {block.type === "openended" && (
+        <>
+          <label className="be-field">
+            Вопрос
+            <textarea
+              rows={2}
+              value={draft.prompt}
+              maxLength={200}
+              placeholder="Что вы узнали нового сегодня?"
+              onChange={(e) => {
+                updateDraft({ prompt: e.target.value });
+                scheduleSave();
+              }}
+            />
+          </label>
+          <div className="be-grid">
+            <label className="be-field be-field--num">
+              Лимит символов
+              <input
+                type="number"
+                min={1}
+                max={500}
+                value={draft.maxLength}
+                onChange={(e) => {
+                  updateDraft({ maxLength: e.target.value });
+                  scheduleSave();
+                }}
+              />
+            </label>
+            <label className="be-field be-field--num">
+              Ответов на гостя
+              <input
+                type="number"
+                min={1}
+                max={10}
+                value={draft.maxPerGuest}
+                onChange={(e) => {
+                  updateDraft({ maxPerGuest: e.target.value });
+                  scheduleSave();
+                }}
+              />
+            </label>
+          </div>
+          <div className="be-field">
+            Отображение результата
+            <div className="be-seg" role="group" aria-label="Отображение результата">
+              {[
+                ["feed", "Лента"],
+                ["cloud", "Облако слов"],
+              ].map(([val, name]) => (
+                <button
+                  key={val}
+                  type="button"
+                  aria-pressed={draft.displayAs === val}
+                  onClick={() => {
+                    updateDraft({ displayAs: val });
+                    scheduleSave();
+                  }}
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+            {draft.displayAs === "cloud" && (
+              <p className="be-hint">Пока показывается лентой — облако появится вместе с блоком «Облако слов»</p>
+            )}
+          </div>
+          <label className="be-check">
+            <input
+              type="checkbox"
+              checked={draft.filterProfanity}
+              onChange={(e) => {
+                updateDraft({ filterProfanity: e.target.checked });
+                scheduleSave();
+              }}
+            />
+            Фильтр нецензурных слов
+          </label>
         </>
       )}
       <div className="be-actions">
